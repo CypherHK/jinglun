@@ -1424,3 +1424,55 @@ fn d028_breached_commitment_releases_reserved_market() {
     );
     assert_eq!(game.scorecard(Group::B, 8).unwrap().gaps["demand"], 0.0);
 }
+
+#[test]
+fn d028_public_retrofits_sell_only_the_national_orders_with_real_receipts() {
+    let mut game = public_factory_fixture(
+        GovernanceCalibration {
+            initial_skilled_idle_share: 1.0,
+            ..Default::default()
+        },
+        RenewalChoice::Decline,
+        11,
+        9,
+        1,
+    );
+    let mut ids: Vec<_> = game
+        .governance()
+        .unwrap()
+        .factories
+        .values()
+        .map(|f| (f.first_operated_month.unwrap(), f.id.clone()))
+        .collect();
+    ids.sort();
+    assert_eq!(ids.len(), 2);
+    for (_, id) in &ids {
+        game.queue_governance(
+            format!("d028-retrofit/{id}"),
+            GovernanceCommand::Retrofit {
+                factory: id.clone(),
+            },
+        )
+        .unwrap();
+    }
+    game.end_month(12).unwrap();
+    game.end_month(13).unwrap();
+    game.end_month(14).unwrap();
+    let state = game.governance().unwrap();
+    assert_eq!(state.factories[&ids[0].1].domestic_sales, 120.0);
+    assert_eq!(state.factories[&ids[1].1].domestic_sales, 80.0);
+    let save: serde_json::Value = serde_json::from_slice(&game.save().unwrap()).unwrap();
+    for (_, id) in &ids {
+        let factory = &state.factories[id];
+        assert_eq!(factory.export_sales, 0.0);
+        assert_eq!(factory.output, factory.domestic_sales);
+        assert_eq!(
+            save["payload"]["applied"][format!("sales/{id}/domestic/14")]["command"]["Transfer"]["amount"],
+            money(factory.domestic_sales * 0.1).unwrap()
+        );
+    }
+    assert_eq!(
+        Game::load(&game.save().unwrap()).unwrap().save().unwrap(),
+        game.save().unwrap()
+    );
+}

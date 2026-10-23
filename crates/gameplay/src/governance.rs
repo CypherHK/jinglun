@@ -2972,7 +2972,7 @@ impl GovernanceState {
         let mut domestic_remaining = number(doc, "/demand/initial_imports/value")?;
         let household_ceiling = number(doc, "/demand/payable_demand_ceiling/value")?;
         domestic_remaining = domestic_remaining.min((household_ceiling - 425.0).max(0.0));
-        let mut export_remaining = self
+        let export_remaining = self
             .export_orders
             .min(currency(self.calibration.foreign_buyer_monthly_budget) / price);
         let mut road_remaining: BTreeMap<_, _> = self
@@ -3035,6 +3035,33 @@ impl GovernanceState {
                 .unwrap_or(0);
             ordinary_allocations.extend(apportion(&demands, stock)?);
         }
+        // Assign the month's market orders before physical production. First actual
+        // operation wins; equal-month activations retain their stable ID order.
+        // Unfilled orders are deliberately not reassigned within the month.
+        let mut order_ids = ids.clone();
+        order_ids.sort_by_key(|id| (self.factories[id].first_operated_month, id.clone()));
+        let mut domestic_unassigned = domestic_remaining;
+        let mut export_unassigned = export_remaining;
+        let mut orders = BTreeMap::new();
+        for id in order_ids {
+            let f = &self.factories[&id];
+            let capacity = if f.water_suspended {
+                0.0
+            } else {
+                param(doc, "new_factory_output")?
+                    * if f.retrofitted {
+                        1.0 + self.calibration.retrofit_output_increase
+                    } else {
+                        1.0
+                    }
+            };
+            let domestic = capacity.min(domestic_unassigned);
+            domestic_unassigned -= domestic;
+            let exports = (capacity - domestic).min(export_unassigned);
+            export_unassigned -= exports;
+            orders.insert(id, (domestic, exports));
+        }
+        // Keep the original ID order and deduct road/power only for actual sales.
         for id in ids {
             let f = self.factories.get_mut(&id).unwrap();
             let s = &self.sites[&f.site];
@@ -3075,7 +3102,8 @@ impl GovernanceState {
             } else {
                 plant_demand[&id]
             };
-            let restored = domestic_remaining + export_remaining >= full_output
+            let (domestic_order, export_order) = orders[&id];
+            let restored = domestic_order + export_order >= full_output
                 && road_remaining[&f.site] >= full_output
                 && power_remaining[&f.site] >= full_output
                 && allocated_energy
@@ -3104,10 +3132,9 @@ impl GovernanceState {
             let energy_output = allocated_energy / param(doc, "new_factory_energy")?
                 * param(doc, "new_factory_output")?;
             let possible = max_output.min(road).min(power).min(energy_output);
-            let domestic = possible.min(domestic_remaining);
+            let domestic = possible.min(domestic_order);
             domestic_remaining -= domestic;
-            let exports = (possible - domestic).min(export_remaining);
-            export_remaining -= exports;
+            let exports = (possible - domestic).min(export_order);
             f.output = domestic + exports;
             f.domestic_sales = domestic;
             f.export_sales = exports;
@@ -3975,5 +4002,122 @@ fn external_party(reason: &str) -> &'static str {
         "resource_transition_aid" => "resource_government",
         s if s.starts_with("recurring_service_") => "public_service_suppliers",
         _ => "unspecified_settlement",
+    }
+}
+
+#[cfg(test)]
+mod order_priority_tests {
+    use super::*;
+
+    // A narrow production-stage fixture: deliberately cross operation priority and
+    // ID priority without changing approved scenario inputs or inventing a command.
+    fn plant(id: &str, group: Group, site: u32, first: u32) -> Factory {
+        Factory {
+            id: id.into(),
+            group,
+            site,
+            phase: FactoryPhase::Operating,
+            water_suspended: false,
+            first_operated_month: Some(first),
+            started_month: 1,
+            activate_month: 4,
+            construction_months: 3,
+            worked_months: 3,
+            capital: 0,
+            subsidy: 0,
+            subsidy_escrow: None,
+            capital_escrow: String::new(),
+            reserved_materials: 0,
+            loss_months: 0,
+            close_month: None,
+            workers: 100,
+            skilled_workers: 20,
+            output: 0.0,
+            domestic_sales: 0.0,
+            export_sales: 0.0,
+            ordinary_energy_used: 0.0,
+            maritime_energy_used: 0.0,
+            after_tax_profit: 0,
+            operating_subsidy: 0,
+            retrofitted: true,
+            retrofit_activate_month: None,
+        }
+    }
+    fn production_fixture(road: u32, power: u32) -> (Game, GovernanceState) {
+        let mut game = Game::confirmed_game().unwrap();
+        game.month = 10;
+        let mut state = game.governance.take().unwrap();
+        state.sites.get_mut(&29).unwrap().road_capacity = road;
+        state.sites.get_mut(&29).unwrap().power_capacity = power;
+        state
+            .factories
+            .insert("factory/1".into(), plant("factory/1", Group::A, 29, 9));
+        state
+            .factories
+            .insert("factory/2".into(), plant("factory/2", Group::B, 29, 8));
+        (game, state)
+    }
+
+    #[test]
+    fn actual_operation_priority_crosses_id_without_reordering_road_or_power() {
+        for (road, power) in [(100, 240), (240, 100)] {
+            let (mut game, mut state) = production_fixture(road, power);
+            state.production(&mut game).unwrap();
+            // Domestic orders: earlier operation #2 gets120; later #1 gets80.
+            // Physical allocation still follows ID: #1 sells80, leaving20 for #2.
+            assert_eq!(state.factories["factory/1"].domestic_sales, 80.0);
+            assert_eq!(state.factories["factory/2"].domestic_sales, 20.0);
+            assert_eq!(state.factories["factory/1"].export_sales, 0.0);
+            assert_eq!(state.factories["factory/2"].export_sales, 0.0);
+        }
+    }
+
+    #[test]
+    fn unfilled_domestic_orders_are_not_reassigned_within_the_month() {
+        let (mut game, mut state) = production_fixture(240, 240);
+        // Earlier #2 gets120 orders but its site cannot fulfil any; #1 may only
+        // sell its own80 despite having spare road, power and productive capacity.
+        state.factories.get_mut("factory/2").unwrap().site = 8;
+        state.sites.get_mut(&8).unwrap().road_capacity = 0;
+        state.production(&mut game).unwrap();
+        assert_eq!(state.factories["factory/1"].domestic_sales, 80.0);
+        assert_eq!(state.factories["factory/2"].domestic_sales, 0.0);
+    }
+
+    #[test]
+    fn cross_site_capital_and_candidate_share_domestic_orders_and_export_budget() {
+        let (mut game, mut state) = production_fixture(240, 240);
+        state.factories.get_mut("factory/2").unwrap().site = 39;
+        state.sites.get_mut(&39).unwrap().road_capacity = 240;
+        state.sites.get_mut(&39).unwrap().power_capacity = 240;
+        state.export_orders = 100.0;
+        state.production(&mut game).unwrap();
+        assert_eq!(state.factories["factory/2"].domestic_sales, 120.0);
+        assert_eq!(state.factories["factory/1"].domestic_sales, 80.0);
+        assert_eq!(state.factories["factory/1"].export_sales, 40.0);
+        assert_eq!(state.factories["factory/2"].export_sales, 0.0);
+    }
+
+    #[test]
+    fn equal_operation_month_uses_stable_id_and_water_suspension_gets_no_orders() {
+        let (mut game, mut state) = production_fixture(240, 240);
+        state
+            .factories
+            .get_mut("factory/1")
+            .unwrap()
+            .first_operated_month = Some(8);
+        state.production(&mut game).unwrap();
+        assert_eq!(state.factories["factory/1"].domestic_sales, 120.0);
+        assert_eq!(state.factories["factory/2"].domestic_sales, 80.0);
+        let (mut game, mut state) = production_fixture(240, 240);
+        state
+            .factories
+            .get_mut("factory/2")
+            .unwrap()
+            .water_suspended = true;
+        state.production(&mut game).unwrap();
+        assert_eq!(state.factories["factory/1"].domestic_sales, 120.0);
+        assert_eq!(state.factories["factory/2"].domestic_sales, 0.0);
+        assert_eq!(state.factories["factory/2"].first_operated_month, Some(8));
     }
 }
