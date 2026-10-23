@@ -87,7 +87,11 @@ cargo run -p jinglun-gameplay --example governance_replay --release --offline --
 
 2026-10-24耐久产物：代码在 `crates/gameplay/`，输入变换在 `scripts/draft-initial-values.py`；新证据在 `docs/gameplay/acceptance/2026-10-24/d028/`。`acceptance-summary.json` 保存各选择完整前沿、见证、出口及首都统计与根算术复核（SHA-256 `b7cf4e52be04b1b21aabcb62e2a4cd7c8eb67219b87c3261999a08f5a709bdd4`）；`replay-evidence.tar.gz` 保存27份原始结果/日志/根验算脚本与逐文件SHA manifest，含全部444反例和逐厂数据（SHA-256 `761d2f7dd469512477d7a918e4048f11a715bcd8634275caabc49cb4ad26e4e5`）。归档中的prediction-only/baseline-only/f170b27文件明确为中间证据；根final-110日志覆盖最终代码。可解包后按manifest运行独立Python算术复核，无需改变游戏代码。
 
-实现和复核均为本地，本轮没有重跑Cloud地区对比验收。测试通过不等于体验通过；参数与体验复核负责人仍为用户，建议2026-10-25复核，尚未获用户排期。提交推送与临时目录清理回执在本节末追加。
+实现和复核均为本地，本轮没有重跑Cloud地区对比验收。测试通过不等于体验通过；参数与体验复核负责人仍为用户，建议2026-10-25复核，尚未获用户排期。交付回执：集成前再次fetch确认远端仍为开工基线44a08ab，主目录干净；随后快进到代码/证据提交 **`d2dd52b`** 并非强制推送 `origin/Develop` 成功。本段收尾记录另行提交同一Develop，主目录继续固定在该分支。
+
+本轮 `d028-core`、`d028-replay`、`d028-acceptance`、`d028-integration` 四个临时worktree已用普通 `git worktree remove` 删除；删除前tracked/untracked均干净，忽略内容仅target，27份独有输入/日志/验算脚本已与提交中的归档逐字比对，lsof从目录外检查无占用。四条临时本地任务分支已退役，cherry-pick分支先核对全部补丁等价，无独有未集成变更；未删除远端分支。当前只保留主目录和地图任务 `natural-map-upstream-develop`（`f628c96`，本轮未触碰）；包含 `b37e141` 的 `archive/local-develop-map-20261024` 及旧治理原型归档仍保留。没有将地图提交混入治理改动，没有PR、依赖安装/升级或部署。
+
+下一步交用户与Claude处理劳动/需求结构、29号路线差异和8号W取舍；Codex按停止条件结束本轮校准，design/保持只读。
 
 ## 2026-10-24 D024—D026：历史实施记录
 
