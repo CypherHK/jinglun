@@ -428,3 +428,335 @@ fn institution_announcement_waits_one_month_and_cooldown_rejections_are_atomic()
     game.end_month(5).unwrap();
     assert!(!game.governance().unwrap().labor_protection);
 }
+
+fn public_project(game: &mut Game, site: u32, suffix: &str, kind: PublicWork) {
+    let id = format!("independent-{site}-{suffix}");
+    let edge = if kind == PublicWork::Road {
+        game.map()["edges"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|edge| {
+                let id = edge["id"].as_u64()? as u32;
+                game.governance()
+                    .unwrap()
+                    .public_work_quote(game, site, kind, Some(id))
+                    .ok()
+                    .map(|(cost, _)| (cost, id))
+            })
+            .min()
+            .map(|(_, id)| id)
+    } else {
+        None
+    };
+    game.queue_governance(
+        id.clone(),
+        GovernanceCommand::BuildPublic {
+            id,
+            site,
+            kind,
+            road_edge: edge,
+        },
+    )
+    .unwrap();
+}
+fn early_public_conditions(site: u32) -> Game {
+    let mut game = fixture();
+    game.queue_governance("admit-candidate", GovernanceCommand::OpenRegion { site })
+        .unwrap();
+    public_project(&mut game, site, "housing", PublicWork::Housing);
+    public_project(&mut game, site, "clinic", PublicWork::Clinic);
+    game.end_month(1).unwrap();
+    public_project(&mut game, site, "road", PublicWork::Road);
+    public_project(&mut game, site, "water", PublicWork::Water);
+    advance(&mut game, 3);
+    public_project(&mut game, site, "power", PublicWork::Power);
+    game
+}
+
+#[test]
+fn early_subsidy_alone_changes_cash_gap_into_next_month_investment_intent() {
+    let mut waiting = early_public_conditions(8);
+    let card = waiting.scorecard(Group::B, 8).unwrap();
+    assert!(card.gaps["cash"] > 0.0);
+    assert!(card
+        .gaps
+        .iter()
+        .all(|(name, gap)| name == "cash" || *gap == 0.0));
+    let mut subsidized = waiting.clone();
+    subsidized
+        .queue_governance(
+            "only-difference-subsidy",
+            GovernanceCommand::SetSubsidy {
+                site: 8,
+                cap: card.cash_gap,
+            },
+        )
+        .unwrap();
+    assert!(subsidized.scorecard(Group::B, 8).unwrap().conditional_ready);
+    waiting.end_month(4).unwrap();
+    subsidized.end_month(4).unwrap();
+    assert!(!waiting
+        .governance()
+        .unwrap()
+        .intents
+        .values()
+        .any(|i| i.site == 8 && i.group == Group::B));
+    assert!(subsidized
+        .governance()
+        .unwrap()
+        .intents
+        .values()
+        .any(|i| i.site == 8 && i.group == Group::B && i.created_month == 4));
+}
+
+#[test]
+fn investment_intent_expires_at_original_deadline_and_renewal_expires_at_twelve() {
+    let mut game = early_public_conditions(8);
+    let cap = game.scorecard(Group::B, 8).unwrap().cash_gap;
+    game.queue_governance("expiry-cap", GovernanceCommand::SetSubsidy { site: 8, cap })
+        .unwrap();
+    game.end_month(4).unwrap();
+    let intent = game
+        .governance()
+        .unwrap()
+        .intents
+        .values()
+        .find(|i| i.site == 8 && i.group == Group::B)
+        .unwrap()
+        .clone();
+    assert_eq!(intent.due_month, 5);
+    game.end_month(5).unwrap();
+    let s = game.governance().unwrap();
+    assert!(!s.intents.contains_key(&intent.id));
+    assert!(s.todos[&intent.id].resolved);
+    assert_eq!(s.todos[&intent.id].due_month, 5);
+    assert!(
+        s.facts
+            .iter()
+            .any(|f| f.effect == "investment_intent_expired_rejected"
+                && f.causes.contains(&intent.id))
+    );
+    advance(&mut game, 9);
+    for month in 10..=12 {
+        let todo = &game.governance().unwrap().todos["aid/renewal"];
+        assert_eq!((todo.created_month, todo.due_month), (9, 12));
+        assert!(!todo.resolved);
+        game.end_month(month).unwrap();
+    }
+    assert!(game.governance().unwrap().todos["aid/renewal"].resolved);
+    assert_eq!(game.governance().unwrap().renewal, None);
+    let before = game.save().unwrap();
+    assert!(game
+        .queue_governance(
+            "too-late",
+            GovernanceCommand::RenewAid {
+                choice: RenewalChoice::WaterPriority
+            }
+        )
+        .is_err());
+    assert_eq!(game.save().unwrap(), before);
+    game.end_month(13).unwrap();
+    assert_eq!(game.governance().unwrap().last_aid, 0);
+}
+
+#[test]
+fn breached_promise_ignores_new_work_for_six_months_but_recognizes_completed_capacity() {
+    let mut game = early_public_conditions(8);
+    let cap = game.scorecard(Group::B, 8).unwrap().cash_gap;
+    game.queue_governance(
+        "promise-cap",
+        GovernanceCommand::SetSubsidy { site: 8, cap },
+    )
+    .unwrap();
+    game.end_month(4).unwrap();
+    let intent = game
+        .governance()
+        .unwrap()
+        .intents
+        .values()
+        .find(|i| i.site == 8 && i.group == Group::B)
+        .unwrap()
+        .clone();
+    game.queue_governance(
+        "accept",
+        GovernanceCommand::AcceptIntent {
+            id: intent.id.clone(),
+            deadline: 7,
+        },
+    )
+    .unwrap();
+    game.queue_governance(
+        "delay-power",
+        GovernanceCommand::PauseProject {
+            id: "independent-8-power".into(),
+            paused: true,
+        },
+    )
+    .unwrap();
+    advance(&mut game, 7);
+    let s = game.governance().unwrap();
+    assert_eq!(s.commitments[&intent.id].status, CommitmentStatus::Breached);
+    assert_eq!(s.distrust_until.get(&Group::B), Some(&13));
+    assert!(!s.distrust_until.contains_key(&Group::A));
+    assert!(s.facts.iter().any(|f| f.month == 7
+        && f.effect == "conditional_promise_breached_six_month_group_distrust"
+        && f.causes.contains(&intent.id)));
+    game.queue_governance(
+        "resume-power",
+        GovernanceCommand::PauseProject {
+            id: "independent-8-power".into(),
+            paused: false,
+        },
+    )
+    .unwrap();
+    let ignored = game.scorecard(Group::B, 8).unwrap();
+    let recognized = game.scorecard(Group::A, 8).unwrap();
+    assert!(ignored.promised_projects.is_empty());
+    assert!(ignored.gaps["power"] > 0.0);
+    assert!(recognized
+        .promised_projects
+        .contains(&"independent-8-power".into()));
+    assert_eq!(recognized.gaps["power"], 0.0);
+    advance(&mut game, 9);
+    assert!(game.governance().unwrap().projects["independent-8-power"].active);
+    assert_eq!(game.scorecard(Group::B, 8).unwrap().gaps["power"], 0.0);
+    advance(&mut game, 12);
+    public_project(&mut game, 26, "deadline-water", PublicWork::Water);
+    assert_eq!(game.month(), 13);
+    assert!(game
+        .scorecard(Group::B, 26)
+        .unwrap()
+        .promised_projects
+        .is_empty());
+    assert!(!game
+        .scorecard(Group::A, 26)
+        .unwrap()
+        .promised_projects
+        .is_empty());
+    game.end_month(13).unwrap();
+    assert_eq!(game.month(), 14);
+    assert!(!game
+        .scorecard(Group::B, 26)
+        .unwrap()
+        .promised_projects
+        .is_empty());
+}
+
+#[test]
+fn hidden_fourth_intent_keeps_deadline_and_defaults_despite_three_visible_limit() {
+    let mut game = early_public_conditions(8);
+    for site in [39, 8] {
+        game.queue_governance(
+            format!("hidden-subsidy-{site}"),
+            GovernanceCommand::SetSubsidy {
+                site,
+                cap: money(40.0).unwrap(),
+            },
+        )
+        .unwrap();
+    }
+    game.end_month(4).unwrap();
+    let s = game.governance().unwrap();
+    let intents: Vec<_> = s.intents.values().cloned().collect();
+    assert_eq!(intents.len(), 4);
+    let visible = s.visible_todos(game.month());
+    assert_eq!(visible.len(), 3);
+    let hidden = intents
+        .iter()
+        .find(|i| !visible.iter().any(|t| t.id == i.id))
+        .unwrap()
+        .clone();
+    assert_eq!(hidden.due_month, 5);
+    game.end_month(5).unwrap();
+    let s = game.governance().unwrap();
+    assert!(!s.intents.contains_key(&hidden.id));
+    assert_eq!(s.todos[&hidden.id].due_month, 5);
+    assert!(s.todos[&hidden.id].resolved);
+    assert!(s.facts.iter().any(|f| f.month == 5
+        && f.effect == "investment_intent_expired_rejected"
+        && f.causes.contains(&hidden.id)));
+}
+
+#[test]
+fn two_candidate_subsidies_cannot_both_commit_under_shared_budget_and_capacity() {
+    let mut game = fixture();
+    for site in [8, 29] {
+        game.queue_governance(
+            format!("dual-open-{site}"),
+            GovernanceCommand::OpenRegion { site },
+        )
+        .unwrap();
+    }
+    public_project(&mut game, 8, "dual-house", PublicWork::Housing);
+    public_project(&mut game, 8, "dual-clinic", PublicWork::Clinic);
+    game.end_month(1).unwrap();
+    public_project(&mut game, 8, "dual-road", PublicWork::Road);
+    public_project(&mut game, 8, "dual-water", PublicWork::Water);
+    advance(&mut game, 3);
+    public_project(&mut game, 8, "dual-power", PublicWork::Power);
+    public_project(&mut game, 29, "dual-house", PublicWork::Housing);
+    game.end_month(4).unwrap();
+    public_project(&mut game, 29, "dual-clinic", PublicWork::Clinic);
+    game.end_month(5).unwrap();
+    public_project(&mut game, 29, "dual-road", PublicWork::Road);
+    game.end_month(6).unwrap();
+    public_project(&mut game, 29, "dual-water", PublicWork::Water);
+    public_project(&mut game, 29, "dual-power", PublicWork::Power);
+    for (group, site) in [(Group::A, 8), (Group::B, 29)] {
+        let card = game.scorecard(group, site).unwrap();
+        game.queue_governance(
+            format!("dual-cap-{site}"),
+            GovernanceCommand::SetSubsidy {
+                site,
+                cap: card.cash_gap,
+            },
+        )
+        .unwrap();
+    }
+    game.end_month(7).unwrap();
+    let intents: Vec<_> = [(Group::B, 29), (Group::A, 8)]
+        .iter()
+        .map(|(group, site)| {
+            game.governance()
+                .unwrap()
+                .intents
+                .values()
+                .find(|i| i.group == *group && i.site == *site)
+                .unwrap()
+                .clone()
+        })
+        .collect();
+    game.queue_governance(
+        "lock-first",
+        GovernanceCommand::AcceptIntent {
+            id: intents[0].id.clone(),
+            deadline: 12,
+        },
+    )
+    .unwrap();
+    let first_locked = game.save().unwrap();
+    let result = game.queue_governance(
+        "lock-second",
+        GovernanceCommand::AcceptIntent {
+            id: intents[1].id.clone(),
+            deadline: 12,
+        },
+    );
+    println!("B6 actual second acceptance result: {result:?}");
+    assert!(
+        matches!(result, Err(Error::Insufficient(_))),
+        "second subsidy result: {result:?}"
+    );
+    assert_eq!(game.save().unwrap(), first_locked);
+    game.end_month(8).unwrap();
+    let state = game.governance().unwrap();
+    let commitment = &state.commitments[&intents[0].id];
+    assert!(commitment.subsidy > 0);
+    assert!(
+        game.escrow_remaining(commitment.escrow.as_ref().unwrap())
+            .unwrap()
+            > 0
+    );
+    assert!(!state.commitments.contains_key(&intents[1].id));
+}
