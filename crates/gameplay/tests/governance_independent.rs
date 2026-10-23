@@ -1005,6 +1005,27 @@ fn default_calibration_report_traces_water_against_identical_cooperation_plan() 
     );
 }
 
+/// D028's expected capital-plus-two-candidate topology needs three plants.
+/// This is a frozen-input feasibility diagnostic, not a passing B8 scenario.
+#[test]
+fn default_labor_pool_diagnostic_cannot_staff_three_standard_new_factories() {
+    let game = fixture();
+    let state = game.governance().unwrap();
+    let idle: u32 = state.sites.values().map(|s| s.idle_workers).sum();
+    let confirmed: Value =
+        serde_json::from_str(include_str!("../data/jinglun-040-initial-draft.json")).unwrap();
+    let workers = confirmed["parameters"]["new_factory_workers"]["value"]
+        .as_u64()
+        .unwrap() as u32;
+    assert_eq!(idle, 295);
+    assert_eq!(workers, 100);
+    assert!(idle < workers * 3);
+    println!(
+        "D028 frozen-labor diagnostic: idle={idle}, workers_per_factory={workers}, simultaneous_new_factory_upper_bound={}",
+        idle / workers
+    );
+}
+
 /// Bounded D028 public-command search: 2 sites x 3 preparation months x
 /// 4 security-cut months, with otherwise identical cooperation restart pairs.
 /// Diagnostic only; it checks the domestic cap, not B8 acceptance. Months
@@ -1191,6 +1212,18 @@ fn d028_default_order_rescue_bounded_diagnostic() {
                     {
                         warning = Some(month);
                     }
+                    let labor: u32 = state
+                        .sites
+                        .values()
+                        .map(|s| s.idle_workers + s.teachers)
+                        .sum::<u32>()
+                        + state
+                            .factories
+                            .values()
+                            .filter(|f| f.phase != FactoryPhase::Closed)
+                            .map(|f| f.workers)
+                            .sum::<u32>();
+                    assert_eq!(labor, 295);
                     let domestic: f64 = state.factories.values().map(|f| f.domestic_sales).sum();
                     assert!(domestic <= 200.0 + 1e-9);
                     if month == 24 {
