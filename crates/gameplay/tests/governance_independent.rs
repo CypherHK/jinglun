@@ -777,3 +777,124 @@ fn two_candidate_subsidies_cannot_both_commit_under_shared_budget_and_capacity()
     );
     assert!(!state.commitments.contains_key(&intents[1].id));
 }
+
+#[test]
+fn passive_report_names_the_missing_industrial_scale_and_fiscal_recovery() {
+    let mut game = fixture();
+    advance(&mut game, 24);
+    let report = game.governance().unwrap().report.as_ref().unwrap();
+    assert_eq!(report.grade, GoalGrade::NotAchieved);
+    assert!(!report.fiscal_recovered);
+    for reason in [
+        "selected_inland_output_never_reached_second_rank_and_capital_ratio",
+        "last_three_month_scale_and_unsubsidized_profit_not_sustained",
+        "fiscal_recovery_separate_last_three_recurring_negative",
+    ] {
+        assert!(
+            report.failures.iter().any(|failure| failure == reason),
+            "report omitted reason {reason}"
+        );
+    }
+    assert!(report.causes.iter().any(
+        |cause| cause.effect == "transition_aid_expires_month_13" && cause.deadline == Some(12)
+    ));
+    assert!(game.balance("treasury", &Asset::Money).unwrap() > 0);
+}
+
+#[test]
+fn same_inland_route_one_factory_pays_more_energy_and_earns_less_with_long_contract() {
+    let mut common = early_public_conditions(29);
+    common
+        .queue_governance("route-one-ordinary", GovernanceCommand::SignEnergy)
+        .unwrap();
+    common
+        .queue_governance(
+            "route-one-subsidy",
+            GovernanceCommand::SetSubsidy {
+                site: 29,
+                cap: common.scorecard(Group::B, 29).unwrap().cash_gap,
+            },
+        )
+        .unwrap();
+    common.end_month(4).unwrap();
+    let intent = common
+        .governance()
+        .unwrap()
+        .intents
+        .values()
+        .find(|intent| intent.group == Group::B && intent.site == 29)
+        .unwrap()
+        .clone();
+    common
+        .queue_governance(
+            "route-one-accept",
+            GovernanceCommand::AcceptIntent {
+                id: intent.id,
+                deadline: 8,
+            },
+        )
+        .unwrap();
+    advance(&mut common, 8);
+    let mut energy = common.clone();
+    let mut decline = common;
+    for (game, choice) in [
+        (&mut energy, RenewalChoice::EnergyLongTerm),
+        (&mut decline, RenewalChoice::Decline),
+    ] {
+        game.queue_governance(
+            "only-difference-renewal",
+            GovernanceCommand::RenewAid { choice },
+        )
+        .unwrap();
+        game.end_month(9).unwrap();
+    }
+    let matched = |game: &Game| {
+        game.governance()
+            .unwrap()
+            .factories
+            .values()
+            .find(|factory| factory.group == Group::B && factory.site == 29)
+            .unwrap()
+            .clone()
+    };
+    let ef = matched(&energy);
+    let df = matched(&decline);
+    assert_eq!(ef.id, df.id);
+    assert_eq!(ef.started_month, df.started_month);
+    assert_eq!(ef.activate_month, df.activate_month);
+    assert_eq!(ef.phase, FactoryPhase::Operating);
+    assert_eq!(df.phase, FactoryPhase::Operating);
+    assert_eq!(ef.output, 100.0);
+    assert_eq!(ef.output, df.output);
+    assert_eq!(ef.workers, df.workers);
+    assert_eq!(ef.operating_subsidy, 0);
+    assert_eq!(df.operating_subsidy, 0);
+    // Confirmed D022 price ladder; ordinary purchases are prepaid, so compare
+    // the energy consumed by this matched factory rather than purchase timing.
+    let confirmed: Value =
+        serde_json::from_str(include_str!("../data/jinglun-040-initial-draft.json")).unwrap();
+    let price = |name: &str| confirmed["parameters"][name]["value"].as_f64().unwrap();
+    let quantity = ef.output / price("new_factory_output") * price("new_factory_energy");
+    let energy_cost = money(quantity * price("long_energy_price")).unwrap();
+    let decline_cost = money(
+        df.ordinary_energy_used * price("ordinary_energy_price")
+            + df.maritime_energy_used * price("maritime_energy_price"),
+    )
+    .unwrap();
+    assert_eq!(ef.ordinary_energy_used, 0.0);
+    assert_eq!(ef.maritime_energy_used, 0.0);
+    assert!(energy_cost > decline_cost);
+    assert!(ef.after_tax_profit < df.after_tax_profit);
+    assert_eq!(
+        df.after_tax_profit - ef.after_tax_profit,
+        (energy_cost - decline_cost) as i128
+    );
+    println!(
+        "B10 paired M9 site29 output={} E energy={} profit={} Decline energy={} profit={}",
+        ef.output,
+        currency(energy_cost),
+        currency(ef.after_tax_profit as u64),
+        currency(decline_cost),
+        currency(df.after_tax_profit as u64)
+    );
+}
