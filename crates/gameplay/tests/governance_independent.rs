@@ -62,9 +62,10 @@ fn monthly_plan_preserves_live_ledger_and_failed_dependency_withdrawal_is_atomic
     }
     assert!(game.withdraw_governance("clinic").is_err());
     assert_eq!(game.save().unwrap(), planned);
-    assert!(game
-        .queue_governance("clinic", GovernanceCommand::OpenRegion { site: 29 })
-        .is_err());
+    assert!(
+        game.queue_governance("clinic", GovernanceCommand::OpenRegion { site: 29 })
+            .is_err()
+    );
     assert_eq!(game.save().unwrap(), planned);
     game.withdraw_governance("pause").unwrap();
     game.withdraw_governance("clinic").unwrap();
@@ -242,10 +243,12 @@ fn report_keeps_historical_guard_failures_but_fiscal_recovery_is_separate() {
             .take(3)
             .all(|r| r.recurring_balance >= 0)
     );
-    assert!(!report
-        .failures
-        .iter()
-        .any(|r| r == "last_three_month_livelihood_or_security_guardrail_failed"));
+    assert!(
+        !report
+            .failures
+            .iter()
+            .any(|r| r == "last_three_month_livelihood_or_security_guardrail_failed")
+    );
 }
 
 fn loss_warning_game(restore_in_warning_month: bool) -> Game {
@@ -405,15 +408,16 @@ fn institution_announcement_waits_one_month_and_cooldown_rejections_are_atomic()
     assert!(!game.governance().unwrap().labor_protection);
     for month in [2, 3] {
         let before = game.save().unwrap();
-        assert!(game
-            .queue_governance(
+        assert!(
+            game.queue_governance(
                 format!("too-early-{month}"),
                 GovernanceCommand::SetInstitution {
                     kind: Institution::LaborProtection,
                     enabled: false,
                 }
             )
-            .is_err());
+            .is_err()
+        );
         assert_eq!(game.save().unwrap(), before);
         game.end_month(month).unwrap();
         assert!(game.governance().unwrap().labor_protection);
@@ -484,10 +488,11 @@ fn early_subsidy_alone_changes_cash_gap_into_next_month_investment_intent() {
     let mut waiting = early_public_conditions(8);
     let card = waiting.scorecard(Group::B, 8).unwrap();
     assert!(card.gaps["cash"] > 0.0);
-    assert!(card
-        .gaps
-        .iter()
-        .all(|(name, gap)| name == "cash" || *gap == 0.0));
+    assert!(
+        card.gaps
+            .iter()
+            .all(|(name, gap)| name == "cash" || *gap == 0.0)
+    );
     let mut subsidized = waiting.clone();
     subsidized
         .queue_governance(
@@ -507,18 +512,22 @@ fn early_subsidy_alone_changes_cash_gap_into_next_month_investment_intent() {
     assert!(subsidized.scorecard(Group::B, 8).unwrap().conditional_ready);
     waiting.end_month(4).unwrap();
     subsidized.end_month(4).unwrap();
-    assert!(!waiting
-        .governance()
-        .unwrap()
-        .intents
-        .values()
-        .any(|i| i.site == 8 && i.group == Group::B));
-    assert!(subsidized
-        .governance()
-        .unwrap()
-        .intents
-        .values()
-        .any(|i| i.site == 8 && i.group == Group::B && i.created_month == 4));
+    assert!(
+        !waiting
+            .governance()
+            .unwrap()
+            .intents
+            .values()
+            .any(|i| i.site == 8 && i.group == Group::B)
+    );
+    assert!(
+        subsidized
+            .governance()
+            .unwrap()
+            .intents
+            .values()
+            .any(|i| i.site == 8 && i.group == Group::B && i.created_month == 4)
+    );
 }
 
 #[test]
@@ -558,14 +567,15 @@ fn investment_intent_expires_at_original_deadline_and_renewal_expires_at_twelve(
     assert!(game.governance().unwrap().todos["aid/renewal"].resolved);
     assert_eq!(game.governance().unwrap().renewal, None);
     let before = game.save().unwrap();
-    assert!(game
-        .queue_governance(
+    assert!(
+        game.queue_governance(
             "too-late",
             GovernanceCommand::RenewAid {
                 choice: RenewalChoice::WaterPriority
             }
         )
-        .is_err());
+        .is_err()
+    );
     assert_eq!(game.save().unwrap(), before);
     game.end_month(13).unwrap();
     assert_eq!(game.governance().unwrap().last_aid, 0);
@@ -625,9 +635,11 @@ fn breached_promise_ignores_new_work_for_six_months_but_recognizes_completed_cap
     let recognized = game.scorecard(Group::A, 8).unwrap();
     assert!(ignored.promised_projects.is_empty());
     assert!(ignored.gaps["power"] > 0.0);
-    assert!(recognized
-        .promised_projects
-        .contains(&"independent-8-power".into()));
+    assert!(
+        recognized
+            .promised_projects
+            .contains(&"independent-8-power".into())
+    );
     assert_eq!(recognized.gaps["power"], 0.0);
     advance(&mut game, 9);
     assert!(game.governance().unwrap().projects["independent-8-power"].active);
@@ -635,23 +647,28 @@ fn breached_promise_ignores_new_work_for_six_months_but_recognizes_completed_cap
     advance(&mut game, 12);
     public_project(&mut game, 26, "deadline-water", PublicWork::Water);
     assert_eq!(game.month(), 13);
-    assert!(game
-        .scorecard(Group::B, 26)
-        .unwrap()
-        .promised_projects
-        .is_empty());
-    assert!(!game
-        .scorecard(Group::A, 26)
-        .unwrap()
-        .promised_projects
-        .is_empty());
+    assert!(
+        game.scorecard(Group::B, 26)
+            .unwrap()
+            .promised_projects
+            .is_empty()
+    );
+    assert!(
+        !game
+            .scorecard(Group::A, 26)
+            .unwrap()
+            .promised_projects
+            .is_empty()
+    );
     game.end_month(13).unwrap();
     assert_eq!(game.month(), 14);
-    assert!(!game
-        .scorecard(Group::B, 26)
-        .unwrap()
-        .promised_projects
-        .is_empty());
+    assert!(
+        !game
+            .scorecard(Group::B, 26)
+            .unwrap()
+            .promised_projects
+            .is_empty()
+    );
 }
 
 #[test]
@@ -979,15 +996,16 @@ fn default_calibration_report_traces_water_against_identical_cooperation_plan() 
     assert_eq!(operating(ds), 2);
     assert_ne!(ws.report.as_ref().unwrap().grade, GoalGrade::Achieved);
     assert_eq!(ds.report.as_ref().unwrap().grade, GoalGrade::Achieved);
-    assert!(ws
-        .report
-        .as_ref()
-        .unwrap()
-        .causes
-        .iter()
-        .any(|f| f.month == 9
-            && f.effect == "water_priority_limits_next_factory"
-            && f.causes.contains(&"aid/renewal".into())));
+    assert!(
+        ws.report
+            .as_ref()
+            .unwrap()
+            .causes
+            .iter()
+            .any(|f| f.month == 9
+                && f.effect == "water_priority_limits_next_factory"
+                && f.causes.contains(&"aid/renewal".into()))
+    );
 }
 
 /// D028's expected capital-plus-two-candidate topology needs three plants.
@@ -1247,10 +1265,10 @@ fn labor_trial_order_rescue_domain(enabled: bool) {
                             .find(|r| r.reason == "existing_nonmanufacturing_employer_wages")
                             .unwrap()
                             .delta as u64;
-                        let actual_tax = applied["existing/payroll/24"]["command"]["Transfer"]
-                            ["amount"]
-                            .as_u64()
-                            .unwrap();
+                        let actual_tax =
+                            applied["existing/payroll/24"]["command"]["Transfer"]["amount"]
+                                .as_u64()
+                                .unwrap();
                         assert_eq!(
                             actual_tax,
                             money(currency(remaining_wages) * 0.01).unwrap()
@@ -1263,7 +1281,10 @@ fn labor_trial_order_rescue_domain(enabled: bool) {
                         replay.end_month(25).unwrap();
                         original.end_month(25).unwrap();
                         assert_eq!(replay.save().unwrap(), original.save().unwrap());
-                        println!("B8 trial={enabled} sources site={site} prepare={cap_month} cut={cut_month} {:?}", state.labor_trial_sources);
+                        println!(
+                            "B8 trial={enabled} sources site={site} prepare={cap_month} cut={cut_month} {:?}",
+                            state.labor_trial_sources
+                        );
                         println!(
                             "B8 trial={enabled} M24 scorecards site={site} prepare={cap_month} cut={cut_month} treasury={:?} A={:?} B={:?}",
                             game.balance("treasury", &Asset::Money),
@@ -1514,10 +1535,11 @@ fn double_retrofit_trial_diagnostic(enabled: bool) {
     let lost = suspended.governance().unwrap();
     assert!(kept.export_orders > 0.0);
     assert_eq!(lost.export_orders, 0.0);
-    assert!(lost
-        .facts
-        .iter()
-        .any(|f| f.effect == "cooperation_suspended"));
+    assert!(
+        lost.facts
+            .iter()
+            .any(|f| f.effect == "cooperation_suspended")
+    );
     let kept_output: f64 = kept
         .factories
         .values()
@@ -1552,10 +1574,11 @@ fn double_retrofit_trial_diagnostic(enabled: bool) {
         );
         assert!(kept_output > lost_output);
         assert_eq!(lost_output, 200.0);
-        assert!(lost
-            .factories
-            .values()
-            .all(|f| f.phase != FactoryPhase::ClosureWarned));
+        assert!(
+            lost.factories
+                .values()
+                .all(|f| f.phase != FactoryPhase::ClosureWarned)
+        );
     }
 }
 
@@ -1631,9 +1654,11 @@ fn historical_skill_share_two_operating_factories_before_late_water(fraction: f6
         .filter(|f| f.site == 29)
         .collect();
     assert_eq!(factories.len(), 2);
-    assert!(factories
-        .iter()
-        .all(|f| f.phase == FactoryPhase::Operating && f.output == 100.0));
+    assert!(
+        factories
+            .iter()
+            .all(|f| f.phase == FactoryPhase::Operating && f.output == 100.0)
+    );
     assert_ne!(
         factories[0].first_operated_month,
         factories[1].first_operated_month
@@ -1706,9 +1731,10 @@ fn historical_skill_fixture_late_water_suspends_new_factories_but_protects_initi
         assert_eq!(factory.loss_months, 6);
     }
     game.end_month(18).unwrap();
-    assert!(ids
-        .iter()
-        .all(|id| game.governance().unwrap().factories[id].phase == FactoryPhase::Closed));
+    assert!(
+        ids.iter()
+            .all(|id| game.governance().unwrap().factories[id].phase == FactoryPhase::Closed)
+    );
 }
 
 #[test]
