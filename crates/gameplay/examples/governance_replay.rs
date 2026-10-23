@@ -296,6 +296,36 @@ fn financial_audit(
     Ok((capital, trade))
 }
 
+fn validate_sales_receipts(audit: &TradeAudit, price: f64) -> std::result::Result<(), String> {
+    for (id, factory) in &audit.factories {
+        for (month, row) in &factory.monthly {
+            if !row.domestic_quantity.is_finite()
+                || !row.export_quantity.is_finite()
+                || row.domestic_quantity < 0.0
+                || row.export_quantity < 0.0
+            {
+                return Err(format!("invalid sales quantity {id} M{month}"));
+            }
+            let domestic = money(row.domestic_quantity * price).map_err(|e| e.to_string())?;
+            let total = money((row.domestic_quantity + row.export_quantity) * price)
+                .map_err(|e| e.to_string())?;
+            let export = total
+                .checked_sub(domestic)
+                .ok_or("negative export invoice")?;
+            // The engine rounds the total bill and domestic bill separately; export is their difference.
+            if domestic.abs_diff(row.domestic_receipt_income) > 1
+                || export.abs_diff(row.export_receipt_income) > 1
+            {
+                return Err(format!(
+                    "sales quantity/receipt mismatch {id} M{month}: expected {domestic}/{export}, received {}/{}",
+                    row.domestic_receipt_income, row.export_receipt_income
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
 #[derive(Clone, Debug, Serialize)]
 struct CapitalOutcome {
     script_id: String,
@@ -695,6 +725,11 @@ fn replay(base: &Game, script: Script) -> std::result::Result<Replay, String> {
         .collect::<Result<Vec<_>>>()
         .map_err(|e| e.to_string())?;
     let (government_capital, trade_audit) = financial_audit(&game, &monthly)?;
+    let document = initial_values::confirmed_document().map_err(|e| e.to_string())?;
+    validate_sales_receipts(
+        &trade_audit,
+        initial_values::number(&document, "/parameters/goods_price").map_err(|e| e.to_string())?,
+    )?;
     Ok(Replay {
         outcome,
         script,
@@ -1047,6 +1082,57 @@ mod driver_tests {
                 ..GovernmentCapital::default()
             },
         }
+    }
+
+    #[test]
+    fn closure_month_sales_match_receipts_and_next_month_has_no_repeated_sales() {
+        let mut game = Game::confirmed_game_with_calibration(GovernanceCalibration {
+            labor_protection_wage_multiplier: 2.0,
+            ..GovernanceCalibration::default()
+        })
+        .unwrap();
+        let mut monthly = vec![];
+        for month in 1..=20 {
+            if month == 12 {
+                game.queue_governance(
+                    "audit-loss-cause",
+                    GovernanceCommand::SetInstitution {
+                        kind: Institution::LaborProtection,
+                        enabled: true,
+                    },
+                )
+                .unwrap();
+            }
+            game.end_month(month).unwrap();
+            monthly.push(json!({"factories":game.governance().unwrap().factories.values().collect::<Vec<_>>()}));
+        }
+        let (_, audit) = financial_audit(&game, &monthly).unwrap();
+        validate_sales_receipts(&audit, 0.1).unwrap();
+        let factory = game
+            .governance()
+            .unwrap()
+            .factories
+            .values()
+            .find(|f| f.group == Group::B)
+            .unwrap();
+        assert_eq!(factory.phase, FactoryPhase::Closed);
+        let rows = &audit.factories[&factory.id].monthly;
+        assert!(rows[&19].domestic_quantity > 0.0);
+        assert!(rows[&19].domestic_receipt_income > 0);
+        assert_eq!(rows[&20].domestic_quantity, 0.0);
+        assert_eq!(rows[&20].export_quantity, 0.0);
+        assert_eq!(rows[&20].domestic_receipt_income, 0);
+        assert_eq!(rows[&20].export_receipt_income, 0);
+        let mut corrupted = audit.clone();
+        corrupted
+            .factories
+            .get_mut(&factory.id)
+            .unwrap()
+            .monthly
+            .get_mut(&19)
+            .unwrap()
+            .domestic_quantity = 0.0;
+        assert!(validate_sales_receipts(&corrupted, 0.1).is_err());
     }
 
     #[test]
