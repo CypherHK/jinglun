@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 /// One currency unit is 100,000,000 ledger units. Each conversion rounds to the
 /// nearest unit, with an absolute error of at most 5e-9 currency units.
-pub const GOVERNANCE_RULES_VERSION: &str = "governance-rules-4";
+pub const GOVERNANCE_RULES_VERSION: &str = "governance-rules-5";
 pub const MONEY_SCALE: u64 = 100_000_000;
 pub fn money(value: f64) -> Result<u64> {
     scenario::finite_nonnegative(value)?;
@@ -369,6 +369,8 @@ pub struct Factory {
     pub workers: u32,
     pub skilled_workers: u32,
     pub output: f64,
+    pub domestic_sales: f64,
+    pub export_sales: f64,
     pub ordinary_energy_used: f64,
     pub maritime_energy_used: f64,
     pub after_tax_profit: i128,
@@ -1673,6 +1675,11 @@ impl GovernanceState {
         Ok(())
     }
     fn assess(&self, game: &Game, group: Group, site: u32) -> Result<Scorecard> {
+        self.assess_excluding_commitment(game, group, site, None)
+    }
+    fn assess_excluding_commitment(
+        &self, game: &Game, group: Group, site: u32, own_commitment: Option<&str>,
+    ) -> Result<Scorecard> {
         let doc = document()?;
         let natural = game
             .cell(site)
@@ -1710,8 +1717,13 @@ impl GovernanceState {
             .factories
             .values()
             .filter(|f| f.phase != FactoryPhase::Closed)
-            .map(|f| f.output.max(100.0))
-            .sum();
+            .map(|f| output * if f.retrofitted {
+                1.0 + self.calibration.retrofit_output_increase
+            } else { 1.0 })
+            .sum::<f64>()
+            + self.commitments.values().filter(|c| {
+                c.status == CommitmentStatus::Pending && Some(c.id.as_str()) != own_commitment
+            }).count() as f64 * output;
         let import_cap = number(doc, "/demand/initial_imports/value")?;
         let remaining_domestic = import_cap - domestic_new.min(import_cap);
         let export_committed = (domestic_new - import_cap).max(0.0);
@@ -2397,7 +2409,7 @@ impl GovernanceState {
                 .iter()
                 .all(|id| self.projects[id].active)
             {
-                let card = self.assess(game, c.group, c.site)?;
+                let card = self.assess_excluding_commitment(game, c.group, c.site, Some(&id))?;
                 let actual = &self.sites[&c.site];
                 if card.gaps.values().all(|g| *g == 0.0)
                     && actual.idle_workers >= 100
@@ -2609,6 +2621,8 @@ impl GovernanceState {
                 workers,
                 skilled_workers: assigned_skills,
                 output: 0.0,
+                domestic_sales: 0.0,
+                export_sales: 0.0,
                 ordinary_energy_used: 0.0,
                 maritime_energy_used: 0.0,
                 after_tax_profit: 0,
@@ -3077,6 +3091,8 @@ impl GovernanceState {
             let exports = (possible - domestic).min(export_remaining);
             export_remaining -= exports;
             f.output = domestic + exports;
+            f.domestic_sales = domestic;
+            f.export_sales = exports;
             *road_remaining.get_mut(&f.site).unwrap() -= f.output;
             *power_remaining.get_mut(&f.site).unwrap() -= f.output;
             let energy =
@@ -3280,6 +3296,8 @@ impl GovernanceState {
             f.phase = FactoryPhase::Closed;
             f.water_suspended = false;
             f.output = 0.0;
+            f.domestic_sales = 0.0;
+            f.export_sales = 0.0;
             let site = self.sites.get_mut(&f.site).unwrap();
             site.idle_workers += f.workers;
             site.skilled_workers += f.skilled_workers;
@@ -3748,6 +3766,11 @@ impl GovernanceState {
                 || !self.sites.contains_key(&f.site)
                 || !f.output.is_finite()
                 || f.output < 0.0
+                || !f.domestic_sales.is_finite()
+                || !f.export_sales.is_finite()
+                || f.domestic_sales < 0.0
+                || f.export_sales < 0.0
+                || (f.output - f.domestic_sales - f.export_sales).abs() > 1e-8
                 || f.operating_subsidy != 0
                 || f.worked_months > f.construction_months
                 || f.started_month == 0

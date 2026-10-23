@@ -1084,11 +1084,16 @@ fn d026_rule_parameters_convert_only_existing_idle_workers_and_fund_fixed_export
     assert_eq!(game.governance().unwrap().export_orders, 100.0);
     assert!(game.balance("foreign_buyer", &Asset::Money).unwrap() >= money(10.0).unwrap());
     let old = rewrite_checked_save(&game, |payload| {
-        payload["governance"]["rules_version"] = "governance-rules-3".into();
+        payload["governance"]["rules_version"] = "governance-rules-4".into();
         payload["governance"]["calibration"]
             .as_object_mut()
             .unwrap()
             .remove("initial_skilled_idle_share");
+        // Reject the old rule identity before decoding the new sales fields.
+        for factory in payload["governance"]["factories"].as_object_mut().unwrap().values_mut() {
+            factory.as_object_mut().unwrap().remove("domestic_sales");
+            factory.as_object_mut().unwrap().remove("export_sales");
+        }
     });
     assert!(matches!(
         Game::load(&old),
