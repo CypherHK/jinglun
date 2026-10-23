@@ -465,7 +465,9 @@ fn public_project(game: &mut Game, site: u32, suffix: &str, kind: PublicWork) {
     .unwrap();
 }
 fn early_public_conditions(site: u32) -> Game {
-    let mut game = fixture();
+    early_public_conditions_from(fixture(), site)
+}
+fn early_public_conditions_from(mut game: Game, site: u32) -> Game {
     game.queue_governance("admit-candidate", GovernanceCommand::OpenRegion { site })
         .unwrap();
     public_project(&mut game, site, "housing", PublicWork::Housing);
@@ -804,6 +806,7 @@ fn passive_report_names_the_missing_industrial_scale_and_fiscal_recovery() {
 #[test]
 fn same_inland_route_one_factory_pays_more_energy_and_earns_less_with_long_contract() {
     let mut common = early_public_conditions(29);
+    public_project(&mut common, 29, "paired-vocational", PublicWork::Vocational);
     common
         .queue_governance("route-one-ordinary", GovernanceCommand::SignEnergy)
         .unwrap();
@@ -830,7 +833,7 @@ fn same_inland_route_one_factory_pays_more_energy_and_earns_less_with_long_contr
             "route-one-accept",
             GovernanceCommand::AcceptIntent {
                 id: intent.id,
-                deadline: 8,
+                deadline: 24,
             },
         )
         .unwrap();
@@ -846,7 +849,7 @@ fn same_inland_route_one_factory_pays_more_energy_and_earns_less_with_long_contr
             GovernanceCommand::RenewAid { choice },
         )
         .unwrap();
-        game.end_month(9).unwrap();
+        advance(game, 14);
     }
     let matched = |game: &Game| {
         game.governance()
@@ -890,11 +893,441 @@ fn same_inland_route_one_factory_pays_more_energy_and_earns_less_with_long_contr
         (energy_cost - decline_cost) as i128
     );
     println!(
-        "B10 paired M9 site29 output={} E energy={} profit={} Decline energy={} profit={}",
+        "B10 paired M14 site29 output={} E energy={} profit={} Decline energy={} profit={}",
         ef.output,
         currency(energy_cost),
         currency(ef.after_tax_profit as u64),
         currency(decline_cost),
         currency(df.after_tax_profit as u64)
+    );
+}
+
+/// A bounded public-command counterfactual, not a claim that B8 order rescue passes.
+/// Both new factories are retrofitted; loss of cooperation removes export orders
+/// while domestic import substitution remains the D022-confirmed 200 units.
+#[test]
+fn cooperation_order_loss_counterfactual_records_default_two_factory_profitability() {
+    let mut opening = fixture();
+    opening
+        .queue_governance(
+            "order-test-budget",
+            GovernanceCommand::SetServiceBudget {
+                kind: Service::Education,
+                monthly: 0,
+            },
+        )
+        .unwrap();
+    opening
+        .queue_governance(
+            "order-test-target",
+            GovernanceCommand::SelectCandidate { site: 29 },
+        )
+        .unwrap();
+    opening
+        .queue_governance("order-test-cooperation", GovernanceCommand::SignCooperation)
+        .unwrap();
+    let mut common = early_public_conditions_from(opening, 29);
+    common
+        .queue_governance(
+            "order-test-cap",
+            GovernanceCommand::SetSubsidy {
+                site: 29,
+                cap: money(40.0).unwrap(),
+            },
+        )
+        .unwrap();
+    let mut accepted = std::collections::BTreeSet::new();
+    for month in 4..=17 {
+        if month == 9 {
+            common
+                .queue_governance(
+                    "order-test-refresh",
+                    GovernanceCommand::SetSubsidy {
+                        site: 29,
+                        cap: money(40.0).unwrap(),
+                    },
+                )
+                .unwrap();
+            common
+                .queue_governance(
+                    "order-test-decline",
+                    GovernanceCommand::RenewAid {
+                        choice: RenewalChoice::Decline,
+                    },
+                )
+                .unwrap();
+        }
+        let intents: Vec<_> = common
+            .governance()
+            .unwrap()
+            .intents
+            .values()
+            .cloned()
+            .collect();
+        for intent in intents {
+            if intent.site == 29
+                && !accepted.contains(&intent.group)
+                && (intent.group == Group::B || month >= 10)
+            {
+                common
+                    .queue_governance(
+                        format!("order-test-accept-{:?}", intent.group),
+                        GovernanceCommand::AcceptIntent {
+                            id: intent.id,
+                            deadline: 24,
+                        },
+                    )
+                    .unwrap();
+                accepted.insert(intent.group);
+            }
+        }
+        if month == 13 {
+            common
+                .queue_governance(
+                    "order-test-labor",
+                    GovernanceCommand::SetInstitution {
+                        kind: Institution::LaborProtection,
+                        enabled: true,
+                    },
+                )
+                .unwrap();
+        }
+        common.end_month(month).unwrap();
+    }
+    let factories: Vec<_> = common
+        .governance()
+        .unwrap()
+        .factories
+        .values()
+        .filter(|f| f.site == 29 && f.phase == FactoryPhase::Operating)
+        .map(|f| f.id.clone())
+        .collect();
+    assert_eq!(factories.len(), 2);
+    for id in factories {
+        common
+            .queue_governance(
+                format!("order-test-retrofit-{id}"),
+                GovernanceCommand::Retrofit { factory: id },
+            )
+            .unwrap();
+    }
+    public_project(&mut common, 29, "order-test-extra-road", PublicWork::Road);
+    public_project(&mut common, 29, "order-test-extra-power", PublicWork::Power);
+    let mut maintained = common.clone();
+    let mut suspended = common;
+    suspended
+        .queue_governance(
+            "order-test-security-cut",
+            GovernanceCommand::SetSecurity { monthly: 0 },
+        )
+        .unwrap();
+    let mut observed_order_loss_months = 0;
+    for month in 18..=29 {
+        let orders_at_opening = suspended.governance().unwrap().export_orders;
+        maintained.end_month(month).unwrap();
+        suspended.end_month(month).unwrap();
+        let state = suspended.governance().unwrap();
+        if state.cooperation_start.is_none() && orders_at_opening == 0.0 {
+            observed_order_loss_months += 1;
+            let factories: Vec<_> = state.factories.values().filter(|f| f.site == 29).collect();
+            let output: f64 = factories.iter().map(|f| f.output).sum();
+            assert_eq!(output, 200.0);
+            assert!(factories.iter().all(|f| f.after_tax_profit > 0
+                && f.loss_months == 0
+                && f.phase == FactoryPhase::Operating));
+            println!(
+                "B8 bounded order-loss M{month}: output={output}, factories={:?}",
+                factories
+                    .iter()
+                    .map(|f| (f.id.as_str(), f.output, currency(f.after_tax_profit as u64)))
+                    .collect::<Vec<_>>()
+            );
+        }
+    }
+    let kept = maintained.governance().unwrap();
+    let lost = suspended.governance().unwrap();
+    assert!(kept.export_orders > 0.0);
+    assert_eq!(lost.export_orders, 0.0);
+    assert!(
+        lost.facts
+            .iter()
+            .any(|f| f.effect == "cooperation_suspended")
+    );
+    let kept_output: f64 = kept
+        .factories
+        .values()
+        .filter(|f| f.site == 29)
+        .map(|f| f.output)
+        .sum();
+    let lost_output: f64 = lost
+        .factories
+        .values()
+        .filter(|f| f.site == 29)
+        .map(|f| f.output)
+        .sum();
+    println!(
+        "B8 bounded counterfactual: maintained output={kept_output}, suspended output={lost_output}, suspension_month={:?}, final_export_orders={}/{}",
+        lost.facts
+            .iter()
+            .find(|f| f.effect == "cooperation_suspended")
+            .map(|f| f.month),
+        kept.export_orders,
+        lost.export_orders
+    );
+    assert!(observed_order_loss_months >= 6);
+    assert!(kept_output > lost_output);
+    assert_eq!(lost_output, 200.0);
+    assert!(
+        lost.factories
+            .values()
+            .all(|f| f.phase != FactoryPhase::ClosureWarned)
+    );
+}
+
+/// Explicit historical skill-share fixture isolates D025 water behavior. This
+/// is not evidence that D026 default calibration builds two factories by M12.
+fn historical_skill_share_two_operating_factories_before_late_water(fraction: f64) -> Game {
+    let calibration = GovernanceCalibration {
+        initial_skilled_idle_share: 1.0,
+        water_priority_fraction: fraction,
+        ..GovernanceCalibration::default()
+    };
+    let opening = Game::confirmed_game_with_calibration(calibration).unwrap();
+    let mut game = early_public_conditions_from(opening, 29);
+    game.queue_governance(
+        "late-water-cap",
+        GovernanceCommand::SetSubsidy {
+            site: 29,
+            cap: money(40.0).unwrap(),
+        },
+    )
+    .unwrap();
+    game.end_month(4).unwrap();
+    let first = game
+        .governance()
+        .unwrap()
+        .intents
+        .values()
+        .find(|i| i.group == Group::B && i.site == 29)
+        .unwrap()
+        .id
+        .clone();
+    game.queue_governance(
+        "late-water-first",
+        GovernanceCommand::AcceptIntent {
+            id: first,
+            deadline: 11,
+        },
+    )
+    .unwrap();
+    game.end_month(5).unwrap();
+    game.queue_governance(
+        "late-water-refresh",
+        GovernanceCommand::SetSubsidy {
+            site: 29,
+            cap: money(40.0).unwrap(),
+        },
+    )
+    .unwrap();
+    game.end_month(6).unwrap();
+    let second = game
+        .governance()
+        .unwrap()
+        .intents
+        .values()
+        .find(|i| i.group == Group::A && i.site == 29)
+        .unwrap()
+        .id
+        .clone();
+    game.queue_governance(
+        "late-water-second",
+        GovernanceCommand::AcceptIntent {
+            id: second,
+            deadline: 11,
+        },
+    )
+    .unwrap();
+    advance(&mut game, 11);
+    let factories: Vec<_> = game
+        .governance()
+        .unwrap()
+        .factories
+        .values()
+        .filter(|f| f.site == 29)
+        .collect();
+    assert_eq!(factories.len(), 2);
+    assert!(
+        factories
+            .iter()
+            .all(|f| f.phase == FactoryPhase::Operating && f.output == 100.0)
+    );
+    assert_ne!(
+        factories[0].first_operated_month,
+        factories[1].first_operated_month
+    );
+    game
+}
+
+#[test]
+fn historical_skill_fixture_late_water_suspends_new_factories_but_protects_initial_industry() {
+    let mut game = historical_skill_share_two_operating_factories_before_late_water(
+        GovernanceCalibration::default().water_priority_fraction,
+    );
+    let ids: Vec<_> = game
+        .governance()
+        .unwrap()
+        .factories
+        .values()
+        .filter(|f| f.site == 29)
+        .map(|f| f.id.clone())
+        .collect();
+    let initial: Vec<_> = ["initial-industry/39", "initial-industry/74"]
+        .iter()
+        .map(|id| ((*id).to_string(), game.reservations()[*id].clone()))
+        .collect();
+    let opening_cash = std::collections::BTreeMap::from([
+        (Group::A, game.balance("group_a", &Asset::Money).unwrap()),
+        (Group::B, game.balance("group_b", &Asset::Money).unwrap()),
+    ]);
+    game.queue_governance(
+        "late-water-renew",
+        GovernanceCommand::RenewAid {
+            choice: RenewalChoice::WaterPriority,
+        },
+    )
+    .unwrap();
+    game.end_month(12).unwrap();
+    for id in &ids {
+        let factory = &game.governance().unwrap().factories[id];
+        assert!(factory.water_suspended);
+        assert_eq!(factory.output, 0.0);
+        assert_eq!(factory.loss_months, 1);
+        let retained = money(if factory.group == Group::A {
+            2.2
+        } else {
+            2.475
+        })
+        .unwrap();
+        assert_eq!(
+            game.balance(factory.group.account(), &Asset::Money)
+                .unwrap(),
+            opening_cash[&factory.group] + retained - money(5.6).unwrap()
+        );
+        assert_eq!(
+            factory.after_tax_profit,
+            -(money(2.0 + 3.6).unwrap() as i128)
+        );
+        assert_eq!(
+            game.reservations()[id].phase,
+            AllocationPhase::OperationalWaitingForWater
+        );
+    }
+    for (id, reservation) in initial {
+        assert_eq!(game.reservations()[&id], reservation);
+    }
+    let history = game.governance().unwrap().history.last().unwrap();
+    assert!(history.output_by_site[&39] >= 300.0 && history.output_by_site[&74] >= 125.0);
+    advance(&mut game, 17);
+    for id in &ids {
+        let factory = &game.governance().unwrap().factories[id];
+        assert_eq!(factory.phase, FactoryPhase::ClosureWarned);
+        assert_eq!(factory.loss_months, 6);
+    }
+    game.end_month(18).unwrap();
+    assert!(
+        ids.iter()
+            .all(|id| game.governance().unwrap().factories[id].phase == FactoryPhase::Closed)
+    );
+}
+
+#[test]
+fn historical_skill_and_pending_water_fixture_suspends_later_operated_factory_first() {
+    let total = fixture()
+        .cell(29)
+        .unwrap()
+        .water_sources
+        .values()
+        .map(|(_, slots)| *slots)
+        .max()
+        .unwrap();
+    assert!(total > 2);
+    // Pending technical fixture leaves exactly two slots: the earlier housing
+    // and the earlier factory. It does not propose a production balance value.
+    let fraction = (total as f64 - 2.25) / total as f64;
+    let mut game = historical_skill_share_two_operating_factories_before_late_water(fraction);
+    let mut before: Vec<_> = game
+        .governance()
+        .unwrap()
+        .factories
+        .values()
+        .filter(|f| f.site == 29)
+        .cloned()
+        .collect();
+    before.sort_by_key(|f| (f.first_operated_month, f.id.clone()));
+    assert!(before[0].first_operated_month < before[1].first_operated_month);
+    let source = game.reservations()[&before[0].id].source;
+    assert_eq!(game.reservations()[&before[1].id].source, source);
+    game.queue_governance(
+        "ordered-water-renew",
+        GovernanceCommand::RenewAid {
+            choice: RenewalChoice::WaterPriority,
+        },
+    )
+    .unwrap();
+    game.end_month(12).unwrap();
+    let state = game.governance().unwrap();
+    let earlier = &state.factories[&before[0].id];
+    let later = &state.factories[&before[1].id];
+    assert!(!earlier.water_suspended);
+    assert!(earlier.output > 0.0);
+    assert!(later.water_suspended);
+    assert_eq!(later.output, 0.0);
+    assert_eq!(earlier.first_operated_month, before[0].first_operated_month);
+    assert_eq!(later.first_operated_month, before[1].first_operated_month);
+    println!(
+        "D025 pending technical fraction={fraction}, source={source}, total={total}, first={:?}, later={:?}",
+        earlier.first_operated_month, later.first_operated_month
+    );
+}
+
+#[test]
+fn historical_skill_fixture_housing_loses_and_recovers_capacity_without_resetting_first_operation()
+{
+    let mut game = historical_skill_share_two_operating_factories_before_late_water(1.0);
+    let project = "independent-29-housing";
+    let before = game.governance().unwrap().projects[project].clone();
+    let site_before = game.governance().unwrap().sites[&29].clone();
+    game.queue_governance(
+        "all-new-water-renew",
+        GovernanceCommand::RenewAid {
+            choice: RenewalChoice::WaterPriority,
+        },
+    )
+    .unwrap();
+    game.end_month(12).unwrap();
+    let state = game.governance().unwrap();
+    assert!(state.projects[project].water_suspended);
+    assert_eq!(
+        state.sites[&29].housing_capacity,
+        site_before.housing_capacity - state.calibration.housing_workers
+    );
+    assert_eq!(state.sites[&29].population, site_before.population);
+    assert_eq!(
+        state.projects[project].first_operated_month,
+        before.first_operated_month
+    );
+    let saved = game.save().unwrap();
+    game = Game::load(&saved).unwrap();
+    advance(&mut game, 25);
+    let state = game.governance().unwrap();
+    assert!(!state.projects[project].water_suspended);
+    assert_eq!(
+        state.sites[&29].housing_capacity,
+        site_before.housing_capacity
+    );
+    assert_eq!(state.sites[&29].population, site_before.population);
+    assert_eq!(
+        state.projects[project].first_operated_month,
+        before.first_operated_month
     );
 }
