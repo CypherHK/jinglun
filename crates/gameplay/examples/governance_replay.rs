@@ -963,6 +963,47 @@ mod driver_tests {
     }
 
     #[test]
+    fn delayed_subsidy_replay_keeps_early_preparation_and_defaults_unchanged() {
+        let base = Game::confirmed_game_with_calibration(GovernanceCalibration::default()).unwrap();
+        let mut script = Script {
+            site: 8,
+            route: 1,
+            choice: b15::Choice::Decline,
+            prepare_month: 1,
+            subsidy_currency: 40,
+            renewal_month: 9,
+            project_order: 1,
+            commitment_span: 8,
+            intent_order: IntentOrder::AFirst,
+            subsidy_start_month: 8,
+        };
+        let delayed = replay(&base, script.clone()).unwrap();
+        assert!(delayed.execution_error.is_none());
+        assert_eq!(delayed.monthly[0]["candidate_site"]["admitted"], true);
+        assert!(!delayed.monthly[0]["projects"]
+            .as_array()
+            .unwrap()
+            .is_empty());
+        for month in &delayed.monthly[..7] {
+            assert_eq!(month["candidate_site"]["subsidy_cap"], 0);
+        }
+        assert_eq!(
+            delayed.monthly[7]["candidate_site"]["subsidy_cap"],
+            40 * MONEY_SCALE
+        );
+        script.commitment_span = 4;
+        script.intent_order = IntentOrder::Subsidy;
+        script.subsidy_start_month = script.prepare_month;
+        assert_eq!(script.id(), "s8-r1-Decline-p1-c40-m9-o1");
+        let original = replay(&base, script).unwrap();
+        assert!(original.execution_error.is_none());
+        assert_eq!(
+            original.monthly[0]["candidate_site"]["subsidy_cap"],
+            40 * MONEY_SCALE
+        );
+    }
+
+    #[test]
     fn capital_refunds_are_not_counted_as_actual_payment() {
         let mut account = CapitalAccount::default();
         account.add(100, 30, true).unwrap();
