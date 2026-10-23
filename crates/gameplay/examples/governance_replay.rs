@@ -16,11 +16,12 @@ struct Script {
     subsidy_currency: u64,
     renewal_month: u32,
     project_order: u32,
+    commitment_span: u32,
 }
 
 impl Script {
     fn id(&self) -> String {
-        format!(
+        let base = format!(
             "s{}-r{}-{:?}-p{}-c{}-m{}-o{}",
             self.site,
             self.route,
@@ -29,7 +30,12 @@ impl Script {
             self.subsidy_currency,
             self.renewal_month,
             self.project_order
-        )
+        );
+        if self.commitment_span == 4 {
+            base
+        } else {
+            format!("{base}-d{}", self.commitment_span)
+        }
     }
 }
 
@@ -496,7 +502,7 @@ fn replay(base: &Game, script: Script) -> std::result::Result<Replay, String> {
                     id.clone(),
                     GovernanceCommand::AcceptIntent {
                         id: intent.id,
-                        deadline: (month + 4).min(24),
+                        deadline: month.saturating_add(script.commitment_span).min(24),
                     },
                     &mut failed,
                 ) {
@@ -586,6 +592,7 @@ fn run() -> std::result::Result<u8, String> {
     let mut water_share = None;
     let mut skilled_idle_share = None;
     let mut export_orders = None;
+    let mut commitment_span = 4_u32;
     let mut require_acceptance = false;
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -600,6 +607,13 @@ fn run() -> std::result::Result<u8, String> {
                         .parse::<f64>()
                         .map_err(|e| e.to_string())?,
                 )
+            }
+            "--commitment-span" => {
+                commitment_span = args
+                    .next()
+                    .ok_or("--commitment-span needs months")?
+                    .parse::<u32>()
+                    .map_err(|e| e.to_string())?
             }
             "--export-orders" => {
                 export_orders = Some(
@@ -619,7 +633,7 @@ fn run() -> std::result::Result<u8, String> {
             }
             _ => {
                 return Err(
-                    "usage: governance_replay [--quick] [--summary-only] [--script ID] [--water-share RATIO] [--require-acceptance] [--skilled-idle-share RATIO] [--export-orders QUANTITY]".into(),
+                    "usage: governance_replay [--quick] [--summary-only] [--script ID] [--water-share RATIO] [--require-acceptance] [--skilled-idle-share RATIO] [--export-orders QUANTITY] [--commitment-span MONTHS]".into(),
                 );
             }
         }
@@ -661,7 +675,7 @@ fn run() -> std::result::Result<u8, String> {
     }
     let base = Game::confirmed_game_with_calibration(calibration).map_err(|e| e.to_string())?;
     emit(
-        &json!({"kind":"search_domain","require_acceptance":require_acceptance,"selected_script":selected_script,"pending_water_share_override":water_share,"pending_skilled_idle_share_override":skilled_idle_share,"pending_export_orders_override":export_orders,"export_budget_policy":"When export quantity is overridden, foreign buyer monthly budget is exactly quantity times D022 confirmed goods unit price in fixed money units.","preparation_months":preparation,"subsidy_currency":subsidy,"renewal_months":renewal,"project_orders":order,"choices":["W","E","Decline"],"project_sequences":{"r1_o0":["Housing","Road","Power","Water","Clinic"],"r1_o1":["Road","Power","Housing","Clinic","Water","Vocational"],"r2_o0":["Vocational","Housing","Clinic","Road","Power","Water"],"r2_o1":["Housing","Clinic","Vocational","Power","Road","Water"]},"horizon":24,"money_scale":b15::MONEY_SCALE,"tolerances":tolerance,"calibration":base.governance().ok_or("missing governance")?.calibration,"global_optimality_claim":false,"retry_policy":"Every uncompleted prescribed action retries monthly; successful IDs are never repeated. Intents only at selected candidate; deadline min(month+4,24). Renewal retries only to M12. Execution errors have no metrics and block the whole B15 group.","route1":"housing/road/power/water/clinic; order1 additionally vocational last; subsidy cap, ordinary energy contract from M3","route2":"vocational/housing/clinic/road/power/water, subsidy cap, cooperation from M2","frontiers":"exact Pareto; tolerance pairwise bidirectional coverage","attainment":"Some only when final M24 grade Achieved; raw first sustained window separately reported"}),
+        &json!({"kind":"search_domain","require_acceptance":require_acceptance,"selected_script":selected_script,"pending_water_share_override":water_share,"pending_skilled_idle_share_override":skilled_idle_share,"pending_export_orders_override":export_orders,"export_budget_policy":"When export quantity is overridden, foreign buyer monthly budget is exactly quantity times D022 confirmed goods unit price in fixed money units.","preparation_months":preparation,"subsidy_currency":subsidy,"renewal_months":renewal,"project_orders":order,"choices":["W","E","Decline"],"project_sequences":{"r1_o0":["Housing","Road","Power","Water","Clinic"],"r1_o1":["Road","Power","Housing","Clinic","Water","Vocational"],"r2_o0":["Vocational","Housing","Clinic","Road","Power","Water"],"r2_o1":["Housing","Clinic","Vocational","Power","Road","Water"]},"commitment_span":commitment_span,"horizon":24,"money_scale":b15::MONEY_SCALE,"tolerances":tolerance,"calibration":base.governance().ok_or("missing governance")?.calibration,"global_optimality_claim":false,"retry_policy":"Every uncompleted prescribed action retries monthly; successful IDs are never repeated. Intents only at selected candidate; deadline min(month+commitment_span,24). Renewal retries only to M12. Execution errors have no metrics and block the whole B15 group.","route1":"housing/road/power/water/clinic; order1 additionally vocational last; subsidy cap, ordinary energy contract from M3","route2":"vocational/housing/clinic/road/power/water, subsidy cap, cooperation from M2","frontiers":"exact Pareto; tolerance pairwise bidirectional coverage","attainment":"Some only when final M24 grade Achieved; raw first sustained window separately reported"}),
     )?;
     let mut b1_execution_blocked = false;
     let mut capital_outcomes = vec![];
@@ -686,6 +700,7 @@ fn run() -> std::result::Result<u8, String> {
                                     subsidy_currency: *cap,
                                     renewal_month: *renewal_month,
                                     project_order: *project_order,
+                                    commitment_span,
                                 };
                                 if selected_script
                                     .as_ref()
@@ -854,6 +869,23 @@ mod driver_tests {
                 ..GovernmentCapital::default()
             },
         }
+    }
+
+    #[test]
+    fn commitment_span_is_explicit_in_nondefault_script_identity() {
+        let mut script = Script {
+            site: 8,
+            route: 1,
+            choice: b15::Choice::Decline,
+            prepare_month: 1,
+            subsidy_currency: 20,
+            renewal_month: 9,
+            project_order: 1,
+            commitment_span: 4,
+        };
+        assert_eq!(script.id(), "s8-r1-Decline-p1-c20-m9-o1");
+        script.commitment_span = 8;
+        assert_eq!(script.id(), "s8-r1-Decline-p1-c20-m9-o1-d8");
     }
 
     #[test]
