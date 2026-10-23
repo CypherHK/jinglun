@@ -1778,26 +1778,30 @@ impl GovernanceState {
             .housing_capacity
             .saturating_sub(s.population)
             .min(s.clinic_capacity.saturating_sub(s.population));
-        let domestic_available = if self.labor_trial_enabled {
-            self.sites
-                .iter()
-                .filter(|(id, _)| **id != site)
-                .map(|(id, source)| {
-                    let trial = &self.labor_trial_sources[id];
-                    (source.idle_workers + trial.nonmanufacturing_workers)
-                        .min(trial.outbound_remaining())
-                        .min(
-                            (source.population as f64
-                                * self.calibration.migration_source_population_share)
-                                .floor() as u32,
-                        )
-                })
-                .sum::<u32>()
-                .min(self.calibration.domestic_migration_per_month)
+        let (potential_workers, migrant_skills) = if self.labor_trial_enabled {
+            // Use the execution allocator itself: earlier ordinary origins and other destinations
+            // consume monthly room before later skilled origins can be reached.
+            let mut projected = self.clone();
+            projected.sites.insert(site, s.clone());
+            projected.migrate(game);
+            let destination = &projected.sites[&site];
+            (
+                destination.idle_workers,
+                destination
+                    .skilled_workers
+                    .saturating_sub(actual.skilled_workers),
+            )
         } else {
-            domestic_idle.saturating_sub(local_idle)
+            (
+                local_idle
+                    .saturating_add(migration_space.min(domestic_idle.saturating_sub(local_idle))),
+                self.sites
+                    .iter()
+                    .filter(|(id, _)| **id != site)
+                    .map(|(_, source)| source.skilled_workers)
+                    .sum::<u32>(),
+            )
         };
-        let potential_workers = local_idle.saturating_add(migration_space.min(domestic_available));
         let domestic_new: f64 = self
             .factories
             .values()
@@ -1834,32 +1838,6 @@ impl GovernanceState {
             "labor".into(),
             workers.saturating_sub(potential_workers) as f64,
         );
-        let migrant_skills: u32 = self
-            .sites
-            .iter()
-            .filter(|(id, _)| **id != site)
-            .map(|(id, source)| {
-                if self.labor_trial_enabled {
-                    let idle_available = source
-                        .idle_workers
-                        .min(self.labor_trial_sources[id].outbound_remaining())
-                        .min(
-                            (source.population as f64
-                                * self.calibration.migration_source_population_share)
-                                .floor() as u32,
-                        );
-                    idle_available
-                        .saturating_sub(source.idle_workers.saturating_sub(source.skilled_workers))
-                } else {
-                    source.skilled_workers
-                }
-            })
-            .sum::<u32>();
-        let migrant_skills = if self.labor_trial_enabled {
-            migrant_skills.min(self.calibration.domestic_migration_per_month)
-        } else {
-            migrant_skills
-        };
         let potential_skills = actual.skilled_workers
             + migration_space.min(migrant_skills)
             + if s.vocational_schools > 0 {
@@ -4495,5 +4473,28 @@ mod order_priority_tests {
             .assess_excluding_commitment(&game, Group::A, 29, None)
             .unwrap();
         assert_eq!(capped.gaps["labor"], 100.0);
+        // Six housing places fill from ordinary source 8 before skilled source 9.
+        state
+            .labor_trial_sources
+            .get_mut(&8)
+            .unwrap()
+            .cumulative_outbound = 0;
+        state
+            .labor_trial_sources
+            .get_mut(&9)
+            .unwrap()
+            .cumulative_outbound = 0;
+        state.sites.get_mut(&8).unwrap().idle_workers = 19;
+        state.sites.get_mut(&9).unwrap().skilled_workers = 20;
+        let destination = state.sites.get_mut(&29).unwrap();
+        destination.housing_capacity = destination.population + 6;
+        let priority = state
+            .assess_excluding_commitment(&game, Group::A, 29, None)
+            .unwrap();
+        assert_eq!(priority.gaps["labor"], 94.0);
+        assert_eq!(
+            priority.gaps["skills"],
+            state.calibration.factory_skill_workers as f64
+        );
     }
 }
