@@ -1,0 +1,5228 @@
+{
+  "kind": "D026_local_acceptance_evidence",
+  "date": "2026-10-24",
+  "runtime_change_commit": "7ca5185",
+  "final_test_and_format_commit": "17f33608a6b847c18776d89fb22020d23eca1ae3",
+  "initial_numbers_unchanged": 9982,
+  "not_experience_acceptance": true,
+  "search_domain": {
+    "additional_policy": "When included, add p1 c40 m9 o1 deadline8 A-first subsidy-start8 for every site/route/choice, alongside unchanged base domain.",
+    "attainment": "Some only when final M24 grade Achieved; raw first sustained window separately reported",
+    "calibration": {
+      "administrative_capacity": 4,
+      "capital_output_ratio": 0.5,
+      "clinic_base_cost": 200000000,
+      "clinic_people": 200,
+      "cooperation_delay_months": 3,
+      "cooperation_export_orders_per_month": 100,
+      "cooperation_monthly_fee": 100000000,
+      "cooperation_training_per_quarter": 10,
+      "domestic_migration_per_month": 100,
+      "factory_skill_workers": 20,
+      "foreign_buyer_monthly_budget": 1000000000,
+      "housing_workers": 200,
+      "initial_skilled_idle_share": 0.25,
+      "labor_protection_wage_multiplier": 1.1,
+      "maximum_payback_months": 48.0,
+      "migration_source_population_share": 0.01,
+      "ordinary_energy_import_limit": 6.0,
+      "owner": "user",
+      "power_base_cost": 200000000,
+      "power_output_capacity": 200,
+      "protected_treasury": 500000000,
+      "public_work_monthly_maintenance": 5000000,
+      "retrofit_cost": 300000000,
+      "retrofit_output_increase": 0.2,
+      "review_date": "2026-10-25",
+      "road_output_capacity": 200,
+      "security_decline_budget_ratio": 0.5,
+      "security_recovery_budget_ratio": 1.5,
+      "status": "pending_user_confirmation",
+      "trained_workers_per_quarter": 20,
+      "water_base_cost": 100000000,
+      "water_m3_per_slot": 50000000.0,
+      "water_priority_fraction": 0.92,
+      "water_slot_max": 64,
+      "water_slot_min": 0
+    },
+    "choices": [
+      "W",
+      "E",
+      "Decline"
+    ],
+    "commitment_span": 4,
+    "export_budget_policy": "When export quantity is overridden, foreign buyer monthly budget is exactly quantity times D022 confirmed goods unit price in fixed money units.",
+    "frontiers": "exact Pareto; tolerance pairwise bidirectional coverage",
+    "global_optimality_claim": false,
+    "horizon": 24,
+    "include_delayed_policy": true,
+    "intent_order": "subsidy",
+    "kind": "search_domain",
+    "money_scale": 100000000,
+    "pending_export_orders_override": null,
+    "pending_skilled_idle_share_override": null,
+    "pending_water_share_override": null,
+    "preparation_months": [
+      1,
+      6,
+      13
+    ],
+    "project_orders": [
+      0,
+      1
+    ],
+    "project_sequences": {
+      "r1_o0": [
+        "Housing",
+        "Road",
+        "Power",
+        "Water",
+        "Clinic"
+      ],
+      "r1_o1": [
+        "Road",
+        "Power",
+        "Housing",
+        "Clinic",
+        "Water",
+        "Vocational"
+      ],
+      "r2_o0": [
+        "Vocational",
+        "Housing",
+        "Clinic",
+        "Road",
+        "Power",
+        "Water"
+      ],
+      "r2_o1": [
+        "Housing",
+        "Clinic",
+        "Vocational",
+        "Power",
+        "Road",
+        "Water"
+      ]
+    },
+    "renewal_months": [
+      9,
+      12
+    ],
+    "require_acceptance": true,
+    "retry_policy": "Every uncompleted prescribed action retries monthly; successful IDs are never repeated. Intents only at selected candidate; deadline min(month+commitment_span,24). Renewal retries only to M12. Execution errors have no metrics and block the whole B15 group.",
+    "route1": "housing/road/power/water/clinic; order1 additionally vocational last; subsidy cap, ordinary energy contract from M3",
+    "route2": "vocational/housing/clinic/road/power/water, subsidy cap, cooperation from M2",
+    "selected_script": null,
+    "subsidy_currency": [
+      0,
+      20,
+      40
+    ],
+    "subsidy_start_month_override": null,
+    "subsidy_start_policy": "Initial cap remains zero until max(preparation month, explicit subsidy-start-month); default start equals preparation month.",
+    "tolerances": {
+      "attainment_months": 0,
+      "guardrail_months": 0,
+      "recurring_minor_units": 1000000,
+      "status": "PendingUserConfirmation",
+      "treasury_minor_units": 1000000
+    }
+  },
+  "b1": {
+    "capital_metric": "net committed = actual paid + remaining escrow; historical gross and refunds separately retained",
+    "comparison_policy_status": "chat_confirmed_2026-10-24",
+    "decision": "D026",
+    "eight_fastest_by_m20": true,
+    "eight_fastest_month": 20,
+    "eight_w_achieved": true,
+    "kind": "bounded_b1",
+    "not_experience_acceptance": true,
+    "pass": false,
+    "primary_choice": "Decline",
+    "same_disclosed_search_domain": true,
+    "selection_confirmation": "User confirmed in current chat: route1 fastest, route2 cheapest, disclose all frontiers. R1 ties use minimum net capital; R2 ties use earliest attainment.",
+    "selection_policy": "Primary Decline: R1 earliest attained then minimum net capital; R2 minimum net capital attained within M24 then earliest. Full exact month/capital frontiers, alternate fastest-vs-fastest diagnosis and counterexamples disclosed; no dominated script establishes a pair.",
+    "status": "evaluated_under_proposed_policy",
+    "twenty_nine_w_achieved": false
+  },
+  "b1_results": [
+    {
+      "both_fastest_diagnostic_pass": true,
+      "choice": "Decline",
+      "fastest_vs_cheapest_pass": true,
+      "route1_fastest_at_least_two_months_earlier": true,
+      "route2_minimum_capital_strictly_lower": false,
+      "site": 8,
+      "stronger_independent_minima_diagnostic": false,
+      "route1": {
+        "achieved_count": 7,
+        "cheapest_then_fastest": [
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 1,
+            "script_id": "s8-r1-Decline-p1-c0-m9-o1",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 1,
+            "script_id": "s8-r1-Decline-p1-c0-m12-o1",
+            "site": 8
+          }
+        ],
+        "exact_pareto_frontier": [
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 1,
+            "script_id": "s8-r1-Decline-p1-c0-m9-o1",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 1,
+            "script_id": "s8-r1-Decline-p1-c0-m12-o1",
+            "site": 8
+          },
+          {
+            "attainment_month": 20,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 2064796995,
+                "historical_gross_committed": 2064796995,
+                "net_committed": 2064796995,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 5187666731,
+                "historical_gross_committed": 5187666731,
+                "net_committed": 5187666731,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 1,
+            "script_id": "s8-r1-Decline-p1-c40-m9-o1-d8-ia-u8",
+            "site": 8
+          }
+        ],
+        "fastest_month": 20,
+        "fastest_then_cheapest": [
+          {
+            "attainment_month": 20,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 2064796995,
+                "historical_gross_committed": 2064796995,
+                "net_committed": 2064796995,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 5187666731,
+                "historical_gross_committed": 5187666731,
+                "net_committed": 5187666731,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 1,
+            "script_id": "s8-r1-Decline-p1-c40-m9-o1-d8-ia-u8",
+            "site": 8
+          }
+        ],
+        "minimum_net_committed": 3122869736
+      },
+      "route2": {
+        "achieved_count": 13,
+        "cheapest_then_fastest": [
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 2,
+            "script_id": "s8-r2-Decline-p1-c0-m9-o0",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 2,
+            "script_id": "s8-r2-Decline-p1-c0-m9-o1",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 2,
+            "script_id": "s8-r2-Decline-p1-c0-m12-o0",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 2,
+            "script_id": "s8-r2-Decline-p1-c0-m12-o1",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 2,
+            "script_id": "s8-r2-Decline-p1-c40-m9-o0",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 2,
+            "script_id": "s8-r2-Decline-p1-c40-m9-o1",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 2,
+            "script_id": "s8-r2-Decline-p1-c40-m12-o0",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 2,
+            "script_id": "s8-r2-Decline-p1-c40-m12-o1",
+            "site": 8
+          }
+        ],
+        "exact_pareto_frontier": [
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 2,
+            "script_id": "s8-r2-Decline-p1-c0-m9-o0",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 2,
+            "script_id": "s8-r2-Decline-p1-c0-m9-o1",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 2,
+            "script_id": "s8-r2-Decline-p1-c0-m12-o0",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 2,
+            "script_id": "s8-r2-Decline-p1-c0-m12-o1",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 2,
+            "script_id": "s8-r2-Decline-p1-c40-m9-o0",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 2,
+            "script_id": "s8-r2-Decline-p1-c40-m9-o1",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 2,
+            "script_id": "s8-r2-Decline-p1-c40-m12-o0",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 2,
+            "script_id": "s8-r2-Decline-p1-c40-m12-o1",
+            "site": 8
+          }
+        ],
+        "fastest_month": 24,
+        "fastest_then_cheapest": [
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 2,
+            "script_id": "s8-r2-Decline-p1-c0-m9-o0",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 2,
+            "script_id": "s8-r2-Decline-p1-c0-m9-o1",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 2,
+            "script_id": "s8-r2-Decline-p1-c0-m12-o0",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 2,
+            "script_id": "s8-r2-Decline-p1-c0-m12-o1",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 2,
+            "script_id": "s8-r2-Decline-p1-c40-m9-o0",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 2,
+            "script_id": "s8-r2-Decline-p1-c40-m9-o1",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 2,
+            "script_id": "s8-r2-Decline-p1-c40-m12-o0",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 2,
+            "script_id": "s8-r2-Decline-p1-c40-m12-o1",
+            "site": 8
+          }
+        ],
+        "minimum_net_committed": 3122869736
+      },
+      "counterexample_count": 32,
+      "full_counterexamples": "root-evidence.tar.gz/d026/d026-final-444.jsonl"
+    },
+    {
+      "both_fastest_diagnostic_pass": false,
+      "choice": "Decline",
+      "fastest_vs_cheapest_pass": false,
+      "route1_fastest_at_least_two_months_earlier": false,
+      "route2_minimum_capital_strictly_lower": false,
+      "site": 29,
+      "stronger_independent_minima_diagnostic": false,
+      "route1": {
+        "achieved_count": 7,
+        "cheapest_then_fastest": [
+          {
+            "attainment_month": 20,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 1,
+            "script_id": "s29-r1-Decline-p1-c0-m9-o1",
+            "site": 29
+          },
+          {
+            "attainment_month": 20,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 1,
+            "script_id": "s29-r1-Decline-p1-c0-m12-o1",
+            "site": 29
+          },
+          {
+            "attainment_month": 20,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 1277506965,
+                "net_committed": 0,
+                "refunded": 1277506965,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 3759888231,
+                "net_committed": 2482381266,
+                "refunded": 1277506965,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 1,
+            "script_id": "s29-r1-Decline-p1-c40-m9-o1",
+            "site": 29
+          },
+          {
+            "attainment_month": 20,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 1277506965,
+                "net_committed": 0,
+                "refunded": 1277506965,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 3759888231,
+                "net_committed": 2482381266,
+                "refunded": 1277506965,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 1,
+            "script_id": "s29-r1-Decline-p1-c40-m12-o1",
+            "site": 29
+          }
+        ],
+        "exact_pareto_frontier": [
+          {
+            "attainment_month": 20,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 1,
+            "script_id": "s29-r1-Decline-p1-c0-m9-o1",
+            "site": 29
+          },
+          {
+            "attainment_month": 20,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 1,
+            "script_id": "s29-r1-Decline-p1-c0-m12-o1",
+            "site": 29
+          },
+          {
+            "attainment_month": 20,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 1277506965,
+                "net_committed": 0,
+                "refunded": 1277506965,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 3759888231,
+                "net_committed": 2482381266,
+                "refunded": 1277506965,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 1,
+            "script_id": "s29-r1-Decline-p1-c40-m9-o1",
+            "site": 29
+          },
+          {
+            "attainment_month": 20,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 1277506965,
+                "net_committed": 0,
+                "refunded": 1277506965,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 3759888231,
+                "net_committed": 2482381266,
+                "refunded": 1277506965,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 1,
+            "script_id": "s29-r1-Decline-p1-c40-m12-o1",
+            "site": 29
+          }
+        ],
+        "fastest_month": 20,
+        "fastest_then_cheapest": [
+          {
+            "attainment_month": 20,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 1,
+            "script_id": "s29-r1-Decline-p1-c0-m9-o1",
+            "site": 29
+          },
+          {
+            "attainment_month": 20,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 1,
+            "script_id": "s29-r1-Decline-p1-c0-m12-o1",
+            "site": 29
+          },
+          {
+            "attainment_month": 20,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 1277506965,
+                "net_committed": 0,
+                "refunded": 1277506965,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 3759888231,
+                "net_committed": 2482381266,
+                "refunded": 1277506965,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 1,
+            "script_id": "s29-r1-Decline-p1-c40-m9-o1",
+            "site": 29
+          },
+          {
+            "attainment_month": 20,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 1277506965,
+                "net_committed": 0,
+                "refunded": 1277506965,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 3759888231,
+                "net_committed": 2482381266,
+                "refunded": 1277506965,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 1,
+            "script_id": "s29-r1-Decline-p1-c40-m12-o1",
+            "site": 29
+          }
+        ],
+        "minimum_net_committed": 2482381266
+      },
+      "route2": {
+        "achieved_count": 13,
+        "cheapest_then_fastest": [
+          {
+            "attainment_month": 19,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 2,
+            "script_id": "s29-r2-Decline-p1-c0-m9-o0",
+            "site": 29
+          },
+          {
+            "attainment_month": 19,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 2,
+            "script_id": "s29-r2-Decline-p1-c0-m9-o1",
+            "site": 29
+          },
+          {
+            "attainment_month": 19,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 2,
+            "script_id": "s29-r2-Decline-p1-c0-m12-o0",
+            "site": 29
+          },
+          {
+            "attainment_month": 19,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 2,
+            "script_id": "s29-r2-Decline-p1-c0-m12-o1",
+            "site": 29
+          }
+        ],
+        "exact_pareto_frontier": [
+          {
+            "attainment_month": 19,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 2,
+            "script_id": "s29-r2-Decline-p1-c0-m9-o0",
+            "site": 29
+          },
+          {
+            "attainment_month": 19,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 2,
+            "script_id": "s29-r2-Decline-p1-c0-m9-o1",
+            "site": 29
+          },
+          {
+            "attainment_month": 19,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 2,
+            "script_id": "s29-r2-Decline-p1-c0-m12-o0",
+            "site": 29
+          },
+          {
+            "attainment_month": 19,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 2,
+            "script_id": "s29-r2-Decline-p1-c0-m12-o1",
+            "site": 29
+          },
+          {
+            "attainment_month": 17,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 1295013930,
+                "historical_gross_committed": 1295013930,
+                "net_committed": 1295013930,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3777395196,
+                "historical_gross_committed": 3777395196,
+                "net_committed": 3777395196,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 2,
+            "script_id": "s29-r2-Decline-p1-c40-m9-o1-d8-ia-u8",
+            "site": 29
+          }
+        ],
+        "fastest_month": 17,
+        "fastest_then_cheapest": [
+          {
+            "attainment_month": 17,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 1295013930,
+                "historical_gross_committed": 1295013930,
+                "net_committed": 1295013930,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3777395196,
+                "historical_gross_committed": 3777395196,
+                "net_committed": 3777395196,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "Decline",
+            "route": 2,
+            "script_id": "s29-r2-Decline-p1-c40-m9-o1-d8-ia-u8",
+            "site": 29
+          }
+        ],
+        "minimum_net_committed": 2482381266
+      },
+      "counterexample_count": 16,
+      "full_counterexamples": "root-evidence.tar.gz/d026/d026-final-444.jsonl"
+    },
+    {
+      "both_fastest_diagnostic_pass": true,
+      "choice": "W",
+      "fastest_vs_cheapest_pass": true,
+      "route1_fastest_at_least_two_months_earlier": true,
+      "route2_minimum_capital_strictly_lower": false,
+      "site": 8,
+      "stronger_independent_minima_diagnostic": false,
+      "route1": {
+        "achieved_count": 10,
+        "cheapest_then_fastest": [
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 1,
+            "script_id": "s8-r1-W-p1-c0-m9-o1",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 1,
+            "script_id": "s8-r1-W-p1-c0-m12-o1",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 1,
+            "script_id": "s8-r1-W-p6-c0-m9-o1",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 1097296995,
+                "net_committed": 0,
+                "refunded": 1097296995,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 4220166731,
+                "net_committed": 3122869736,
+                "refunded": 1097296995,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 1,
+            "script_id": "s8-r1-W-p6-c20-m9-o1",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 1097296995,
+                "net_committed": 0,
+                "refunded": 1097296995,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 4220166731,
+                "net_committed": 3122869736,
+                "refunded": 1097296995,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 1,
+            "script_id": "s8-r1-W-p6-c40-m9-o1",
+            "site": 8
+          }
+        ],
+        "exact_pareto_frontier": [
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 1,
+            "script_id": "s8-r1-W-p1-c0-m9-o1",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 1,
+            "script_id": "s8-r1-W-p1-c0-m12-o1",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 1,
+            "script_id": "s8-r1-W-p6-c0-m9-o1",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 1097296995,
+                "net_committed": 0,
+                "refunded": 1097296995,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 4220166731,
+                "net_committed": 3122869736,
+                "refunded": 1097296995,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 1,
+            "script_id": "s8-r1-W-p6-c20-m9-o1",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 1097296995,
+                "net_committed": 0,
+                "refunded": 1097296995,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 4220166731,
+                "net_committed": 3122869736,
+                "refunded": 1097296995,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 1,
+            "script_id": "s8-r1-W-p6-c40-m9-o1",
+            "site": 8
+          },
+          {
+            "attainment_month": 20,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 2064796995,
+                "historical_gross_committed": 2064796995,
+                "net_committed": 2064796995,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 5187666731,
+                "historical_gross_committed": 5187666731,
+                "net_committed": 5187666731,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 1,
+            "script_id": "s8-r1-W-p1-c40-m9-o1-d8-ia-u8",
+            "site": 8
+          }
+        ],
+        "fastest_month": 20,
+        "fastest_then_cheapest": [
+          {
+            "attainment_month": 20,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 2064796995,
+                "historical_gross_committed": 2064796995,
+                "net_committed": 2064796995,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 5187666731,
+                "historical_gross_committed": 5187666731,
+                "net_committed": 5187666731,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 1,
+            "script_id": "s8-r1-W-p1-c40-m9-o1-d8-ia-u8",
+            "site": 8
+          }
+        ],
+        "minimum_net_committed": 3122869736
+      },
+      "route2": {
+        "achieved_count": 19,
+        "cheapest_then_fastest": [
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 2,
+            "script_id": "s8-r2-W-p1-c0-m9-o0",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 2,
+            "script_id": "s8-r2-W-p1-c0-m9-o1",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 2,
+            "script_id": "s8-r2-W-p1-c0-m12-o0",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 2,
+            "script_id": "s8-r2-W-p1-c0-m12-o1",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 2,
+            "script_id": "s8-r2-W-p1-c40-m9-o0",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 2,
+            "script_id": "s8-r2-W-p1-c40-m9-o1",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 2,
+            "script_id": "s8-r2-W-p1-c40-m12-o0",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 2,
+            "script_id": "s8-r2-W-p1-c40-m12-o1",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 2,
+            "script_id": "s8-r2-W-p6-c0-m9-o0",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 2,
+            "script_id": "s8-r2-W-p6-c0-m9-o1",
+            "site": 8
+          }
+        ],
+        "exact_pareto_frontier": [
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 2,
+            "script_id": "s8-r2-W-p1-c0-m9-o0",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 2,
+            "script_id": "s8-r2-W-p1-c0-m9-o1",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 2,
+            "script_id": "s8-r2-W-p1-c0-m12-o0",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 2,
+            "script_id": "s8-r2-W-p1-c0-m12-o1",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 2,
+            "script_id": "s8-r2-W-p1-c40-m9-o0",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 2,
+            "script_id": "s8-r2-W-p1-c40-m9-o1",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 2,
+            "script_id": "s8-r2-W-p1-c40-m12-o0",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 2,
+            "script_id": "s8-r2-W-p1-c40-m12-o1",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 2,
+            "script_id": "s8-r2-W-p6-c0-m9-o0",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 2,
+            "script_id": "s8-r2-W-p6-c0-m9-o1",
+            "site": 8
+          }
+        ],
+        "fastest_month": 24,
+        "fastest_then_cheapest": [
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 2,
+            "script_id": "s8-r2-W-p1-c0-m9-o0",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 2,
+            "script_id": "s8-r2-W-p1-c0-m9-o1",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 2,
+            "script_id": "s8-r2-W-p1-c0-m12-o0",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 2,
+            "script_id": "s8-r2-W-p1-c0-m12-o1",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 2,
+            "script_id": "s8-r2-W-p1-c40-m9-o0",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 2,
+            "script_id": "s8-r2-W-p1-c40-m9-o1",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 2,
+            "script_id": "s8-r2-W-p1-c40-m12-o0",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 2,
+            "script_id": "s8-r2-W-p1-c40-m12-o1",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 2,
+            "script_id": "s8-r2-W-p6-c0-m9-o0",
+            "site": 8
+          },
+          {
+            "attainment_month": 24,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3122869736,
+                "historical_gross_committed": 3122869736,
+                "net_committed": 3122869736,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "W",
+            "route": 2,
+            "script_id": "s8-r2-W-p6-c0-m9-o1",
+            "site": 8
+          }
+        ],
+        "minimum_net_committed": 3122869736
+      },
+      "counterexample_count": 100,
+      "full_counterexamples": "root-evidence.tar.gz/d026/d026-final-444.jsonl"
+    },
+    {
+      "both_fastest_diagnostic_pass": false,
+      "choice": "W",
+      "fastest_vs_cheapest_pass": false,
+      "route1_fastest_at_least_two_months_earlier": false,
+      "route2_minimum_capital_strictly_lower": false,
+      "site": 29,
+      "stronger_independent_minima_diagnostic": false,
+      "route1": {
+        "achieved_count": 0,
+        "cheapest_then_fastest": [],
+        "exact_pareto_frontier": [],
+        "fastest_month": null,
+        "fastest_then_cheapest": [],
+        "minimum_net_committed": null
+      },
+      "route2": {
+        "achieved_count": 0,
+        "cheapest_then_fastest": [],
+        "exact_pareto_frontier": [],
+        "fastest_month": null,
+        "fastest_then_cheapest": [],
+        "minimum_net_committed": null
+      },
+      "counterexample_count": 0,
+      "full_counterexamples": "root-evidence.tar.gz/d026/d026-final-444.jsonl"
+    },
+    {
+      "both_fastest_diagnostic_pass": false,
+      "choice": "E",
+      "fastest_vs_cheapest_pass": false,
+      "route1_fastest_at_least_two_months_earlier": false,
+      "route2_minimum_capital_strictly_lower": false,
+      "site": 8,
+      "stronger_independent_minima_diagnostic": false,
+      "route1": {
+        "achieved_count": 0,
+        "cheapest_then_fastest": [],
+        "exact_pareto_frontier": [],
+        "fastest_month": null,
+        "fastest_then_cheapest": [],
+        "minimum_net_committed": null
+      },
+      "route2": {
+        "achieved_count": 0,
+        "cheapest_then_fastest": [],
+        "exact_pareto_frontier": [],
+        "fastest_month": null,
+        "fastest_then_cheapest": [],
+        "minimum_net_committed": null
+      },
+      "counterexample_count": 0,
+      "full_counterexamples": "root-evidence.tar.gz/d026/d026-final-444.jsonl"
+    },
+    {
+      "both_fastest_diagnostic_pass": false,
+      "choice": "E",
+      "fastest_vs_cheapest_pass": false,
+      "route1_fastest_at_least_two_months_earlier": false,
+      "route2_minimum_capital_strictly_lower": false,
+      "site": 29,
+      "stronger_independent_minima_diagnostic": false,
+      "route1": {
+        "achieved_count": 7,
+        "cheapest_then_fastest": [
+          {
+            "attainment_month": 20,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "E",
+            "route": 1,
+            "script_id": "s29-r1-E-p1-c0-m9-o1",
+            "site": 29
+          },
+          {
+            "attainment_month": 20,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "E",
+            "route": 1,
+            "script_id": "s29-r1-E-p1-c0-m12-o1",
+            "site": 29
+          },
+          {
+            "attainment_month": 20,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 1277506965,
+                "net_committed": 0,
+                "refunded": 1277506965,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 3759888231,
+                "net_committed": 2482381266,
+                "refunded": 1277506965,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "E",
+            "route": 1,
+            "script_id": "s29-r1-E-p1-c40-m9-o1",
+            "site": 29
+          },
+          {
+            "attainment_month": 20,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 1277506965,
+                "net_committed": 0,
+                "refunded": 1277506965,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 3759888231,
+                "net_committed": 2482381266,
+                "refunded": 1277506965,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "E",
+            "route": 1,
+            "script_id": "s29-r1-E-p1-c40-m12-o1",
+            "site": 29
+          }
+        ],
+        "exact_pareto_frontier": [
+          {
+            "attainment_month": 20,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "E",
+            "route": 1,
+            "script_id": "s29-r1-E-p1-c0-m9-o1",
+            "site": 29
+          },
+          {
+            "attainment_month": 20,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "E",
+            "route": 1,
+            "script_id": "s29-r1-E-p1-c0-m12-o1",
+            "site": 29
+          },
+          {
+            "attainment_month": 20,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 1277506965,
+                "net_committed": 0,
+                "refunded": 1277506965,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 3759888231,
+                "net_committed": 2482381266,
+                "refunded": 1277506965,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "E",
+            "route": 1,
+            "script_id": "s29-r1-E-p1-c40-m9-o1",
+            "site": 29
+          },
+          {
+            "attainment_month": 20,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 1277506965,
+                "net_committed": 0,
+                "refunded": 1277506965,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 3759888231,
+                "net_committed": 2482381266,
+                "refunded": 1277506965,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "E",
+            "route": 1,
+            "script_id": "s29-r1-E-p1-c40-m12-o1",
+            "site": 29
+          }
+        ],
+        "fastest_month": 20,
+        "fastest_then_cheapest": [
+          {
+            "attainment_month": 20,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "E",
+            "route": 1,
+            "script_id": "s29-r1-E-p1-c0-m9-o1",
+            "site": 29
+          },
+          {
+            "attainment_month": 20,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "E",
+            "route": 1,
+            "script_id": "s29-r1-E-p1-c0-m12-o1",
+            "site": 29
+          },
+          {
+            "attainment_month": 20,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 1277506965,
+                "net_committed": 0,
+                "refunded": 1277506965,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 3759888231,
+                "net_committed": 2482381266,
+                "refunded": 1277506965,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "E",
+            "route": 1,
+            "script_id": "s29-r1-E-p1-c40-m9-o1",
+            "site": 29
+          },
+          {
+            "attainment_month": 20,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 1277506965,
+                "net_committed": 0,
+                "refunded": 1277506965,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 3759888231,
+                "net_committed": 2482381266,
+                "refunded": 1277506965,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "E",
+            "route": 1,
+            "script_id": "s29-r1-E-p1-c40-m12-o1",
+            "site": 29
+          }
+        ],
+        "minimum_net_committed": 2482381266
+      },
+      "route2": {
+        "achieved_count": 13,
+        "cheapest_then_fastest": [
+          {
+            "attainment_month": 19,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "E",
+            "route": 2,
+            "script_id": "s29-r2-E-p1-c0-m9-o0",
+            "site": 29
+          },
+          {
+            "attainment_month": 19,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "E",
+            "route": 2,
+            "script_id": "s29-r2-E-p1-c0-m9-o1",
+            "site": 29
+          },
+          {
+            "attainment_month": 19,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "E",
+            "route": 2,
+            "script_id": "s29-r2-E-p1-c0-m12-o0",
+            "site": 29
+          },
+          {
+            "attainment_month": 19,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "E",
+            "route": 2,
+            "script_id": "s29-r2-E-p1-c0-m12-o1",
+            "site": 29
+          }
+        ],
+        "exact_pareto_frontier": [
+          {
+            "attainment_month": 19,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "E",
+            "route": 2,
+            "script_id": "s29-r2-E-p1-c0-m9-o0",
+            "site": 29
+          },
+          {
+            "attainment_month": 19,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "E",
+            "route": 2,
+            "script_id": "s29-r2-E-p1-c0-m9-o1",
+            "site": 29
+          },
+          {
+            "attainment_month": 19,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "E",
+            "route": 2,
+            "script_id": "s29-r2-E-p1-c0-m12-o0",
+            "site": 29
+          },
+          {
+            "attainment_month": 19,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 0,
+                "historical_gross_committed": 0,
+                "net_committed": 0,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "E",
+            "route": 2,
+            "script_id": "s29-r2-E-p1-c0-m12-o1",
+            "site": 29
+          },
+          {
+            "attainment_month": 17,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 1295013930,
+                "historical_gross_committed": 1295013930,
+                "net_committed": 1295013930,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3777395196,
+                "historical_gross_committed": 3777395196,
+                "net_committed": 3777395196,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "E",
+            "route": 2,
+            "script_id": "s29-r2-E-p1-c40-m9-o1-d8-ia-u8",
+            "site": 29
+          }
+        ],
+        "fastest_month": 17,
+        "fastest_then_cheapest": [
+          {
+            "attainment_month": 17,
+            "capital": {
+              "construction_subsidies": {
+                "actually_paid": 1295013930,
+                "historical_gross_committed": 1295013930,
+                "net_committed": 1295013930,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "direct_construction_fees": 0,
+              "public_works": {
+                "actually_paid": 2482381266,
+                "historical_gross_committed": 2482381266,
+                "net_committed": 2482381266,
+                "refunded": 0,
+                "remaining_escrow": 0
+              },
+              "total": {
+                "actually_paid": 3777395196,
+                "historical_gross_committed": 3777395196,
+                "net_committed": 3777395196,
+                "refunded": 0,
+                "remaining_escrow": 0
+              }
+            },
+            "choice": "E",
+            "route": 2,
+            "script_id": "s29-r2-E-p1-c40-m9-o1-d8-ia-u8",
+            "site": 29
+          }
+        ],
+        "minimum_net_committed": 2482381266
+      },
+      "counterexample_count": 16,
+      "full_counterexamples": "root-evidence.tar.gz/d026/d026-final-444.jsonl"
+    }
+  ],
+  "b15": [
+    {
+      "aggregation_sensitive": false,
+      "counts": {
+        "Decline": {
+          "achieved": 7,
+          "fatal": 0
+        },
+        "E": {
+          "achieved": 0,
+          "fatal": 0
+        },
+        "W": {
+          "achieved": 10,
+          "fatal": 0
+        }
+      },
+      "kind": "bounded_b15",
+      "route": 1,
+      "scripts": 111,
+      "site": 8,
+      "sum": {
+        "aggregation": "SumOfThreeCounts",
+        "all_equivalent": false,
+        "frontiers": [
+          {
+            "choice": "W",
+            "script_ids": [
+              "s8-r1-W-p1-c40-m9-o1",
+              "s8-r1-W-p1-c40-m12-o1",
+              "s8-r1-W-p6-c40-m9-o0",
+              "s8-r1-W-p1-c40-m9-o1-d8-ia-u8"
+            ]
+          },
+          {
+            "choice": "E",
+            "script_ids": [
+              "s8-r1-E-p1-c0-m9-o0",
+              "s8-r1-E-p1-c0-m9-o1",
+              "s8-r1-E-p1-c20-m9-o0",
+              "s8-r1-E-p1-c20-m9-o1",
+              "s8-r1-E-p1-c40-m9-o0",
+              "s8-r1-E-p1-c40-m9-o1",
+              "s8-r1-E-p13-c0-m9-o0",
+              "s8-r1-E-p13-c0-m12-o0",
+              "s8-r1-E-p13-c20-m9-o0",
+              "s8-r1-E-p13-c20-m12-o0",
+              "s8-r1-E-p13-c40-m9-o0",
+              "s8-r1-E-p13-c40-m12-o0"
+            ]
+          },
+          {
+            "choice": "Decline",
+            "script_ids": [
+              "s8-r1-Decline-p1-c40-m9-o1",
+              "s8-r1-Decline-p1-c40-m12-o1",
+              "s8-r1-Decline-p6-c0-m9-o1",
+              "s8-r1-Decline-p6-c0-m12-o1",
+              "s8-r1-Decline-p13-c0-m9-o0",
+              "s8-r1-Decline-p13-c0-m12-o0",
+              "s8-r1-Decline-p13-c20-m9-o0",
+              "s8-r1-Decline-p13-c20-m12-o0",
+              "s8-r1-Decline-p13-c40-m9-o0",
+              "s8-r1-Decline-p13-c40-m12-o0",
+              "s8-r1-Decline-p1-c40-m9-o1-d8-ia-u8"
+            ]
+          }
+        ],
+        "pass": true,
+        "tolerances": {
+          "attainment_months": 0,
+          "guardrail_months": 0,
+          "recurring_minor_units": 1000000,
+          "status": "PendingUserConfirmation",
+          "treasury_minor_units": 1000000
+        },
+        "witnesses": []
+      },
+      "union": {
+        "aggregation": "UnionOfMonths",
+        "all_equivalent": false,
+        "frontiers": [
+          {
+            "choice": "W",
+            "script_ids": [
+              "s8-r1-W-p1-c40-m9-o1",
+              "s8-r1-W-p1-c40-m12-o1",
+              "s8-r1-W-p6-c40-m9-o0",
+              "s8-r1-W-p1-c40-m9-o1-d8-ia-u8"
+            ]
+          },
+          {
+            "choice": "E",
+            "script_ids": [
+              "s8-r1-E-p1-c0-m9-o0",
+              "s8-r1-E-p1-c0-m9-o1",
+              "s8-r1-E-p1-c20-m9-o0",
+              "s8-r1-E-p1-c20-m9-o1",
+              "s8-r1-E-p1-c40-m9-o0",
+              "s8-r1-E-p1-c40-m9-o1",
+              "s8-r1-E-p13-c0-m9-o0",
+              "s8-r1-E-p13-c0-m12-o0",
+              "s8-r1-E-p13-c20-m9-o0",
+              "s8-r1-E-p13-c20-m12-o0",
+              "s8-r1-E-p13-c40-m9-o0",
+              "s8-r1-E-p13-c40-m12-o0"
+            ]
+          },
+          {
+            "choice": "Decline",
+            "script_ids": [
+              "s8-r1-Decline-p1-c40-m9-o1",
+              "s8-r1-Decline-p1-c40-m12-o1",
+              "s8-r1-Decline-p6-c0-m9-o1",
+              "s8-r1-Decline-p6-c0-m12-o1",
+              "s8-r1-Decline-p13-c0-m9-o0",
+              "s8-r1-Decline-p13-c0-m12-o0",
+              "s8-r1-Decline-p13-c20-m9-o0",
+              "s8-r1-Decline-p13-c20-m12-o0",
+              "s8-r1-Decline-p13-c40-m9-o0",
+              "s8-r1-Decline-p13-c40-m12-o0",
+              "s8-r1-Decline-p1-c40-m9-o1-d8-ia-u8"
+            ]
+          }
+        ],
+        "pass": true,
+        "tolerances": {
+          "attainment_months": 0,
+          "guardrail_months": 0,
+          "recurring_minor_units": 1000000,
+          "status": "PendingUserConfirmation",
+          "treasury_minor_units": 1000000
+        },
+        "witnesses": []
+      }
+    },
+    {
+      "aggregation_sensitive": false,
+      "counts": {
+        "Decline": {
+          "achieved": 13,
+          "fatal": 0
+        },
+        "E": {
+          "achieved": 0,
+          "fatal": 0
+        },
+        "W": {
+          "achieved": 19,
+          "fatal": 0
+        }
+      },
+      "kind": "bounded_b15",
+      "route": 2,
+      "scripts": 111,
+      "site": 8,
+      "sum": {
+        "aggregation": "SumOfThreeCounts",
+        "all_equivalent": false,
+        "frontiers": [
+          {
+            "choice": "W",
+            "script_ids": [
+              "s8-r2-W-p6-c0-m9-o0",
+              "s8-r2-W-p6-c0-m9-o1",
+              "s8-r2-W-p13-c0-m12-o0"
+            ]
+          },
+          {
+            "choice": "E",
+            "script_ids": [
+              "s8-r2-E-p6-c20-m12-o0",
+              "s8-r2-E-p6-c40-m12-o0"
+            ]
+          },
+          {
+            "choice": "Decline",
+            "script_ids": [
+              "s8-r2-Decline-p1-c0-m9-o0",
+              "s8-r2-Decline-p1-c0-m9-o1",
+              "s8-r2-Decline-p1-c0-m12-o0",
+              "s8-r2-Decline-p1-c0-m12-o1",
+              "s8-r2-Decline-p1-c20-m9-o0",
+              "s8-r2-Decline-p1-c20-m9-o1",
+              "s8-r2-Decline-p1-c20-m12-o0",
+              "s8-r2-Decline-p1-c20-m12-o1",
+              "s8-r2-Decline-p1-c40-m9-o0",
+              "s8-r2-Decline-p1-c40-m9-o1",
+              "s8-r2-Decline-p1-c40-m12-o0",
+              "s8-r2-Decline-p1-c40-m12-o1",
+              "s8-r2-Decline-p13-c0-m9-o0",
+              "s8-r2-Decline-p13-c0-m12-o0",
+              "s8-r2-Decline-p1-c40-m9-o1-d8-ia-u8"
+            ]
+          }
+        ],
+        "pass": false,
+        "tolerances": {
+          "attainment_months": 0,
+          "guardrail_months": 0,
+          "recurring_minor_units": 1000000,
+          "status": "PendingUserConfirmation",
+          "treasury_minor_units": 1000000
+        },
+        "witnesses": [
+          {
+            "choice": "W",
+            "script_id": "s8-r2-W-p6-c0-m9-o0"
+          },
+          {
+            "choice": "W",
+            "script_id": "s8-r2-W-p6-c0-m9-o1"
+          }
+        ]
+      },
+      "union": {
+        "aggregation": "UnionOfMonths",
+        "all_equivalent": false,
+        "frontiers": [
+          {
+            "choice": "W",
+            "script_ids": [
+              "s8-r2-W-p6-c0-m9-o0",
+              "s8-r2-W-p6-c0-m9-o1",
+              "s8-r2-W-p13-c0-m12-o0"
+            ]
+          },
+          {
+            "choice": "E",
+            "script_ids": [
+              "s8-r2-E-p6-c20-m12-o0",
+              "s8-r2-E-p6-c40-m12-o0"
+            ]
+          },
+          {
+            "choice": "Decline",
+            "script_ids": [
+              "s8-r2-Decline-p1-c0-m9-o0",
+              "s8-r2-Decline-p1-c0-m9-o1",
+              "s8-r2-Decline-p1-c0-m12-o0",
+              "s8-r2-Decline-p1-c0-m12-o1",
+              "s8-r2-Decline-p1-c20-m9-o0",
+              "s8-r2-Decline-p1-c20-m9-o1",
+              "s8-r2-Decline-p1-c20-m12-o0",
+              "s8-r2-Decline-p1-c20-m12-o1",
+              "s8-r2-Decline-p1-c40-m9-o0",
+              "s8-r2-Decline-p1-c40-m9-o1",
+              "s8-r2-Decline-p1-c40-m12-o0",
+              "s8-r2-Decline-p1-c40-m12-o1",
+              "s8-r2-Decline-p13-c0-m9-o0",
+              "s8-r2-Decline-p13-c0-m12-o0",
+              "s8-r2-Decline-p1-c40-m9-o1-d8-ia-u8"
+            ]
+          }
+        ],
+        "pass": false,
+        "tolerances": {
+          "attainment_months": 0,
+          "guardrail_months": 0,
+          "recurring_minor_units": 1000000,
+          "status": "PendingUserConfirmation",
+          "treasury_minor_units": 1000000
+        },
+        "witnesses": [
+          {
+            "choice": "W",
+            "script_id": "s8-r2-W-p6-c0-m9-o0"
+          },
+          {
+            "choice": "W",
+            "script_id": "s8-r2-W-p6-c0-m9-o1"
+          }
+        ]
+      }
+    },
+    {
+      "aggregation_sensitive": false,
+      "counts": {
+        "Decline": {
+          "achieved": 7,
+          "fatal": 0
+        },
+        "E": {
+          "achieved": 7,
+          "fatal": 0
+        },
+        "W": {
+          "achieved": 0,
+          "fatal": 0
+        }
+      },
+      "kind": "bounded_b15",
+      "route": 1,
+      "scripts": 111,
+      "site": 29,
+      "sum": {
+        "aggregation": "SumOfThreeCounts",
+        "all_equivalent": false,
+        "frontiers": [
+          {
+            "choice": "W",
+            "script_ids": [
+              "s29-r1-W-p1-c20-m9-o1",
+              "s29-r1-W-p1-c20-m12-o1"
+            ]
+          },
+          {
+            "choice": "E",
+            "script_ids": [
+              "s29-r1-E-p1-c20-m9-o1",
+              "s29-r1-E-p6-c0-m9-o1",
+              "s29-r1-E-p6-c0-m12-o1",
+              "s29-r1-E-p6-c20-m9-o1",
+              "s29-r1-E-p6-c20-m12-o1",
+              "s29-r1-E-p6-c40-m9-o1",
+              "s29-r1-E-p6-c40-m12-o1"
+            ]
+          },
+          {
+            "choice": "Decline",
+            "script_ids": [
+              "s29-r1-Decline-p1-c20-m9-o1",
+              "s29-r1-Decline-p1-c20-m12-o1",
+              "s29-r1-Decline-p6-c0-m9-o1",
+              "s29-r1-Decline-p6-c0-m12-o1",
+              "s29-r1-Decline-p6-c20-m9-o1",
+              "s29-r1-Decline-p6-c20-m12-o1",
+              "s29-r1-Decline-p6-c40-m9-o1",
+              "s29-r1-Decline-p6-c40-m12-o1",
+              "s29-r1-Decline-p13-c0-m9-o0",
+              "s29-r1-Decline-p13-c0-m12-o0",
+              "s29-r1-Decline-p13-c20-m9-o0",
+              "s29-r1-Decline-p13-c20-m12-o0",
+              "s29-r1-Decline-p13-c40-m9-o0",
+              "s29-r1-Decline-p13-c40-m12-o0"
+            ]
+          }
+        ],
+        "pass": true,
+        "tolerances": {
+          "attainment_months": 0,
+          "guardrail_months": 0,
+          "recurring_minor_units": 1000000,
+          "status": "PendingUserConfirmation",
+          "treasury_minor_units": 1000000
+        },
+        "witnesses": []
+      },
+      "union": {
+        "aggregation": "UnionOfMonths",
+        "all_equivalent": false,
+        "frontiers": [
+          {
+            "choice": "W",
+            "script_ids": [
+              "s29-r1-W-p1-c20-m9-o1",
+              "s29-r1-W-p1-c20-m12-o1"
+            ]
+          },
+          {
+            "choice": "E",
+            "script_ids": [
+              "s29-r1-E-p1-c20-m9-o1",
+              "s29-r1-E-p6-c0-m9-o1",
+              "s29-r1-E-p6-c0-m12-o1",
+              "s29-r1-E-p6-c20-m9-o1",
+              "s29-r1-E-p6-c20-m12-o1",
+              "s29-r1-E-p6-c40-m9-o1",
+              "s29-r1-E-p6-c40-m12-o1"
+            ]
+          },
+          {
+            "choice": "Decline",
+            "script_ids": [
+              "s29-r1-Decline-p1-c20-m9-o1",
+              "s29-r1-Decline-p1-c20-m12-o1",
+              "s29-r1-Decline-p6-c0-m9-o1",
+              "s29-r1-Decline-p6-c0-m12-o1",
+              "s29-r1-Decline-p6-c20-m9-o1",
+              "s29-r1-Decline-p6-c20-m12-o1",
+              "s29-r1-Decline-p6-c40-m9-o1",
+              "s29-r1-Decline-p6-c40-m12-o1",
+              "s29-r1-Decline-p13-c0-m9-o0",
+              "s29-r1-Decline-p13-c0-m12-o0",
+              "s29-r1-Decline-p13-c20-m9-o0",
+              "s29-r1-Decline-p13-c20-m12-o0",
+              "s29-r1-Decline-p13-c40-m9-o0",
+              "s29-r1-Decline-p13-c40-m12-o0"
+            ]
+          }
+        ],
+        "pass": true,
+        "tolerances": {
+          "attainment_months": 0,
+          "guardrail_months": 0,
+          "recurring_minor_units": 1000000,
+          "status": "PendingUserConfirmation",
+          "treasury_minor_units": 1000000
+        },
+        "witnesses": []
+      }
+    },
+    {
+      "aggregation_sensitive": false,
+      "counts": {
+        "Decline": {
+          "achieved": 13,
+          "fatal": 0
+        },
+        "E": {
+          "achieved": 13,
+          "fatal": 0
+        },
+        "W": {
+          "achieved": 0,
+          "fatal": 0
+        }
+      },
+      "kind": "bounded_b15",
+      "route": 2,
+      "scripts": 111,
+      "site": 29,
+      "sum": {
+        "aggregation": "SumOfThreeCounts",
+        "all_equivalent": false,
+        "frontiers": [
+          {
+            "choice": "W",
+            "script_ids": [
+              "s29-r2-W-p1-c20-m9-o1",
+              "s29-r2-W-p1-c20-m12-o1",
+              "s29-r2-W-p1-c40-m9-o1",
+              "s29-r2-W-p1-c40-m12-o1",
+              "s29-r2-W-p13-c0-m12-o0",
+              "s29-r2-W-p13-c20-m12-o0",
+              "s29-r2-W-p13-c40-m12-o0"
+            ]
+          },
+          {
+            "choice": "E",
+            "script_ids": [
+              "s29-r2-E-p1-c40-m9-o1-d8-ia-u8"
+            ]
+          },
+          {
+            "choice": "Decline",
+            "script_ids": [
+              "s29-r2-Decline-p1-c0-m9-o0",
+              "s29-r2-Decline-p1-c0-m12-o0",
+              "s29-r2-Decline-p13-c0-m9-o0",
+              "s29-r2-Decline-p13-c0-m12-o0",
+              "s29-r2-Decline-p13-c20-m9-o0",
+              "s29-r2-Decline-p13-c20-m12-o0",
+              "s29-r2-Decline-p13-c40-m9-o0",
+              "s29-r2-Decline-p13-c40-m12-o0",
+              "s29-r2-Decline-p1-c40-m9-o1-d8-ia-u8"
+            ]
+          }
+        ],
+        "pass": true,
+        "tolerances": {
+          "attainment_months": 0,
+          "guardrail_months": 0,
+          "recurring_minor_units": 1000000,
+          "status": "PendingUserConfirmation",
+          "treasury_minor_units": 1000000
+        },
+        "witnesses": []
+      },
+      "union": {
+        "aggregation": "UnionOfMonths",
+        "all_equivalent": false,
+        "frontiers": [
+          {
+            "choice": "W",
+            "script_ids": [
+              "s29-r2-W-p1-c20-m9-o1",
+              "s29-r2-W-p1-c20-m12-o1",
+              "s29-r2-W-p1-c40-m9-o1",
+              "s29-r2-W-p1-c40-m12-o1",
+              "s29-r2-W-p13-c0-m12-o0",
+              "s29-r2-W-p13-c20-m12-o0",
+              "s29-r2-W-p13-c40-m12-o0"
+            ]
+          },
+          {
+            "choice": "E",
+            "script_ids": [
+              "s29-r2-E-p1-c40-m9-o1-d8-ia-u8"
+            ]
+          },
+          {
+            "choice": "Decline",
+            "script_ids": [
+              "s29-r2-Decline-p1-c0-m9-o0",
+              "s29-r2-Decline-p1-c0-m12-o0",
+              "s29-r2-Decline-p13-c0-m9-o0",
+              "s29-r2-Decline-p13-c0-m12-o0",
+              "s29-r2-Decline-p13-c20-m9-o0",
+              "s29-r2-Decline-p13-c20-m12-o0",
+              "s29-r2-Decline-p13-c40-m9-o0",
+              "s29-r2-Decline-p13-c40-m12-o0",
+              "s29-r2-Decline-p1-c40-m9-o1-d8-ia-u8"
+            ]
+          }
+        ],
+        "pass": true,
+        "tolerances": {
+          "attainment_months": 0,
+          "guardrail_months": 0,
+          "recurring_minor_units": 1000000,
+          "status": "PendingUserConfirmation",
+          "treasury_minor_units": 1000000
+        },
+        "witnesses": []
+      }
+    }
+  ],
+  "paired_witness": [
+    {
+      "script": {
+        "choice": "W",
+        "commitment_span": 4,
+        "intent_order": "subsidy",
+        "prepare_month": 6,
+        "project_order": 0,
+        "renewal_month": 9,
+        "route": 2,
+        "site": 8,
+        "subsidy_currency": 0,
+        "subsidy_start_month": 6
+      },
+      "outcome": {
+        "choice": "W",
+        "id": "s8-r2-W-p6-c0-m9-o0",
+        "metrics": {
+          "attainment_month": 24,
+          "final_three_recurring": [
+            114000000,
+            114000000,
+            114000000
+          ],
+          "guardrail_months": [
+            0,
+            0,
+            0
+          ],
+          "guardrail_union_months": 0,
+          "treasury_less_unpaid_future_e": 1232130264
+        }
+      },
+      "final_month": {
+        "candidate_site": {
+          "admitted": true,
+          "clinic_capacity": 852,
+          "enrolled_students": 0,
+          "housing_capacity": 852,
+          "idle_workers": 0,
+          "initial_population": 652,
+          "population": 834,
+          "power_capacity": 200,
+          "road_capacity": 200,
+          "skilled_workers": 0,
+          "subsidy_cap": 0,
+          "teachers": 1,
+          "training_months": 0,
+          "vocational_schools": 1,
+          "water_access": true
+        },
+        "factories": [
+          {
+            "activate": 18,
+            "after_tax_profit": 185000000,
+            "first_operated_month": 18,
+            "group": "B",
+            "id": "factory/1",
+            "operating_subsidy": 0,
+            "output": 100.0,
+            "phase": "Operating",
+            "site": 8,
+            "start": 15,
+            "water_suspended": false
+          },
+          {
+            "activate": 22,
+            "after_tax_profit": 185000000,
+            "first_operated_month": 22,
+            "group": "A",
+            "id": "factory/2",
+            "operating_subsidy": 0,
+            "output": 100.0,
+            "phase": "Operating",
+            "site": 8,
+            "start": 19,
+            "water_suspended": false
+          }
+        ],
+        "group_cash": {
+          "A": 2732703005,
+          "B": 4262703005
+        },
+        "projects": [
+          {
+            "activate_month": 8,
+            "active": true,
+            "construction_months": 2,
+            "cost": 391239850,
+            "escrow": "public/public/Clinic",
+            "expedite_months": 0,
+            "first_operated_month": 8,
+            "id": "public/Clinic",
+            "kind": "Clinic",
+            "paused": false,
+            "reserved_materials": 0,
+            "road_edge": null,
+            "site": 8,
+            "started_month": 6,
+            "water_suspended": false,
+            "worked_months": 2
+          },
+          {
+            "activate_month": 8,
+            "active": true,
+            "construction_months": 2,
+            "cost": 782479700,
+            "escrow": "public/public/Housing",
+            "expedite_months": 0,
+            "first_operated_month": 8,
+            "id": "public/Housing",
+            "kind": "Housing",
+            "paused": false,
+            "reserved_materials": 0,
+            "road_edge": null,
+            "site": 8,
+            "started_month": 6,
+            "water_suspended": false,
+            "worked_months": 2
+          },
+          {
+            "activate_month": 11,
+            "active": true,
+            "construction_months": 2,
+            "cost": 391239850,
+            "escrow": "public/public/Power",
+            "expedite_months": 0,
+            "first_operated_month": 11,
+            "id": "public/Power",
+            "kind": "Power",
+            "paused": false,
+            "reserved_materials": 0,
+            "road_edge": null,
+            "site": 8,
+            "started_month": 9,
+            "water_suspended": false,
+            "worked_months": 2
+          },
+          {
+            "activate_month": 9,
+            "active": true,
+            "construction_months": 3,
+            "cost": 677620674,
+            "escrow": "public/public/Road",
+            "expedite_months": 0,
+            "first_operated_month": 9,
+            "id": "public/Road",
+            "kind": "Road",
+            "paused": false,
+            "reserved_materials": 0,
+            "road_edge": 140,
+            "site": 8,
+            "started_month": 6,
+            "water_suspended": false,
+            "worked_months": 3
+          },
+          {
+            "activate_month": 10,
+            "active": true,
+            "construction_months": 4,
+            "cost": 684669737,
+            "escrow": "public/public/Vocational",
+            "expedite_months": 0,
+            "first_operated_month": 10,
+            "id": "public/Vocational",
+            "kind": "Vocational",
+            "paused": false,
+            "reserved_materials": 0,
+            "road_edge": null,
+            "site": 8,
+            "started_month": 6,
+            "water_suspended": false,
+            "worked_months": 4
+          },
+          {
+            "activate_month": 11,
+            "active": true,
+            "construction_months": 2,
+            "cost": 195619925,
+            "escrow": "public/public/Water",
+            "expedite_months": 0,
+            "first_operated_month": 11,
+            "id": "public/Water",
+            "kind": "Water",
+            "paused": false,
+            "reserved_materials": 0,
+            "road_edge": null,
+            "site": 8,
+            "started_month": 9,
+            "water_suspended": false,
+            "worked_months": 2
+          }
+        ],
+        "record": {
+          "aid": 158600000,
+          "clinic_ok": true,
+          "housing_ok": true,
+          "month": 24,
+          "output_by_site": {
+            "39": 300.0,
+            "74": 125.0,
+            "8": 200.0
+          },
+          "recurring_balance": 114000000,
+          "scale_met": true,
+          "security_ok": true,
+          "sustainable": true,
+          "treasury": 1232130264
+        },
+        "unused_energy_bill": 0
+      },
+      "report": {
+        "clinic_failed_months": [],
+        "failures": [],
+        "final_three_recurring": [
+          114000000,
+          114000000,
+          114000000
+        ],
+        "first_sustained_month": 24,
+        "fiscal_recovered": true,
+        "future_energy_liability": 0,
+        "grade": "Achieved",
+        "housing_failed_months": [],
+        "month": 24,
+        "security_failed_months": [],
+        "treasury_net_energy_liability": 1232130264,
+        "unpaid_energy_arrears": 0
+      },
+      "government_capital": {
+        "construction_subsidies": {
+          "actually_paid": 0,
+          "historical_gross_committed": 0,
+          "net_committed": 0,
+          "refunded": 0,
+          "remaining_escrow": 0
+        },
+        "direct_construction_fees": 0,
+        "public_works": {
+          "actually_paid": 3122869736,
+          "historical_gross_committed": 3122869736,
+          "net_committed": 3122869736,
+          "refunded": 0,
+          "remaining_escrow": 0
+        },
+        "total": {
+          "actually_paid": 3122869736,
+          "historical_gross_committed": 3122869736,
+          "net_committed": 3122869736,
+          "refunded": 0,
+          "remaining_escrow": 0
+        }
+      },
+      "trade_audit": {
+        "domestic_sales_actual_payment": 10000000000,
+        "export_sales_actual_payment": 0,
+        "export_sales_months": []
+      }
+    },
+    {
+      "script": {
+        "choice": "E",
+        "commitment_span": 4,
+        "intent_order": "subsidy",
+        "prepare_month": 6,
+        "project_order": 0,
+        "renewal_month": 9,
+        "route": 2,
+        "site": 8,
+        "subsidy_currency": 0,
+        "subsidy_start_month": 6
+      },
+      "outcome": {
+        "choice": "E",
+        "id": "s8-r2-E-p6-c0-m9-o0",
+        "metrics": {
+          "attainment_month": null,
+          "final_three_recurring": [
+            0,
+            0,
+            0
+          ],
+          "guardrail_months": [
+            0,
+            0,
+            0
+          ],
+          "guardrail_union_months": 0,
+          "treasury_less_unpaid_future_e": -2220000000
+        }
+      },
+      "final_month": {
+        "candidate_site": {
+          "admitted": true,
+          "clinic_capacity": 852,
+          "enrolled_students": 0,
+          "housing_capacity": 852,
+          "idle_workers": 194,
+          "initial_population": 652,
+          "population": 828,
+          "power_capacity": 200,
+          "road_capacity": 200,
+          "skilled_workers": 165,
+          "subsidy_cap": 0,
+          "teachers": 1,
+          "training_months": 0,
+          "vocational_schools": 1,
+          "water_access": true
+        },
+        "factories": [
+          {
+            "activate": 12,
+            "after_tax_profit": 150000000,
+            "first_operated_month": 12,
+            "group": "B",
+            "id": "factory/1",
+            "operating_subsidy": 0,
+            "output": 100.0,
+            "phase": "Operating",
+            "site": 39,
+            "start": 9,
+            "water_suspended": false
+          }
+        ],
+        "group_cash": {
+          "A": 10280000000,
+          "B": 5946831995
+        },
+        "projects": [
+          {
+            "activate_month": 8,
+            "active": true,
+            "construction_months": 2,
+            "cost": 391239850,
+            "escrow": "public/public/Clinic",
+            "expedite_months": 0,
+            "first_operated_month": 8,
+            "id": "public/Clinic",
+            "kind": "Clinic",
+            "paused": false,
+            "reserved_materials": 0,
+            "road_edge": null,
+            "site": 8,
+            "started_month": 6,
+            "water_suspended": false,
+            "worked_months": 2
+          },
+          {
+            "activate_month": 8,
+            "active": true,
+            "construction_months": 2,
+            "cost": 782479700,
+            "escrow": "public/public/Housing",
+            "expedite_months": 0,
+            "first_operated_month": 8,
+            "id": "public/Housing",
+            "kind": "Housing",
+            "paused": false,
+            "reserved_materials": 0,
+            "road_edge": null,
+            "site": 8,
+            "started_month": 6,
+            "water_suspended": false,
+            "worked_months": 2
+          },
+          {
+            "activate_month": 11,
+            "active": true,
+            "construction_months": 2,
+            "cost": 391239850,
+            "escrow": "public/public/Power",
+            "expedite_months": 0,
+            "first_operated_month": 11,
+            "id": "public/Power",
+            "kind": "Power",
+            "paused": false,
+            "reserved_materials": 0,
+            "road_edge": null,
+            "site": 8,
+            "started_month": 9,
+            "water_suspended": false,
+            "worked_months": 2
+          },
+          {
+            "activate_month": 9,
+            "active": true,
+            "construction_months": 3,
+            "cost": 677620674,
+            "escrow": "public/public/Road",
+            "expedite_months": 0,
+            "first_operated_month": 9,
+            "id": "public/Road",
+            "kind": "Road",
+            "paused": false,
+            "reserved_materials": 0,
+            "road_edge": 140,
+            "site": 8,
+            "started_month": 6,
+            "water_suspended": false,
+            "worked_months": 3
+          },
+          {
+            "activate_month": 10,
+            "active": true,
+            "construction_months": 4,
+            "cost": 684669737,
+            "escrow": "public/public/Vocational",
+            "expedite_months": 0,
+            "first_operated_month": 10,
+            "id": "public/Vocational",
+            "kind": "Vocational",
+            "paused": false,
+            "reserved_materials": 0,
+            "road_edge": null,
+            "site": 8,
+            "started_month": 6,
+            "water_suspended": false,
+            "worked_months": 4
+          },
+          {
+            "activate_month": 11,
+            "active": true,
+            "construction_months": 2,
+            "cost": 195619925,
+            "escrow": "public/public/Water",
+            "expedite_months": 0,
+            "first_operated_month": 11,
+            "id": "public/Water",
+            "kind": "Water",
+            "paused": false,
+            "reserved_materials": 0,
+            "road_edge": null,
+            "site": 8,
+            "started_month": 9,
+            "water_suspended": false,
+            "worked_months": 2
+          }
+        ],
+        "record": {
+          "aid": 158600000,
+          "clinic_ok": true,
+          "housing_ok": true,
+          "month": 24,
+          "output_by_site": {
+            "39": 400.0,
+            "74": 125.0
+          },
+          "recurring_balance": 0,
+          "scale_met": false,
+          "security_ok": true,
+          "sustainable": false,
+          "treasury": 500000000
+        },
+        "unused_energy_bill": 170000000
+      },
+      "report": {
+        "clinic_failed_months": [],
+        "failures": [
+          "selected_inland_output_never_reached_second_rank_and_capital_ratio",
+          "last_three_month_scale_and_unsubsidized_profit_not_sustained"
+        ],
+        "final_three_recurring": [
+          0,
+          0,
+          0
+        ],
+        "first_sustained_month": null,
+        "fiscal_recovered": true,
+        "future_energy_liability": 2720000000,
+        "grade": "NotAchieved",
+        "housing_failed_months": [],
+        "month": 24,
+        "security_failed_months": [],
+        "treasury_net_energy_liability": -2220000000,
+        "unpaid_energy_arrears": 0
+      },
+      "government_capital": {
+        "construction_subsidies": {
+          "actually_paid": 0,
+          "historical_gross_committed": 0,
+          "net_committed": 0,
+          "refunded": 0,
+          "remaining_escrow": 0
+        },
+        "direct_construction_fees": 0,
+        "public_works": {
+          "actually_paid": 3122869736,
+          "historical_gross_committed": 3122869736,
+          "net_committed": 3122869736,
+          "refunded": 0,
+          "remaining_escrow": 0
+        },
+        "total": {
+          "actually_paid": 3122869736,
+          "historical_gross_committed": 3122869736,
+          "net_committed": 3122869736,
+          "refunded": 0,
+          "remaining_escrow": 0
+        }
+      },
+      "trade_audit": {
+        "domestic_sales_actual_payment": 13000000000,
+        "export_sales_actual_payment": 0,
+        "export_sales_months": []
+      }
+    },
+    {
+      "script": {
+        "choice": "Decline",
+        "commitment_span": 4,
+        "intent_order": "subsidy",
+        "prepare_month": 6,
+        "project_order": 0,
+        "renewal_month": 9,
+        "route": 2,
+        "site": 8,
+        "subsidy_currency": 0,
+        "subsidy_start_month": 6
+      },
+      "outcome": {
+        "choice": "Decline",
+        "id": "s8-r2-Decline-p6-c0-m9-o0",
+        "metrics": {
+          "attainment_month": null,
+          "final_three_recurring": [
+            0,
+            0,
+            0
+          ],
+          "guardrail_months": [
+            0,
+            0,
+            0
+          ],
+          "guardrail_union_months": 0,
+          "treasury_less_unpaid_future_e": 500000000
+        }
+      },
+      "final_month": {
+        "candidate_site": {
+          "admitted": true,
+          "clinic_capacity": 852,
+          "enrolled_students": 0,
+          "housing_capacity": 852,
+          "idle_workers": 94,
+          "initial_population": 652,
+          "population": 828,
+          "power_capacity": 200,
+          "road_capacity": 200,
+          "skilled_workers": 94,
+          "subsidy_cap": 0,
+          "teachers": 1,
+          "training_months": 0,
+          "vocational_schools": 1,
+          "water_access": true
+        },
+        "factories": [
+          {
+            "activate": 12,
+            "after_tax_profit": 185000000,
+            "first_operated_month": 12,
+            "group": "B",
+            "id": "factory/1",
+            "operating_subsidy": 0,
+            "output": 100.0,
+            "phase": "Operating",
+            "site": 39,
+            "start": 9,
+            "water_suspended": false
+          },
+          {
+            "activate": 22,
+            "after_tax_profit": 185000000,
+            "first_operated_month": 22,
+            "group": "A",
+            "id": "factory/2",
+            "operating_subsidy": 0,
+            "output": 100.0,
+            "phase": "Operating",
+            "site": 8,
+            "start": 19,
+            "water_suspended": false
+          }
+        ],
+        "group_cash": {
+          "A": 2732703005,
+          "B": 6174331995
+        },
+        "projects": [
+          {
+            "activate_month": 8,
+            "active": true,
+            "construction_months": 2,
+            "cost": 391239850,
+            "escrow": "public/public/Clinic",
+            "expedite_months": 0,
+            "first_operated_month": 8,
+            "id": "public/Clinic",
+            "kind": "Clinic",
+            "paused": false,
+            "reserved_materials": 0,
+            "road_edge": null,
+            "site": 8,
+            "started_month": 6,
+            "water_suspended": false,
+            "worked_months": 2
+          },
+          {
+            "activate_month": 8,
+            "active": true,
+            "construction_months": 2,
+            "cost": 782479700,
+            "escrow": "public/public/Housing",
+            "expedite_months": 0,
+            "first_operated_month": 8,
+            "id": "public/Housing",
+            "kind": "Housing",
+            "paused": false,
+            "reserved_materials": 0,
+            "road_edge": null,
+            "site": 8,
+            "started_month": 6,
+            "water_suspended": false,
+            "worked_months": 2
+          },
+          {
+            "activate_month": 11,
+            "active": true,
+            "construction_months": 2,
+            "cost": 391239850,
+            "escrow": "public/public/Power",
+            "expedite_months": 0,
+            "first_operated_month": 11,
+            "id": "public/Power",
+            "kind": "Power",
+            "paused": false,
+            "reserved_materials": 0,
+            "road_edge": null,
+            "site": 8,
+            "started_month": 9,
+            "water_suspended": false,
+            "worked_months": 2
+          },
+          {
+            "activate_month": 9,
+            "active": true,
+            "construction_months": 3,
+            "cost": 677620674,
+            "escrow": "public/public/Road",
+            "expedite_months": 0,
+            "first_operated_month": 9,
+            "id": "public/Road",
+            "kind": "Road",
+            "paused": false,
+            "reserved_materials": 0,
+            "road_edge": 140,
+            "site": 8,
+            "started_month": 6,
+            "water_suspended": false,
+            "worked_months": 3
+          },
+          {
+            "activate_month": 10,
+            "active": true,
+            "construction_months": 4,
+            "cost": 684669737,
+            "escrow": "public/public/Vocational",
+            "expedite_months": 0,
+            "first_operated_month": 10,
+            "id": "public/Vocational",
+            "kind": "Vocational",
+            "paused": false,
+            "reserved_materials": 0,
+            "road_edge": null,
+            "site": 8,
+            "started_month": 6,
+            "water_suspended": false,
+            "worked_months": 4
+          },
+          {
+            "activate_month": 11,
+            "active": true,
+            "construction_months": 2,
+            "cost": 195619925,
+            "escrow": "public/public/Water",
+            "expedite_months": 0,
+            "first_operated_month": 11,
+            "id": "public/Water",
+            "kind": "Water",
+            "paused": false,
+            "reserved_materials": 0,
+            "road_edge": null,
+            "site": 8,
+            "started_month": 9,
+            "water_suspended": false,
+            "worked_months": 2
+          }
+        ],
+        "record": {
+          "aid": 0,
+          "clinic_ok": true,
+          "housing_ok": true,
+          "month": 24,
+          "output_by_site": {
+            "39": 400.0,
+            "74": 125.0,
+            "8": 100.0
+          },
+          "recurring_balance": 0,
+          "scale_met": false,
+          "security_ok": true,
+          "sustainable": false,
+          "treasury": 500000000
+        },
+        "unused_energy_bill": 0
+      },
+      "report": {
+        "clinic_failed_months": [],
+        "failures": [
+          "selected_inland_output_never_reached_second_rank_and_capital_ratio",
+          "last_three_month_scale_and_unsubsidized_profit_not_sustained"
+        ],
+        "final_three_recurring": [
+          0,
+          0,
+          0
+        ],
+        "first_sustained_month": null,
+        "fiscal_recovered": true,
+        "future_energy_liability": 0,
+        "grade": "NotAchieved",
+        "housing_failed_months": [],
+        "month": 24,
+        "security_failed_months": [],
+        "treasury_net_energy_liability": 500000000,
+        "unpaid_energy_arrears": 0
+      },
+      "government_capital": {
+        "construction_subsidies": {
+          "actually_paid": 0,
+          "historical_gross_committed": 0,
+          "net_committed": 0,
+          "refunded": 0,
+          "remaining_escrow": 0
+        },
+        "direct_construction_fees": 0,
+        "public_works": {
+          "actually_paid": 3122869736,
+          "historical_gross_committed": 3122869736,
+          "net_committed": 3122869736,
+          "refunded": 0,
+          "remaining_escrow": 0
+        },
+        "total": {
+          "actually_paid": 3122869736,
+          "historical_gross_committed": 3122869736,
+          "net_committed": 3122869736,
+          "refunded": 0,
+          "remaining_escrow": 0
+        }
+      },
+      "trade_audit": {
+        "domestic_sales_actual_payment": 16000000000,
+        "export_sales_actual_payment": 0,
+        "export_sales_months": []
+      }
+    }
+  ],
+  "acceptance_result": {
+    "aggregation_pending": false,
+    "all_b15_pass": false,
+    "b1_pass": false,
+    "b1_selection_policy": "chat_confirmed_route1_fastest_route2_cheapest",
+    "exit_code": 2,
+    "kind": "acceptance_result",
+    "not_experience_acceptance": true,
+    "status": "failed"
+  }
+}
