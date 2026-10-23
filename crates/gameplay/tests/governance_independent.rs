@@ -500,6 +500,12 @@ fn early_subsidy_alone_changes_cash_gap_into_next_month_investment_intent() {
             },
         )
         .unwrap();
+    println!(
+        "B5 default M4 site8 cash_gap={} subsidy={} other_gaps={:?}",
+        currency(card.cash_gap),
+        currency(card.cash_gap),
+        card.gaps
+    );
     assert!(subsidized.scorecard(Group::B, 8).unwrap().conditional_ready);
     waiting.end_month(4).unwrap();
     subsidized.end_month(4).unwrap();
@@ -902,15 +908,11 @@ fn same_inland_route_one_factory_pays_more_energy_and_earns_less_with_long_contr
     );
 }
 
-/// A bounded public-command counterfactual, not a claim that B8 order rescue passes.
-/// Both new factories are retrofitted; loss of cooperation removes export orders
-/// while domestic import substitution remains the D022-confirmed 200 units.
-#[test]
-fn cooperation_order_loss_counterfactual_records_default_two_factory_profitability() {
+fn default_cooperation_water_counterfactual(choice: RenewalChoice) -> Game {
     let mut opening = fixture();
     opening
         .queue_governance(
-            "order-test-budget",
+            "default-education",
             GovernanceCommand::SetServiceBudget {
                 kind: Service::Education,
                 monthly: 0,
@@ -919,169 +921,323 @@ fn cooperation_order_loss_counterfactual_records_default_two_factory_profitabili
         .unwrap();
     opening
         .queue_governance(
-            "order-test-target",
+            "default-target",
             GovernanceCommand::SelectCandidate { site: 29 },
         )
         .unwrap();
     opening
-        .queue_governance("order-test-cooperation", GovernanceCommand::SignCooperation)
+        .queue_governance("default-cooperation", GovernanceCommand::SignCooperation)
         .unwrap();
-    let mut common = early_public_conditions_from(opening, 29);
-    common
-        .queue_governance(
-            "order-test-cap",
+    let mut game = early_public_conditions_from(opening, 29);
+    let mut accepted = std::collections::BTreeSet::new();
+    for month in 4..=24 {
+        game.queue_governance(
+            format!("default-cap-{month}"),
             GovernanceCommand::SetSubsidy {
                 site: 29,
                 cap: money(40.0).unwrap(),
             },
         )
         .unwrap();
-    let mut accepted = std::collections::BTreeSet::new();
-    for month in 4..=17 {
         if month == 9 {
-            common
-                .queue_governance(
-                    "order-test-refresh",
-                    GovernanceCommand::SetSubsidy {
-                        site: 29,
-                        cap: money(40.0).unwrap(),
-                    },
-                )
-                .unwrap();
-            common
-                .queue_governance(
-                    "order-test-decline",
-                    GovernanceCommand::RenewAid {
-                        choice: RenewalChoice::Decline,
-                    },
-                )
+            game.queue_governance("default-renewal", GovernanceCommand::RenewAid { choice })
                 .unwrap();
         }
-        let intents: Vec<_> = common
+        let intents: Vec<_> = game
             .governance()
             .unwrap()
             .intents
             .values()
+            .filter(|i| i.site == 29 && !accepted.contains(&i.group))
             .cloned()
             .collect();
-        for intent in intents {
-            if intent.site == 29
-                && !accepted.contains(&intent.group)
-                && (intent.group == Group::B || month >= 10)
+        for i in intents {
+            if game
+                .queue_governance(
+                    format!("default-accept-{:?}-{month}", i.group),
+                    GovernanceCommand::AcceptIntent {
+                        id: i.id,
+                        deadline: 24,
+                    },
+                )
+                .is_ok()
             {
-                common
+                accepted.insert(i.group);
+            }
+        }
+        game.end_month(month).unwrap();
+    }
+    game
+}
+
+#[test]
+fn default_calibration_report_traces_water_against_identical_cooperation_plan() {
+    let water = default_cooperation_water_counterfactual(RenewalChoice::WaterPriority);
+    let decline = default_cooperation_water_counterfactual(RenewalChoice::Decline);
+    let ws = water.governance().unwrap();
+    let ds = decline.governance().unwrap();
+    let operating = |s: &GovernanceState| {
+        s.factories
+            .values()
+            .filter(|f| f.site == 29 && f.phase == FactoryPhase::Operating)
+            .count()
+    };
+    println!(
+        "B13 default W={} Decline={} grades={:?}/{:?}",
+        operating(ws),
+        operating(ds),
+        ws.report.as_ref().unwrap().grade,
+        ds.report.as_ref().unwrap().grade
+    );
+    assert_eq!(operating(ws), 1);
+    assert_eq!(operating(ds), 2);
+    assert_ne!(ws.report.as_ref().unwrap().grade, GoalGrade::Achieved);
+    assert_eq!(ds.report.as_ref().unwrap().grade, GoalGrade::Achieved);
+    assert!(
+        ws.report
+            .as_ref()
+            .unwrap()
+            .causes
+            .iter()
+            .any(|f| f.month == 9
+                && f.effect == "water_priority_limits_next_factory"
+                && f.causes.contains(&"aid/renewal".into()))
+    );
+}
+
+/// Bounded D028 public-command search: 2 sites x 3 preparation months x
+/// 4 security-cut months, with otherwise identical cooperation restart pairs.
+/// Diagnostic only; it checks the domestic cap, not B8 acceptance. Months
+/// 25..32 must never count as the 24-month slice passing.
+#[test]
+fn d028_default_order_rescue_bounded_diagnostic() {
+    let calibration = GovernanceCalibration::default();
+    assert_eq!(calibration.initial_skilled_idle_share, 0.25);
+    assert_eq!(calibration.water_priority_fraction, 0.92);
+    assert_eq!(calibration.cooperation_export_orders_per_month, 100);
+    for site in [8, 29] {
+        for cap_month in [1, 6, 10] {
+            for cut_month in [8, 11, 14, 17] {
+                let mut opening = fixture();
+                opening
                     .queue_governance(
-                        format!("order-test-accept-{:?}", intent.group),
-                        GovernanceCommand::AcceptIntent {
-                            id: intent.id,
-                            deadline: 24,
+                        "diagnostic-education",
+                        GovernanceCommand::SetServiceBudget {
+                            kind: Service::Education,
+                            monthly: money(1.0).unwrap(),
                         },
                     )
                     .unwrap();
-                accepted.insert(intent.group);
+                opening
+                    .queue_governance("diagnostic-cooperation", GovernanceCommand::SignCooperation)
+                    .unwrap();
+                opening
+                    .queue_governance(
+                        "diagnostic-target",
+                        GovernanceCommand::SelectCandidate { site },
+                    )
+                    .unwrap();
+                let mut game = opening;
+                let mut accepted = std::collections::BTreeSet::new();
+                let mut recovering: Option<Game> = None;
+                let mut rescue_accepted = std::collections::BTreeSet::new();
+                let mut warning = None;
+                let mut resumed = false;
+                for month in 1..=32 {
+                    if month == cap_month {
+                        game.queue_governance(
+                            "diagnostic-admit",
+                            GovernanceCommand::OpenRegion { site },
+                        )
+                        .unwrap();
+                        public_project(&mut game, site, "housing", PublicWork::Housing);
+                        public_project(&mut game, site, "clinic", PublicWork::Clinic);
+                    }
+                    if month == cap_month + 1 {
+                        public_project(&mut game, site, "road", PublicWork::Road);
+                        public_project(&mut game, site, "water", PublicWork::Water);
+                    }
+                    if month == cap_month + 3 {
+                        public_project(&mut game, site, "power", PublicWork::Power);
+                        public_project(&mut game, site, "vocational", PublicWork::Vocational);
+                    }
+                    if month >= cap_month + 3 {
+                        game.queue_governance(
+                            format!("diagnostic-cap-{month}"),
+                            GovernanceCommand::SetSubsidy {
+                                site,
+                                cap: money(40.0).unwrap(),
+                            },
+                        )
+                        .unwrap();
+                    }
+                    if month == 9 {
+                        game.queue_governance(
+                            "diagnostic-renewal",
+                            GovernanceCommand::RenewAid {
+                                choice: RenewalChoice::Decline,
+                            },
+                        )
+                        .unwrap();
+                    }
+                    if month == cut_month {
+                        game.queue_governance(
+                            "diagnostic-cut",
+                            GovernanceCommand::SetSecurity { monthly: 0 },
+                        )
+                        .unwrap();
+                    }
+                    let intents: Vec<_> = game
+                        .governance()
+                        .unwrap()
+                        .intents
+                        .values()
+                        .filter(|i| i.site == site && !accepted.contains(&i.group))
+                        .cloned()
+                        .collect();
+                    for intent in intents {
+                        if game
+                            .queue_governance(
+                                format!("diagnostic-accept-{:?}-{month}", intent.group),
+                                GovernanceCommand::AcceptIntent {
+                                    id: intent.id,
+                                    deadline: 24,
+                                },
+                            )
+                            .is_ok()
+                        {
+                            accepted.insert(intent.group);
+                        }
+                    }
+                    // Restore safety once it falls below 49. This still permits
+                    // actual suspension, while avoiding unnecessary extra damage.
+                    // Existing contract qualification is not accelerated.
+                    if month > cut_month && game.governance().unwrap().security < 49.0 {
+                        game.queue_governance(
+                            format!("diagnostic-safety-{month}"),
+                            GovernanceCommand::SetSecurity {
+                                monthly: money(6.0).unwrap(),
+                            },
+                        )
+                        .unwrap();
+                    }
+                    if let Some(rescue) = recovering.as_mut() {
+                        // Keep the same subsidy and acceptance policy in both
+                        // branches; signing cooperation is the only difference.
+                        if month >= cap_month + 3 {
+                            rescue
+                                .queue_governance(
+                                    format!("diagnostic-cap-{month}"),
+                                    GovernanceCommand::SetSubsidy {
+                                        site,
+                                        cap: money(40.0).unwrap(),
+                                    },
+                                )
+                                .unwrap();
+                        }
+                        let intents: Vec<_> = rescue
+                            .governance()
+                            .unwrap()
+                            .intents
+                            .values()
+                            .filter(|i| i.site == site && !rescue_accepted.contains(&i.group))
+                            .cloned()
+                            .collect();
+                        for intent in intents {
+                            if rescue
+                                .queue_governance(
+                                    format!("diagnostic-accept-{:?}-{month}", intent.group),
+                                    GovernanceCommand::AcceptIntent {
+                                        id: intent.id,
+                                        deadline: 24,
+                                    },
+                                )
+                                .is_ok()
+                            {
+                                rescue_accepted.insert(intent.group);
+                            }
+                        }
+                        if !resumed && rescue.governance().unwrap().security >= 50.0 {
+                            rescue
+                                .queue_governance(
+                                    "diagnostic-resign",
+                                    GovernanceCommand::SignCooperation,
+                                )
+                                .unwrap();
+                            println!(
+                                "B8 re-sign site={site} prepare={cap_month} cut={cut_month} M{month}"
+                            );
+                            resumed = true;
+                        }
+                        rescue.end_month(month).unwrap();
+                    }
+                    game.end_month(month).unwrap();
+                    let state = game.governance().unwrap();
+                    if recovering.is_none()
+                        && state.cooperation_start.is_none()
+                        && month > cut_month
+                    {
+                        println!(
+                            "B8 suspended site={site} prepare={cap_month} cut={cut_month} M{month}"
+                        );
+                        rescue_accepted = accepted.clone();
+                        recovering = Some(game.clone());
+                    }
+                    if warning.is_none()
+                        && state
+                            .factories
+                            .values()
+                            .any(|f| f.site == site && f.phase == FactoryPhase::ClosureWarned)
+                    {
+                        warning = Some(month);
+                    }
+                    let domestic: f64 = state.factories.values().map(|f| f.domestic_sales).sum();
+                    assert!(domestic <= 200.0 + 1e-9);
+                    if month == 24 {
+                        println!(
+                            "B8 M24 scorecards site={site} prepare={cap_month} cut={cut_month} treasury={:?} A={:?} B={:?}",
+                            game.balance("treasury", &Asset::Money),
+                            game.scorecard(Group::A, site).unwrap().gaps,
+                            game.scorecard(Group::B, site).unwrap().gaps
+                        );
+                    }
+                    if warning.is_some() || month >= 18 {
+                        let fs: Vec<_> = state
+                            .factories
+                            .values()
+                            .map(|f| {
+                                (
+                                    f.site,
+                                    f.id.as_str(),
+                                    f.first_operated_month,
+                                    f.domestic_sales,
+                                    f.export_sales,
+                                    f.output,
+                                    f.after_tax_profit,
+                                    f.loss_months,
+                                    f.phase,
+                                )
+                            })
+                            .collect();
+                        let rescue_fs = recovering.as_ref().map(|r| {
+                            r.governance()
+                                .unwrap()
+                                .factories
+                                .values()
+                                .map(|f| {
+                                    (f.site, f.output, f.after_tax_profit, f.loss_months, f.phase)
+                                })
+                                .collect::<Vec<_>>()
+                        });
+                        println!(
+                            "B8 diagnostic site={site} cap={cap_month} cut={cut_month} M{month} security={} export={} warning={warning:?} resumed={resumed} factories={fs:?} rescue={rescue_fs:?}",
+                            state.security, state.export_orders
+                        );
+                    }
+                }
             }
         }
-        if month == 13 {
-            common
-                .queue_governance(
-                    "order-test-labor",
-                    GovernanceCommand::SetInstitution {
-                        kind: Institution::LaborProtection,
-                        enabled: true,
-                    },
-                )
-                .unwrap();
-        }
-        common.end_month(month).unwrap();
     }
-    let factories: Vec<_> = common
-        .governance()
-        .unwrap()
-        .factories
-        .values()
-        .filter(|f| f.site == 29 && f.phase == FactoryPhase::Operating)
-        .map(|f| f.id.clone())
-        .collect();
-    assert_eq!(factories.len(), 2);
-    for id in factories {
-        common
-            .queue_governance(
-                format!("order-test-retrofit-{id}"),
-                GovernanceCommand::Retrofit { factory: id },
-            )
-            .unwrap();
-    }
-    public_project(&mut common, 29, "order-test-extra-road", PublicWork::Road);
-    public_project(&mut common, 29, "order-test-extra-power", PublicWork::Power);
-    let mut maintained = common.clone();
-    let mut suspended = common;
-    suspended
-        .queue_governance(
-            "order-test-security-cut",
-            GovernanceCommand::SetSecurity { monthly: 0 },
-        )
-        .unwrap();
-    let mut observed_order_loss_months = 0;
-    for month in 18..=29 {
-        let orders_at_opening = suspended.governance().unwrap().export_orders;
-        maintained.end_month(month).unwrap();
-        suspended.end_month(month).unwrap();
-        let state = suspended.governance().unwrap();
-        if state.cooperation_start.is_none() && orders_at_opening == 0.0 {
-            observed_order_loss_months += 1;
-            let factories: Vec<_> = state.factories.values().filter(|f| f.site == 29).collect();
-            let output: f64 = factories.iter().map(|f| f.output).sum();
-            assert_eq!(output, 200.0);
-            assert!(factories.iter().all(|f| f.after_tax_profit > 0
-                && f.loss_months == 0
-                && f.phase == FactoryPhase::Operating));
-            println!(
-                "B8 bounded order-loss M{month}: output={output}, factories={:?}",
-                factories
-                    .iter()
-                    .map(|f| (f.id.as_str(), f.output, currency(f.after_tax_profit as u64)))
-                    .collect::<Vec<_>>()
-            );
-        }
-    }
-    let kept = maintained.governance().unwrap();
-    let lost = suspended.governance().unwrap();
-    assert!(kept.export_orders > 0.0);
-    assert_eq!(lost.export_orders, 0.0);
-    assert!(
-        lost.facts
-            .iter()
-            .any(|f| f.effect == "cooperation_suspended")
-    );
-    let kept_output: f64 = kept
-        .factories
-        .values()
-        .filter(|f| f.site == 29)
-        .map(|f| f.output)
-        .sum();
-    let lost_output: f64 = lost
-        .factories
-        .values()
-        .filter(|f| f.site == 29)
-        .map(|f| f.output)
-        .sum();
-    println!(
-        "B8 bounded counterfactual: maintained output={kept_output}, suspended output={lost_output}, suspension_month={:?}, final_export_orders={}/{}",
-        lost.facts
-            .iter()
-            .find(|f| f.effect == "cooperation_suspended")
-            .map(|f| f.month),
-        kept.export_orders,
-        lost.export_orders
-    );
-    assert!(observed_order_loss_months >= 6);
-    assert!(kept_output > lost_output);
-    assert_eq!(lost_output, 200.0);
-    assert!(
-        lost.factories
-            .values()
-            .all(|f| f.phase != FactoryPhase::ClosureWarned)
-    );
 }
 
 /// Explicit historical skill-share fixture isolates D025 water behavior. This
