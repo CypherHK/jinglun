@@ -759,8 +759,12 @@ impl Game {
                 Err(Error::Conflict)
             };
         }
-        if state.decision_log.contains_key(&id) {
-            return Err(Error::Conflict);
+        if let Some((_, existing)) = state.decision_log.get(&id) {
+            return if existing == &command {
+                Ok(())
+            } else {
+                Err(Error::Conflict)
+            };
         }
         let mut candidate = self.clone();
         candidate

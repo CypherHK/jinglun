@@ -587,3 +587,69 @@ fn admission_starts_now_and_rejected_future_start_does_not_consume_id() {
         Command::AddAdmissionLimit(limit),
     );
 }
+
+#[test]
+fn water_waiting_lifecycle_replays_in_execution_order_through_release() {
+    let mut g = game();
+    let cell = g.cell(8).unwrap().clone();
+    let source = *cell
+        .water_sources
+        .iter()
+        .find(|(_, (_, slots))| *slots > 0)
+        .unwrap()
+        .0;
+    g.apply(
+        "z_reserve",
+        reserve("factory", &cell.country, 8, source, 1, 1, LandUse::Factory),
+    )
+    .unwrap();
+    g.apply(
+        "y_wait",
+        Command::SetWaterWaiting {
+            reservation: "factory".into(),
+            waiting: true,
+        },
+    )
+    .unwrap();
+    assert_rollback(
+        &mut g,
+        "invalid_activate",
+        Command::MarkOperational {
+            reservation: "factory".into(),
+        },
+    );
+    g.apply(
+        "x_resume",
+        Command::SetWaterWaiting {
+            reservation: "factory".into(),
+            waiting: false,
+        },
+    )
+    .unwrap();
+    g.apply(
+        "w_operate",
+        Command::MarkOperational {
+            reservation: "factory".into(),
+        },
+    )
+    .unwrap();
+    g.apply(
+        "v_release",
+        Command::Release {
+            reservation: "factory".into(),
+        },
+    )
+    .unwrap();
+    let bytes = g.save().unwrap();
+    assert_eq!(Game::load(&bytes).unwrap().save().unwrap(), bytes);
+    // A checksum-valid save must still reject a transition before its reservation exists.
+    let mut value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    value["payload"]["applied"]["z_reserve"]["execution_order"] = 1.into();
+    value["payload"]["applied"]["y_wait"]["execution_order"] = 0.into();
+    let payload = serde_json::to_vec(&value["payload"]).unwrap();
+    let hash = payload.iter().fold(0xcbf29ce484222325u64, |hash, byte| {
+        (hash ^ *byte as u64).wrapping_mul(0x100000001b3)
+    });
+    value["checksum"] = format!("fnv1a64:{hash:016x}").into();
+    assert!(Game::load(&serde_json::to_vec(&value).unwrap()).is_err());
+}

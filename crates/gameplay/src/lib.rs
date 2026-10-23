@@ -1,4 +1,4 @@
-//! Foundation primitives only. No economy, population, tax, AI, or facility rules.
+//! Deterministic gameplay ledger and governance simulation over an owned world snapshot.
 mod descriptors;
 mod governance;
 pub mod initial_values;
@@ -458,6 +458,14 @@ impl Game {
         Ok(receipt)
     }
     fn apply_internal(&mut self, command_id: String, command: Command) -> Result<Receipt> {
+        identifier(&command_id)?;
+        if let Some(applied) = self.applied.get(&command_id) {
+            return if applied.command == command {
+                Ok(applied.receipt.clone())
+            } else {
+                Err(Error::Conflict)
+            };
+        }
         let candidate = self;
         candidate.execute(&command)?;
         let receipt = Receipt {
@@ -722,7 +730,7 @@ impl Game {
         }
         Ok(())
     }
-    /// Stages without authorized business rules are deliberately inert.
+    /// Advances one nine-stage month. Foundation fixtures remain inert; formal games run governance.
     pub fn end_month(&mut self, expected_month: u32) -> Result<MonthReceipt> {
         if self.month != expected_month {
             return Err(Error::Conflict);
@@ -1101,16 +1109,16 @@ impl Game {
                 })
                 .collect();
         let mut reserved = BTreeMap::new();
-        let mut released = std::collections::BTreeSet::new();
-        let mut operational = std::collections::BTreeSet::new();
-        let mut water_waiting = BTreeMap::<String, (u64, bool)>::new();
+        let mut ever_reserved = std::collections::BTreeSet::new();
         let mut obligations = BTreeMap::new();
         let mut payments = BTreeMap::<(String, u32), u64>::new();
         let mut todos = BTreeMap::new();
         let mut admissions = BTreeMap::new();
         let mut progress = BTreeMap::<String, u16>::new();
         let mut cancelled = std::collections::BTreeSet::new();
-        for applied in self.applied.values() {
+        let mut ordered: Vec<_> = self.applied.values().collect();
+        ordered.sort_by_key(|applied| applied.execution_order);
+        for applied in ordered {
             if !matches!(applied.command, Command::AddAdmissionLimit(_))
                 && applied.admission_grandfathered.is_some()
             {
@@ -1131,34 +1139,47 @@ impl Game {
                     adjust(&mut expected, to, asset, *amount as i128)?;
                 }
                 Command::Reserve(r) => {
-                    if r.phase != AllocationPhase::Reserved
-                        || reserved.insert(r.id.clone(), r.clone()).is_some()
-                    {
+                    if r.phase != AllocationPhase::Reserved || !ever_reserved.insert(r.id.clone()) {
                         return Err(Error::Invalid("reservation receipt"));
                     }
                     identifier(&r.id)?;
                     self.validate_reservation(r)?;
+                    reserved.insert(r.id.clone(), r.clone());
                 }
                 Command::Release { reservation } => {
-                    if !released.insert(reservation.clone()) {
-                        return Err(Error::Invalid("duplicate release receipt"));
+                    if reserved.remove(reservation).is_none() {
+                        return Err(Error::Invalid("release lifecycle receipt"));
                     }
                 }
                 Command::SetWaterWaiting {
                     reservation,
                     waiting,
                 } => {
-                    let entry = water_waiting
-                        .entry(reservation.clone())
-                        .or_insert((applied.execution_order, *waiting));
-                    if applied.execution_order > entry.0 {
-                        *entry = (applied.execution_order, *waiting);
+                    let r = reserved
+                        .get_mut(reservation)
+                        .ok_or(Error::Invalid("water waiting lifecycle receipt"))?;
+                    let expected_phase = if *waiting {
+                        AllocationPhase::Reserved
+                    } else {
+                        AllocationPhase::WaitingForWater
+                    };
+                    if r.phase != expected_phase {
+                        return Err(Error::Invalid("water waiting transition receipt"));
                     }
+                    r.phase = if *waiting {
+                        AllocationPhase::WaitingForWater
+                    } else {
+                        AllocationPhase::Reserved
+                    };
                 }
                 Command::MarkOperational { reservation } => {
-                    if !operational.insert(reservation.clone()) {
-                        return Err(Error::Invalid("duplicate operational receipt"));
+                    let r = reserved
+                        .get_mut(reservation)
+                        .ok_or(Error::Invalid("operational lifecycle receipt"))?;
+                    if r.phase != AllocationPhase::Reserved {
+                        return Err(Error::Invalid("operational transition receipt"));
                     }
+                    r.phase = AllocationPhase::Operational;
                 }
                 Command::RecordObligation(terms) => {
                     terms.validate(&self.ledger.accounts)?;
@@ -1219,30 +1240,6 @@ impl Game {
                     }
                 }
                 Command::FundEscrow { .. } | Command::ScheduleActivation { .. } => {}
-            }
-        }
-        if released.iter().any(|id| !reserved.contains_key(id))
-            || operational.iter().any(|id| !reserved.contains_key(id))
-        {
-            return Err(Error::Invalid("reservation lifecycle receipt"));
-        }
-        for id in &released {
-            reserved.remove(id);
-        }
-        for (id, (_, waiting)) in water_waiting {
-            let r = reserved
-                .get_mut(&id)
-                .ok_or(Error::Invalid("water waiting lifecycle receipt"))?;
-            if waiting {
-                if operational.contains(&id) {
-                    return Err(Error::Invalid("operational facility waiting for water"));
-                }
-                r.phase = AllocationPhase::WaitingForWater;
-            }
-        }
-        for id in &operational {
-            if let Some(r) = reserved.get_mut(id) {
-                r.phase = AllocationPhase::Operational;
             }
         }
         if reserved != self.reservations

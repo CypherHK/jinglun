@@ -402,6 +402,27 @@ fn b3_late_budget_response_has_three_month_recovery_without_terminating() {
     assert!(state.report.as_ref().unwrap().fiscal_recovered);
     assert!(game.balance("treasury", &Asset::Money).unwrap() > 0);
     assert_eq!(game.month(), 25);
+    let before = game.save().unwrap();
+    game.queue_governance(
+        "education_rebalance",
+        GovernanceCommand::SetServiceBudget {
+            kind: Service::Education,
+            monthly: money(1.0).unwrap(),
+        },
+    )
+    .unwrap();
+    assert_eq!(game.save().unwrap(), before);
+    assert!(
+        game.queue_governance(
+            "education_rebalance",
+            GovernanceCommand::SetServiceBudget {
+                kind: Service::Education,
+                monthly: money(2.0).unwrap()
+            }
+        )
+        .is_err()
+    );
+    assert_eq!(game.save().unwrap(), before);
 }
 #[test]
 fn b4_early_factory_revenue_softens_the_month_thirteen_aid_break() {
