@@ -1276,6 +1276,236 @@ fn d028_default_order_rescue_bounded_diagnostic() {
     }
 }
 
+/// A bounded public-command counterfactual, not a claim that B8 order rescue passes.
+/// Both new factories are retrofitted; loss of cooperation removes export orders
+/// while domestic import substitution remains the D022-confirmed 200 units.
+#[test]
+fn default_double_retrofit_cooperation_order_loss_remains_profitable_diagnostic() {
+    let mut opening = fixture();
+    opening
+        .queue_governance(
+            "order-test-budget",
+            GovernanceCommand::SetServiceBudget {
+                kind: Service::Education,
+                monthly: 0,
+            },
+        )
+        .unwrap();
+    opening
+        .queue_governance(
+            "order-test-target",
+            GovernanceCommand::SelectCandidate { site: 29 },
+        )
+        .unwrap();
+    opening
+        .queue_governance("order-test-cooperation", GovernanceCommand::SignCooperation)
+        .unwrap();
+    let mut common = early_public_conditions_from(opening, 29);
+    common
+        .queue_governance(
+            "order-test-cap",
+            GovernanceCommand::SetSubsidy {
+                site: 29,
+                cap: money(40.0).unwrap(),
+            },
+        )
+        .unwrap();
+    let mut accepted = std::collections::BTreeSet::new();
+    for month in 4..=17 {
+        if month == 9 {
+            common
+                .queue_governance(
+                    "order-test-refresh",
+                    GovernanceCommand::SetSubsidy {
+                        site: 29,
+                        cap: money(40.0).unwrap(),
+                    },
+                )
+                .unwrap();
+            common
+                .queue_governance(
+                    "order-test-decline",
+                    GovernanceCommand::RenewAid {
+                        choice: RenewalChoice::Decline,
+                    },
+                )
+                .unwrap();
+        }
+        let intents: Vec<_> = common
+            .governance()
+            .unwrap()
+            .intents
+            .values()
+            .cloned()
+            .collect();
+        for intent in intents {
+            if intent.site == 29
+                && !accepted.contains(&intent.group)
+                && (intent.group == Group::B || month >= 10)
+            {
+                common
+                    .queue_governance(
+                        format!("order-test-accept-{:?}", intent.group),
+                        GovernanceCommand::AcceptIntent {
+                            id: intent.id,
+                            deadline: 24,
+                        },
+                    )
+                    .unwrap();
+                accepted.insert(intent.group);
+            }
+        }
+        if month == 13 {
+            common
+                .queue_governance(
+                    "order-test-labor",
+                    GovernanceCommand::SetInstitution {
+                        kind: Institution::LaborProtection,
+                        enabled: true,
+                    },
+                )
+                .unwrap();
+        }
+        common.end_month(month).unwrap();
+    }
+    let factories: Vec<_> = common
+        .governance()
+        .unwrap()
+        .factories
+        .values()
+        .filter(|f| f.site == 29 && f.phase == FactoryPhase::Operating)
+        .map(|f| f.id.clone())
+        .collect();
+    assert_eq!(factories.len(), 2);
+    for id in factories {
+        common
+            .queue_governance(
+                format!("order-test-retrofit-{id}"),
+                GovernanceCommand::Retrofit { factory: id },
+            )
+            .unwrap();
+    }
+    public_project(&mut common, 29, "order-test-extra-road", PublicWork::Road);
+    public_project(&mut common, 29, "order-test-extra-power", PublicWork::Power);
+    let mut maintained = common.clone();
+    let mut suspended = common;
+    suspended
+        .queue_governance(
+            "order-test-security-cut",
+            GovernanceCommand::SetSecurity { monthly: 0 },
+        )
+        .unwrap();
+    let mut observed_order_loss_months = 0;
+    for month in 18..=29 {
+        let orders_at_opening = suspended.governance().unwrap().export_orders;
+        maintained.end_month(month).unwrap();
+        suspended.end_month(month).unwrap();
+        let state = suspended.governance().unwrap();
+        let kept = maintained.governance().unwrap();
+        let lost_output: f64 = state
+            .factories
+            .values()
+            .filter(|f| f.site == 29)
+            .map(|f| f.output)
+            .sum();
+        let lost_exports: f64 = state
+            .factories
+            .values()
+            .filter(|f| f.site == 29)
+            .map(|f| f.export_sales)
+            .sum();
+        let kept_output: f64 = kept
+            .factories
+            .values()
+            .filter(|f| f.site == 29)
+            .map(|f| f.output)
+            .sum();
+        let kept_exports: f64 = kept
+            .factories
+            .values()
+            .filter(|f| f.site == 29)
+            .map(|f| f.export_sales)
+            .sum();
+        println!(
+            "B8 default retrofit diagnostic M{month}: maintained output={kept_output} exports={kept_exports}; suspended output={lost_output} exports={lost_exports}; months_after_24_are_diagnostic_only={}",
+            month > 24
+        );
+        if state.cooperation_start.is_none() && orders_at_opening == 0.0 {
+            observed_order_loss_months += 1;
+            let factories: Vec<_> = state.factories.values().filter(|f| f.site == 29).collect();
+            let output: f64 = factories.iter().map(|f| f.output).sum();
+            let domestic: f64 = factories.iter().map(|f| f.domestic_sales).sum();
+            let exports: f64 = factories.iter().map(|f| f.export_sales).sum();
+            assert_eq!(domestic, 200.0);
+            assert_eq!(exports, 0.0);
+            assert_eq!(output, 200.0);
+            assert!(factories.iter().all(|f| f.after_tax_profit > 0
+                && f.loss_months == 0
+                && f.phase == FactoryPhase::Operating));
+            println!(
+                "B8 bounded order-loss M{month}: output={output}, factories={:?}",
+                factories
+                    .iter()
+                    .map(|f| (
+                        f.id.as_str(),
+                        f.output,
+                        f.domestic_sales,
+                        f.export_sales,
+                        currency(f.after_tax_profit as u64)
+                    ))
+                    .collect::<Vec<_>>()
+            );
+        }
+    }
+    let kept = maintained.governance().unwrap();
+    let lost = suspended.governance().unwrap();
+    assert!(kept.export_orders > 0.0);
+    assert_eq!(lost.export_orders, 0.0);
+    assert!(
+        lost.facts
+            .iter()
+            .any(|f| f.effect == "cooperation_suspended")
+    );
+    let kept_output: f64 = kept
+        .factories
+        .values()
+        .filter(|f| f.site == 29)
+        .map(|f| f.output)
+        .sum();
+    let lost_output: f64 = lost
+        .factories
+        .values()
+        .filter(|f| f.site == 29)
+        .map(|f| f.output)
+        .sum();
+    println!(
+        "B8 bounded counterfactual: maintained output={kept_output}, suspended output={lost_output}, suspension_month={:?}, final_export_orders={}/{}",
+        lost.facts
+            .iter()
+            .find(|f| f.effect == "cooperation_suspended")
+            .map(|f| f.month),
+        kept.export_orders,
+        lost.export_orders
+    );
+    assert!(observed_order_loss_months >= 6);
+    assert_eq!(kept_output, 240.0);
+    assert_eq!(
+        kept.factories
+            .values()
+            .filter(|f| f.site == 29)
+            .map(|f| f.export_sales)
+            .sum::<f64>(),
+        40.0
+    );
+    assert!(kept_output > lost_output);
+    assert_eq!(lost_output, 200.0);
+    assert!(
+        lost.factories
+            .values()
+            .all(|f| f.phase != FactoryPhase::ClosureWarned)
+    );
+}
+
 /// Explicit historical skill-share fixture isolates D025 water behavior. This
 /// is not evidence that D026 default calibration builds two factories by M12.
 fn historical_skill_share_two_operating_factories_before_late_water(fraction: f64) -> Game {
