@@ -2,6 +2,10 @@
 
 交接日期：2026-10-23，新加坡时间。本文件优先于同目录 `archive/` 中的历史草案和旧交接。
 
+## 上游 PR 目标硬性规则
+
+用户于 2026-10-23 明确纠正：“这个是一个硬性规则，以后全都推到对方的Develop。”本项目以后所有向作者 `CircuitMurderer/jinglun` 提交的 PR，必须以作者开发分支为 base，禁止默认提交到 `main`。2026-10-23 GitHub 核实作者实际分支名为小写 `develop`，与 fork 的大写 `Develop` 不同；执行时核对作者远端的精确分支名。如果分支不存在或改名，先核实，不自动改投 `main`。该规则优先于本文件下方旧 PR 的历史目标、组合分支基线和工具默认值。
+
 ## 记录职责
 
 用户 2026-10-23 明确：设计决策只写在 `/Users/wangyucheng/Projects/jinglun-design/design/`，由 Claude 与用户讨论后写，Codex 只读该目录。实现进度只由 Codex 写入本文件，不另写 LOCAL-PROMPT 或项目地图等并行状态记录。设计规则与确认依据以 design/ 为准，本文件只记录实施状态与约束。
@@ -10,7 +14,7 @@
 
 ## 当前实施范围与进度
 
-2026-10-23 地图升级审查与提交：已核对另一 Agent 的两阶段地图改动，完成上游组合分支审查。用户随后明确授权公开提交，已创建正式 [上游 PR #2](https://github.com/CircuitMurderer/jinglun/pull/2)。[正文](natural-map-upstream-pr-body.md)和审查证据保存在本目录，详情见本文件末尾“地图升级审查与提交结果”。PR 开放、非 draft、无合并冲突、未合并。没有把地图代码集成到 Develop，也没有修改治理玩法或设计记录。
+2026-10-23 地图升级审查与提交：已创建正式 [上游 PR #2](https://github.com/CircuitMurderer/jinglun/pull/2)。首次错误投向 `main`，用户纠正后已改到作者小写 `develop`，并推送 `755997e` 处理新气候基线的模块声明冲突。[正文](natural-map-upstream-pr-body.md)和审查证据保存在本目录，详情见本文件末尾“地图升级审查与提交结果”。PR 开放、非 draft、未合并。地图代码没有集成到本地玩法 Develop，没有修改治理玩法或设计记录。
 
 2026-10-23：用户在本地接手后的消息中提供底层开工授权截图，并指定 GPT-6.1 Sol 子代理负责具体开发，根代理负责整体把控与验收。授权仅覆盖 `jinglun-040` 100 地块及规格边界的剧本绑定、账本与托管、名额计算、月结骨架和版本化完整存档。完整可玩切片、企业决策、待办、外交续期、内参和 UI 不在本次实施范围。
 
@@ -233,15 +237,17 @@ Cloud 使用已有缓存完成构建，没有安装或升级依赖。本地需�
 
 ## 地图升级审查与提交结果
 
-2026-10-23：用户要求简单审查地图两阶段改动、准备提交给原作者，并讨论后续进化空间。审查与 PR 正文完成后，用户回答“现在创建正式上游 PR”，已完成发布。未修改地图代码、合并或部署。设计目录和 reference 保持只读。本节是实施与验证记录，后续方向只是对话建议，未升级为设计决策。
+2026-10-23：用户要求简单审查地图两阶段改动、准备提交给原作者，并讨论后续进化空间。审查与 PR 正文完成后，用户回答“现在创建正式上游 PR”，已完成发布。初次提交没有修改地图代码；随后目标分支纠正涉及的导入冲突处理见下文。没有执行 PR 合并或部署。设计目录和 reference 保持只读。本节是实施与验证记录，后续方向只是对话建议，未升级为设计决策。
 
-- 上游目标为 `CircuitMurderer/jinglun:main`，本轮 GitHub 核实为 `20a276e5620c26436f47120fdb4f5dcb754745d6`。
-- 提交来源为 `CypherHK:feat/natural-map-upstream-ready`，远端及本地均为 `ad573def8500072485ac82d0b5aaece5e2d2b118`。仅含 `a2e119f` 提案、`69f113e` 第一阶段、`ad573de` 第二阶段，共 40 个变更文件；没有夹带 fork 的 gameplay 交接资料，也没有当前 Develop 的治理底层。
+- 当前上游目标为 `CircuitMurderer/jinglun:develop`，GitHub 核实为 `ea8de640d30044ba6a54f3fbc7dbac767541ffba`，含作者 0.7.0 气候校准。初次错误投向 `main@20a276e5620c26436f47120fdb4f5dcb754745d6`，已按用户硬性规则纠正。
+- 提交来源仍为 `CypherHK:feat/natural-map-upstream-ready`，现 head 为 `755997eb1bddd321446fb333c2123bfee3aec6de`。原 `a2e119f` 提案、`69f113e` 第一阶段、`ad573de` 第二阶段保留，追加合入作者 develop 的提交；GitHub 现计 5 个提交，其中还包含原 main 合并节点，共 40 个变更文件。没有夹带 fork 的 gameplay 交接资料或当前 Develop 的治理底层，没有改写已公开历史。
 - [Fork PR #3](https://github.com/CypherHK/jinglun/pull/3) 仍开放、未合并，base 为 `67bcf0f4facdf7e6fc6ff93ae86c265d8480652f`，head 为 `42650b50d25ad6a84ebd37a0c64d2f885576effd`。GitHub 报告可合并。创建前核对上游 PR 列表，只有原地区比较 PR #1，没有重复地图 PR。
-- 正式 [上游 PR #2](https://github.com/CircuitMurderer/jinglun/pull/2) 标题为 `feat(map): add optional natural terrain with shaded relief`。正文为 [natural-map-upstream-pr-body.md](natural-map-upstream-pr-body.md)。GitHub 连接器创建返回 `403 Resource not accessible by integration`，改用本机 `gh`，身份核实为 CypherHK，成功创建。API 复核目标与 head 完整 SHA、3 个提交、40 个文件、正文一致、`open`、`draft=false`、`merged=false`、`mergeable=true`、`mergeable_state=clean`。正式 PR 与 fork PR #3 均已附到当前 Codex 任务。
+- 正式 [上游 PR #2](https://github.com/CircuitMurderer/jinglun/pull/2) 标题为 `feat(map): add optional natural terrain with shaded relief`。正文为 [natural-map-upstream-pr-body.md](natural-map-upstream-pr-body.md)。GitHub 连接器创建和修改目标均返回 `403 Resource not accessible by integration`，改用本机 `gh`，身份核实为 CypherHK。首次创建时 API 为 3 个提交、40 个文件；纠正并推送后最终 API 确认 base=`develop`、head=`755997e`、5 个提交、40 个文件、`open`、`draft=false`、`merged=false`、`mergeable=true`、`mergeable_state=clean`，正文已同步为当前 develop 适配结果。正式 PR 与 fork PR #3 均已附到当前 Codex 任务。
 - 作者审阅与合并决定归 CircuitMurderer，用户跟进；建议用户 2026-10-24 复核，非作者或用户的承诺。未冒充作者批准或完成美术验收。
 
 ### 审查与本轮独立验证
+
+目标分支纠正后，在 `/Users/wangyucheng/Projects/jinglun-worktrees/natural-map-upstream-develop` 合入作者开发基线。两处冲突只在 `environment.rs` 和 `lib.rs` 新增 import/module 声明，保留 `atmosphere`、`cartography` 和 `relief`。相对 develop 的 diff 确认作者 atmosphere、seasonal、API 版本、manifest 和 lockfile 没有变化。新组合独立通过 34 项 Rust 测试，1 项手动气候报告按默认忽略；28 项前端测试、TypeScript、生产构建及差异检查通过。未重跑 0.7.0 的逐字段对照与完整浏览器验收。原 0.6.0 的下述截图、载荷和对照结果仅作历史证据；PR 正文已同步区分。
 
 Standards 和 Spec 由两个 GPT-6.1 Sol 子代理分别只读审查，均未发现确定的阻塞项。前者检查 i18n、数据职责、纹理缓存和河网生命周期；后者对照两份提案检查海岸、湖泊、阴影、缩放分级、降级与数据不变。根代理核对组合分支和全部差异；这是一轮有限审查，不是零缺陷保证。
 
@@ -255,4 +261,4 @@ Chrome 调试连接因已有实例占用不可用，改用现有 Chrome 的新�
 
 这次包含 Rust 后端表现字段导出，不能说“后端未改”。固定样本原地图数据不变，256×160 源采样仍限制高倍细节。两阶段未压缩响应合计增加约 0.5 MB。阴影和平滑是显示方法，资源潜力不是矿山、天然通行条件不是道路。
 
-原预览服务 `7310/7312`、`7320/7322` 为另一任务已有进程，本轮保留；没有新增部署或修改 secrets。地图公开组合分支保留原三个提交；本轮正文和审查记录只属于本地产品协作文档，未挑入地图上游 PR。创建前已重新核对远端 base/head 与重复 PR，使用上述精确分支，没有使用整个 Develop。复核记录初存独立工作树 `/Users/wangyucheng/Projects/jinglun-worktrees/natural-map-review`，避免覆盖另一任务同期写入的 D020 交接。
+原预览服务 `7310/7312`、`7320/7322` 为另一任务已有进程，本轮保留，仍是旧 0.6.0 预览；没有新增部署或修改 secrets。地图公开组合分支保留原三个地图提交并追加 develop 兼容合并；本地 gameplay 交接资料未挑入地图上游 PR。复核记录初存独立工作树 `/Users/wangyucheng/Projects/jinglun-worktrees/natural-map-review`，随后集成到本地 Develop 的单一交接入口；开发基线适配工作树另为 `/Users/wangyucheng/Projects/jinglun-worktrees/natural-map-upstream-develop`。
