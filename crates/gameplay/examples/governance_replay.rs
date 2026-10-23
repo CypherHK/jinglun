@@ -44,6 +44,229 @@ struct Replay {
     failed_actions: Vec<Value>,
     monthly: Vec<Value>,
     final_scorecards: Vec<Scorecard>,
+    government_capital: GovernmentCapital,
+}
+
+#[derive(Clone, Debug, Default, Serialize)]
+struct CapitalAccount {
+    historical_gross_committed: u64,
+    actually_paid: u64,
+    refunded: u64,
+    remaining_escrow: u64,
+    net_committed: u64,
+}
+
+impl CapitalAccount {
+    fn add(&mut self, total: u64, paid: u64, cancelled: bool) -> std::result::Result<(), String> {
+        let rest = total
+            .checked_sub(paid)
+            .ok_or("capital escrow paid exceeds total")?;
+        for (field, value) in [
+            (&mut self.historical_gross_committed, total),
+            (&mut self.actually_paid, paid),
+            (&mut self.refunded, if cancelled { rest } else { 0 }),
+            (&mut self.remaining_escrow, if cancelled { 0 } else { rest }),
+            (
+                &mut self.net_committed,
+                if cancelled { paid } else { total },
+            ),
+        ] {
+            *field = field
+                .checked_add(value)
+                .ok_or("government capital overflow")?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Default, Serialize)]
+struct GovernmentCapital {
+    public_works: CapitalAccount,
+    construction_subsidies: CapitalAccount,
+    direct_construction_fees: u64,
+    total: CapitalAccount,
+}
+
+fn government_capital(game: &Game) -> std::result::Result<GovernmentCapital, String> {
+    let snapshot: Value = serde_json::from_slice(&game.save().map_err(|e| e.to_string())?)
+        .map_err(|e| e.to_string())?;
+    let escrows = snapshot
+        .pointer("/payload/ledger/escrows")
+        .and_then(Value::as_object)
+        .ok_or("save lacks escrow audit data")?;
+    let mut capital = GovernmentCapital::default();
+    for (id, escrow) in escrows {
+        if escrow["payer"] != "treasury" {
+            continue;
+        }
+        let total = escrow["total"]
+            .as_u64()
+            .ok_or("invalid capital escrow total")?;
+        let paid = escrow["paid"]
+            .as_u64()
+            .ok_or("invalid capital escrow paid")?;
+        let cancelled = escrow["cancelled"]
+            .as_bool()
+            .ok_or("invalid capital escrow cancellation")?;
+        let component = if id.starts_with("public/") {
+            &mut capital.public_works
+        } else if id.starts_with("subsidy/") {
+            &mut capital.construction_subsidies
+        } else {
+            return Err(format!("unclassified treasury capital escrow {id}"));
+        };
+        component.add(total, paid, cancelled)?;
+        capital.total.add(total, paid, cancelled)?;
+    }
+    let applied = snapshot
+        .pointer("/payload/applied")
+        .and_then(Value::as_object)
+        .ok_or("save lacks command audit data")?;
+    for entry in applied.values() {
+        let Some(transfer) = entry.pointer("/command/Transfer") else {
+            continue;
+        };
+        if transfer["from"] == "treasury"
+            && transfer["to"] == "construction"
+            && transfer["asset"] == "money"
+        {
+            let amount = transfer["amount"]
+                .as_u64()
+                .ok_or("invalid direct construction payment")?;
+            capital.direct_construction_fees = capital
+                .direct_construction_fees
+                .checked_add(amount)
+                .ok_or("construction fee overflow")?;
+            capital.total.add(amount, amount, false)?;
+        }
+    }
+    Ok(capital)
+}
+
+#[derive(Clone, Debug, Serialize)]
+struct CapitalOutcome {
+    script_id: String,
+    choice: b15::Choice,
+    site: u32,
+    route: u32,
+    attainment_month: u32,
+    capital: GovernmentCapital,
+}
+
+fn capital_frontier(outcomes: &[CapitalOutcome]) -> Vec<CapitalOutcome> {
+    outcomes
+        .iter()
+        .filter(|candidate| {
+            !outcomes.iter().any(|other| {
+                other.attainment_month <= candidate.attainment_month
+                    && other.capital.total.net_committed <= candidate.capital.total.net_committed
+                    && (other.attainment_month < candidate.attainment_month
+                        || other.capital.total.net_committed
+                            < candidate.capital.total.net_committed)
+            })
+        })
+        .cloned()
+        .collect()
+}
+
+fn route_capital_summary(outcomes: &[CapitalOutcome]) -> Value {
+    let fastest = outcomes.iter().map(|o| o.attainment_month).min();
+    let cheapest = outcomes.iter().map(|o| o.capital.total.net_committed).min();
+    let fastest_capital = outcomes
+        .iter()
+        .filter(|o| Some(o.attainment_month) == fastest)
+        .map(|o| o.capital.total.net_committed)
+        .min();
+    let cheapest_month = outcomes
+        .iter()
+        .filter(|o| Some(o.capital.total.net_committed) == cheapest)
+        .map(|o| o.attainment_month)
+        .min();
+    json!({"achieved_count":outcomes.len(),"fastest_month":fastest,"minimum_net_committed":cheapest,
+        "fastest_then_cheapest":outcomes.iter().filter(|o|Some(o.attainment_month)==fastest && Some(o.capital.total.net_committed)==fastest_capital).collect::<Vec<_>>(),
+        "cheapest_then_fastest":outcomes.iter().filter(|o|Some(o.capital.total.net_committed)==cheapest && Some(o.attainment_month)==cheapest_month).collect::<Vec<_>>(),
+        "exact_pareto_frontier":capital_frontier(outcomes)})
+}
+
+fn b1_comparison(outcomes: &[CapitalOutcome], choice: b15::Choice, site: u32) -> (Value, bool) {
+    let routes: Vec<Vec<_>> = [1, 2]
+        .into_iter()
+        .map(|route| {
+            outcomes
+                .iter()
+                .filter(|o| o.choice == choice && o.site == site && o.route == route)
+                .cloned()
+                .collect()
+        })
+        .collect();
+    let fronts: Vec<_> = routes.iter().map(|r| capital_frontier(r)).collect();
+    let mut pairs = vec![];
+    let mut counterexamples = vec![];
+    for r1 in &fronts[0] {
+        for r2 in &fronts[1] {
+            if r1.attainment_month.saturating_add(2) <= r2.attainment_month
+                && r2.capital.total.net_committed < r1.capital.total.net_committed
+            {
+                pairs.push(json!({"route1":r1,"route2":r2}));
+            }
+            if r2.attainment_month <= r1.attainment_month
+                && r2.capital.total.net_committed <= r1.capital.total.net_committed
+            {
+                counterexamples.push(json!({"route1":r1,"route2":r2,"relation":"route2_no_slower_and_no_more_capital"}));
+            }
+            if r1.attainment_month <= r2.attainment_month
+                && r1.capital.total.net_committed <= r2.capital.total.net_committed
+            {
+                counterexamples.push(json!({"route1":r1,"route2":r2,"relation":"route1_no_slower_and_no_more_capital"}));
+            }
+        }
+    }
+    let fastest: Vec<_> = routes
+        .iter()
+        .map(|r| r.iter().map(|o| o.attainment_month).min())
+        .collect();
+    let cheapest: Vec<_> = routes
+        .iter()
+        .map(|r| r.iter().map(|o| o.capital.total.net_committed).min())
+        .collect();
+    let faster = fastest[0]
+        .zip(fastest[1])
+        .is_some_and(|(a, b)| a.saturating_add(2) <= b);
+    let cheaper = cheapest[0].zip(cheapest[1]).is_some_and(|(a, b)| b < a);
+    fn canonical_fastest(route: &[CapitalOutcome]) -> Option<&CapitalOutcome> {
+        route.iter().min_by_key(|o| {
+            (
+                o.attainment_month,
+                o.capital.total.net_committed,
+                o.script_id.clone(),
+            )
+        })
+    }
+    fn canonical_cheapest(route: &[CapitalOutcome]) -> Option<&CapitalOutcome> {
+        route.iter().min_by_key(|o| {
+            (
+                o.capital.total.net_committed,
+                o.attainment_month,
+                o.script_id.clone(),
+            )
+        })
+    }
+    let selected_r1 = canonical_fastest(&routes[0]);
+    let selected_r2_cheap = canonical_cheapest(&routes[1]);
+    let selected_r2_fast = canonical_fastest(&routes[1]);
+    let pair_pass = |a: Option<&CapitalOutcome>, b: Option<&CapitalOutcome>| {
+        a.zip(b).is_some_and(|(a, b)| {
+            a.attainment_month.saturating_add(2) <= b.attainment_month
+                && b.capital.total.net_committed < a.capital.total.net_committed
+        })
+    };
+    let fastest_vs_cheapest_pass = pair_pass(selected_r1, selected_r2_cheap);
+    let both_fastest_pass = pair_pass(selected_r1, selected_r2_fast);
+    let pass = fastest_vs_cheapest_pass;
+    (
+        json!({"site":site,"choice":choice,"route1":route_capital_summary(&routes[0]),"route2":route_capital_summary(&routes[1]),"route1_fastest_at_least_two_months_earlier":faster,"route2_minimum_capital_strictly_lower":cheaper,"efficient_fast_expensive_slow_cheap_pairs":pairs,"counterexamples":counterexamples,"fastest_vs_cheapest_pass":fastest_vs_cheapest_pass,"both_fastest_diagnostic_pass":both_fastest_pass,"stronger_independent_minima_diagnostic":faster && cheaper && !pairs.is_empty()}),
+        pass,
+    )
 }
 
 fn emit(value: &impl Serialize) -> std::result::Result<(), String> {
@@ -258,8 +481,8 @@ fn replay(base: &Game, script: Script) -> std::result::Result<Replay, String> {
         }
         let state = game.governance().ok_or("missing governance state")?;
         let record = state.history.last().ok_or("month produced no history")?;
-        let factories: Vec<_> = state.factories.values().map(|f|json!({"id":f.id,"group":f.group,"site":f.site,"phase":f.phase,"start":f.started_month,"activate":f.activate_month,"output":f.output,"after_tax_profit":f.after_tax_profit,"operating_subsidy":f.operating_subsidy})).collect();
-        monthly.push(json!({"record":record,"group_cash":{"A":game.balance(Group::A.account(), &Asset::Money),"B":game.balance(Group::B.account(), &Asset::Money)},"factories":factories,"candidate_site":state.sites.get(&script.site),"unused_energy_bill":state.last_energy_unused_bill}));
+        let factories: Vec<_> = state.factories.values().map(|f|json!({"id":f.id,"group":f.group,"site":f.site,"phase":f.phase,"start":f.started_month,"activate":f.activate_month,"output":f.output,"after_tax_profit":f.after_tax_profit,"operating_subsidy":f.operating_subsidy,"water_suspended":f.water_suspended,"first_operated_month":f.first_operated_month})).collect();
+        monthly.push(json!({"record":record,"group_cash":{"A":game.balance(Group::A.account(), &Asset::Money),"B":game.balance(Group::B.account(), &Asset::Money)},"factories":factories,"candidate_site":state.sites.get(&script.site),"unused_energy_bill":state.last_energy_unused_bill,"projects":state.projects.values().collect::<Vec<_>>()}));
     }
     let state = game.governance().ok_or("missing governance state")?;
     let report = state.report.clone();
@@ -320,6 +543,7 @@ fn replay(base: &Game, script: Script) -> std::result::Result<Replay, String> {
         failed_actions: failed,
         monthly,
         final_scorecards,
+        government_capital: government_capital(&game)?,
     })
 }
 
@@ -329,6 +553,8 @@ fn run() -> std::result::Result<u8, String> {
     let mut summary_only = false;
     let mut selected_script = None;
     let mut water_share = None;
+    let mut skilled_idle_share = None;
+    let mut export_orders = None;
     let mut require_acceptance = false;
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -336,6 +562,22 @@ fn run() -> std::result::Result<u8, String> {
             "--summary-only" => summary_only = true,
             "--require-acceptance" => require_acceptance = true,
             "--script" => selected_script = Some(args.next().ok_or("--script needs an ID")?),
+            "--skilled-idle-share" => {
+                skilled_idle_share = Some(
+                    args.next()
+                        .ok_or("--skilled-idle-share needs a ratio")?
+                        .parse::<f64>()
+                        .map_err(|e| e.to_string())?,
+                )
+            }
+            "--export-orders" => {
+                export_orders = Some(
+                    args.next()
+                        .ok_or("--export-orders needs a quantity")?
+                        .parse::<u32>()
+                        .map_err(|e| e.to_string())?,
+                )
+            }
             "--water-share" => {
                 water_share = Some(
                     args.next()
@@ -346,7 +588,7 @@ fn run() -> std::result::Result<u8, String> {
             }
             _ => {
                 return Err(
-                    "usage: governance_replay [--quick] [--summary-only] [--script ID] [--water-share RATIO] [--require-acceptance]".into(),
+                    "usage: governance_replay [--quick] [--summary-only] [--script ID] [--water-share RATIO] [--require-acceptance] [--skilled-idle-share RATIO] [--export-orders QUANTITY]".into(),
                 );
             }
         }
@@ -367,24 +609,35 @@ fn run() -> std::result::Result<u8, String> {
     let order: Vec<u32> = if quick { vec![0] } else { vec![0, 1] };
     let tolerance = b15::Tolerances::proposed(0, 0, b15::MONEY_SCALE / 100, b15::MONEY_SCALE / 100)
         .map_err(|e| format!("{e:?}"))?;
-    let base = if let Some(share) = water_share {
-        let calibration = GovernanceCalibration {
-            water_priority_fraction: share,
-            ..GovernanceCalibration::default()
-        };
-        Game::confirmed_game_with_calibration(calibration)
-    } else {
-        Game::confirmed_game()
+    let mut calibration = GovernanceCalibration::default();
+    if let Some(share) = water_share {
+        calibration.water_priority_fraction = share;
     }
-    .map_err(|e| e.to_string())?;
+    if let Some(share) = skilled_idle_share {
+        calibration.initial_skilled_idle_share = share;
+    }
+    if let Some(orders) = export_orders {
+        calibration.cooperation_export_orders_per_month = orders;
+        let document = initial_values::confirmed_document().map_err(|e| e.to_string())?;
+        let unit_price = money(
+            initial_values::number(&document, "/parameters/goods_price")
+                .map_err(|e| e.to_string())?,
+        )
+        .map_err(|e| e.to_string())?;
+        calibration.foreign_buyer_monthly_budget = unit_price
+            .checked_mul(u64::from(orders))
+            .ok_or("export buyer budget overflow")?;
+    }
+    let base = Game::confirmed_game_with_calibration(calibration).map_err(|e| e.to_string())?;
     emit(
-        &json!({"kind":"search_domain","require_acceptance":require_acceptance,"selected_script":selected_script,"pending_water_share_override":water_share,"preparation_months":preparation,"subsidy_currency":subsidy,"renewal_months":renewal,"project_orders":order,"choices":["W","E","Decline"],"project_sequences":{"r1_o0":["Housing","Road","Power","Water","Clinic"],"r1_o1":["Road","Power","Housing","Clinic","Water","Vocational"],"r2_o0":["Vocational","Housing","Clinic","Road","Power","Water"],"r2_o1":["Housing","Clinic","Vocational","Power","Road","Water"]},"horizon":24,"money_scale":b15::MONEY_SCALE,"tolerances":tolerance,"calibration":base.governance().ok_or("missing governance")?.calibration,"global_optimality_claim":false,"retry_policy":"Every uncompleted prescribed action retries monthly; successful IDs are never repeated. Intents only at selected candidate; deadline min(month+4,24). Renewal retries only to M12. Execution errors have no metrics and block the whole B15 group.","route1":"housing/road/power/water/clinic; order1 additionally vocational last; subsidy cap, ordinary energy contract from M3","route2":"vocational/housing/clinic/road/power/water, subsidy cap, cooperation from M2","frontiers":"exact Pareto; tolerance pairwise bidirectional coverage","attainment":"Some only when final M24 grade Achieved; raw first sustained window separately reported"}),
+        &json!({"kind":"search_domain","require_acceptance":require_acceptance,"selected_script":selected_script,"pending_water_share_override":water_share,"pending_skilled_idle_share_override":skilled_idle_share,"pending_export_orders_override":export_orders,"export_budget_policy":"When export quantity is overridden, foreign buyer monthly budget is exactly quantity times D022 confirmed goods unit price in fixed money units.","preparation_months":preparation,"subsidy_currency":subsidy,"renewal_months":renewal,"project_orders":order,"choices":["W","E","Decline"],"project_sequences":{"r1_o0":["Housing","Road","Power","Water","Clinic"],"r1_o1":["Road","Power","Housing","Clinic","Water","Vocational"],"r2_o0":["Vocational","Housing","Clinic","Road","Power","Water"],"r2_o1":["Housing","Clinic","Vocational","Power","Road","Water"]},"horizon":24,"money_scale":b15::MONEY_SCALE,"tolerances":tolerance,"calibration":base.governance().ok_or("missing governance")?.calibration,"global_optimality_claim":false,"retry_policy":"Every uncompleted prescribed action retries monthly; successful IDs are never repeated. Intents only at selected candidate; deadline min(month+4,24). Renewal retries only to M12. Execution errors have no metrics and block the whole B15 group.","route1":"housing/road/power/water/clinic; order1 additionally vocational last; subsidy cap, ordinary energy contract from M3","route2":"vocational/housing/clinic/road/power/water, subsidy cap, cooperation from M2","frontiers":"exact Pareto; tolerance pairwise bidirectional coverage","attainment":"Some only when final M24 grade Achieved; raw first sustained window separately reported"}),
     )?;
     let mut b1_execution_blocked = false;
-    let mut best_decline: BTreeMap<(u32, u32), Option<(u32, String)>> = BTreeMap::new();
+    let mut capital_outcomes = vec![];
     for site in [8, 29] {
         for route in [1, 2] {
             let mut outcomes = vec![];
+            let mut capital_records = vec![];
             let mut counts = BTreeMap::new();
             let mut execution_errors = vec![];
             for choice in [b15::Choice::W, b15::Choice::E, b15::Choice::Decline] {
@@ -414,27 +667,29 @@ fn run() -> std::result::Result<u8, String> {
                                     Ok(result) => result,
                                     Err(error) => {
                                         fatal_count += 1;
-                                        b1_execution_blocked |= choice == b15::Choice::Decline;
+                                        b1_execution_blocked = true;
                                         let failure = json!({"kind":"script_execution_error","script":script,"execution_error":error});
                                         execution_errors.push(failure.clone());
                                         emit(&failure)?;
                                         continue;
                                     }
                                 };
+                                capital_records.push(json!({"script_id":result.script.id(),"choice":choice,"capital":result.government_capital,"execution_error":result.execution_error}));
                                 if result.execution_error.is_some() {
-                                    b1_execution_blocked |= choice == b15::Choice::Decline;
+                                    b1_execution_blocked = true;
                                     fatal_count += 1;
                                 }
                                 if let Some(outcome) = &result.outcome {
                                     if let Some(month) = outcome.metrics.attainment_month {
                                         achieved += 1;
-                                        if choice == b15::Choice::Decline {
-                                            let entry =
-                                                best_decline.entry((site, route)).or_default();
-                                            if entry.as_ref().is_none_or(|old| month < old.0) {
-                                                *entry = Some((month, outcome.id.clone()));
-                                            }
-                                        }
+                                        capital_outcomes.push(CapitalOutcome {
+                                            script_id: outcome.id.clone(),
+                                            choice,
+                                            site,
+                                            route,
+                                            attainment_month: month,
+                                            capital: result.government_capital.clone(),
+                                        });
                                     }
                                     outcomes.push(outcome.clone());
                                 } else {
@@ -483,7 +738,7 @@ fn run() -> std::result::Result<u8, String> {
             all_b15_pass &= sum.pass && union.pass;
             b15_aggregation_pending |= aggregation_sensitive;
             emit(
-                &json!({"kind":"bounded_b15","site":site,"route":route,"scripts":outcomes.len(),"counts":counts,"sum":sum,"union":union,"aggregation_sensitive":aggregation_sensitive,"outcomes":outcomes}),
+                &json!({"kind":"bounded_b15","site":site,"route":route,"scripts":outcomes.len(),"counts":counts,"sum":sum,"union":union,"aggregation_sensitive":aggregation_sensitive,"outcomes":outcomes,"government_capital_records":capital_records,"government_capital_outcomes":capital_outcomes.iter().filter(|o|o.site==site && o.route==route).collect::<Vec<_>>()}),
             )?;
         }
     }
@@ -498,20 +753,29 @@ fn run() -> std::result::Result<u8, String> {
     }
     let mut b1 = vec![];
     let mut all_reached = true;
-    for site in [8, 29] {
-        let preferred = if site == 8 { 1 } else { 2 };
-        let preferred_best = best_decline.get(&(site, preferred)).cloned().flatten();
-        let other_best = best_decline.get(&(site, 3 - preferred)).cloned().flatten();
-        let delta = preferred_best
-            .as_ref()
-            .zip(other_best.as_ref())
-            .map(|(a, b)| i64::from(b.0) - i64::from(a.0));
-        let pass = delta.is_some_and(|d| d >= 2);
-        all_reached &= pass;
-        b1.push(json!({"site":site,"preferred_route":preferred,"preferred_best":preferred_best,"other_best":other_best,"preferred_advantage_months":delta,"pass":pass}));
+    for choice in [b15::Choice::Decline, b15::Choice::W, b15::Choice::E] {
+        for site in [8, 29] {
+            let (comparison, pass) = b1_comparison(&capital_outcomes, choice, site);
+            if choice == b15::Choice::Decline {
+                all_reached &= pass;
+            }
+            b1.push(comparison);
+        }
     }
+    let eight_fastest = capital_outcomes
+        .iter()
+        .filter(|o| o.site == 8 && o.choice == b15::Choice::Decline)
+        .map(|o| o.attainment_month)
+        .min();
+    let eight_w = capital_outcomes
+        .iter()
+        .any(|o| o.site == 8 && o.choice == b15::Choice::W);
+    let twenty_nine_w = capital_outcomes
+        .iter()
+        .any(|o| o.site == 29 && o.choice == b15::Choice::W);
+    all_reached &= eight_fastest.is_some_and(|month| month <= 20) && eight_w && !twenty_nine_w;
     emit(
-        &json!({"kind":"bounded_b1","choice":"Decline","same_disclosed_search_domain":true,"status":if b1_execution_blocked {"blocked_not_evaluated"} else {"evaluated"},"results":b1,"pass":if b1_execution_blocked {None} else {Some(all_reached)},"not_experience_acceptance":true}),
+        &json!({"kind":"bounded_b1","decision":"D026","comparison_policy_status":"chat_confirmed_2026-10-24","selection_confirmation":"User confirmed in current chat: route1 fastest, route2 cheapest, disclose all frontiers. R1 ties use minimum net capital; R2 ties use earliest attainment.","primary_choice":"Decline","same_disclosed_search_domain":true,"capital_metric":"net committed = actual paid + remaining escrow; historical gross and refunds separately retained","selection_policy":"Primary Decline: R1 earliest attained then minimum net capital; R2 minimum net capital attained within M24 then earliest. Full exact month/capital frontiers, alternate fastest-vs-fastest diagnosis and counterexamples disclosed; no dominated script establishes a pair.","status":if b1_execution_blocked {"blocked_not_evaluated"} else {"evaluated_under_proposed_policy"},"results":b1,"eight_fastest_month":eight_fastest,"eight_fastest_by_m20":eight_fastest.is_some_and(|month|month<=20),"eight_w_achieved":eight_w,"twenty_nine_w_achieved":twenty_nine_w,"pass":if b1_execution_blocked {None} else {Some(all_reached)},"not_experience_acceptance":true}),
     )?;
     let passed = all_reached && !b1_execution_blocked && all_b15_pass && !b15_aggregation_pending;
     let status = if b1_execution_blocked || b15_execution_blocked {
@@ -525,7 +789,7 @@ fn run() -> std::result::Result<u8, String> {
     };
     let exit_code = if require_acceptance && !passed { 2 } else { 0 };
     emit(
-        &json!({"kind":"acceptance_result","status":status,"b1_pass":all_reached && !b1_execution_blocked,"all_b15_pass":all_b15_pass,"aggregation_pending":b15_aggregation_pending,"exit_code":exit_code,"not_experience_acceptance":true}),
+        &json!({"kind":"acceptance_result","status":status,"b1_pass":if b1_execution_blocked {None} else {Some(all_reached)},"b1_selection_policy":"chat_confirmed_route1_fastest_route2_cheapest","all_b15_pass":all_b15_pass,"aggregation_pending":b15_aggregation_pending,"exit_code":exit_code,"not_experience_acceptance":true}),
     )?;
     Ok(exit_code)
 }
@@ -538,5 +802,82 @@ fn main() {
             let _ = emit(&json!({"kind":"driver_error","error":error}));
             std::process::exit(1);
         }
+    }
+}
+
+#[cfg(test)]
+mod driver_tests {
+    use super::*;
+
+    fn outcome(id: &str, route: u32, month: u32, capital: u64) -> CapitalOutcome {
+        let mut account = CapitalAccount::default();
+        account.add(capital, capital, false).unwrap();
+        CapitalOutcome {
+            script_id: id.into(),
+            choice: b15::Choice::Decline,
+            site: 8,
+            route,
+            attainment_month: month,
+            capital: GovernmentCapital {
+                total: account,
+                ..GovernmentCapital::default()
+            },
+        }
+    }
+
+    #[test]
+    fn capital_refunds_are_not_counted_as_actual_payment() {
+        let mut account = CapitalAccount::default();
+        account.add(100, 30, true).unwrap();
+        account.add(50, 10, false).unwrap();
+        assert_eq!(account.historical_gross_committed, 150);
+        assert_eq!(account.actually_paid, 40);
+        assert_eq!(account.refunded, 70);
+        assert_eq!(account.remaining_escrow, 40);
+        assert_eq!(account.net_committed, 80);
+    }
+
+    #[test]
+    fn dominated_expensive_route_cannot_manufacture_a_cheap_route_pair() {
+        let outcomes = vec![
+            outcome("r1-fast-cheap", 1, 10, 20),
+            outcome("r1-slow-wasteful", 1, 14, 30),
+            outcome("r2", 2, 16, 25),
+        ];
+        let (report, pass) = b1_comparison(&outcomes, b15::Choice::Decline, 8);
+        assert!(!pass);
+        assert!(
+            report["efficient_fast_expensive_slow_cheap_pairs"]
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
+        assert_eq!(
+            report["route1"]["exact_pareto_frontier"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        assert!(!report["counterexamples"].as_array().unwrap().is_empty());
+    }
+
+    #[test]
+    fn reports_both_selection_policies_without_hiding_fast_route_two() {
+        let outcomes = vec![
+            outcome("r1", 1, 10, 20),
+            outcome("r2-fast", 2, 11, 10),
+            outcome("r2-cheap", 2, 14, 5),
+        ];
+        let (report, _) = b1_comparison(&outcomes, b15::Choice::Decline, 8);
+        assert_eq!(report["fastest_vs_cheapest_pass"], true);
+        assert_eq!(report["both_fastest_diagnostic_pass"], false);
+        assert_eq!(
+            report["route2"]["exact_pareto_frontier"]
+                .as_array()
+                .unwrap()
+                .len(),
+            2
+        );
     }
 }
