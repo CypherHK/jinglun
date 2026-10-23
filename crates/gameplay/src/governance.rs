@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 /// One currency unit is 100,000,000 ledger units. Each conversion rounds to the
 /// nearest unit, with an absolute error of at most 5e-9 currency units.
-pub const GOVERNANCE_RULES_VERSION: &str = "governance-rules-5";
+pub const GOVERNANCE_RULES_VERSION: &str = "governance-rules-6";
 pub const MONEY_SCALE: u64 = 100_000_000;
 pub fn money(value: f64) -> Result<u64> {
     scenario::finite_nonnegative(value)?;
@@ -517,10 +517,34 @@ struct CompletedPlan {
     month: u32,
     commands: Vec<(String, GovernanceCommand)>,
 }
+/// Unconfirmed labor recruitment experiment; opening denominators never grow with migration.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct LaborTrialSource {
+    pub initial_labor_force: u32,
+    pub initial_nonmanufacturing_workers: u32,
+    pub nonmanufacturing_workers: u32,
+    pub cumulative_outbound: u32,
+    pub cumulative_employed_recruits: u32,
+    pub lost_worker_months: u64,
+    pub cumulative_wage_loss: u64,
+    pub cumulative_payroll_tax_loss: u64,
+}
+impl LaborTrialSource {
+    pub fn outbound_cap(&self) -> u32 {
+        self.initial_labor_force / 10
+    }
+    pub fn outbound_remaining(&self) -> u32 {
+        self.outbound_cap().saturating_sub(self.cumulative_outbound)
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct GovernanceState {
     pub rules_version: String,
+    pub labor_trial_enabled: bool,
+    pub labor_trial_sources: BTreeMap<u32, LaborTrialSource>,
     pub institution_changes: BTreeMap<Institution, (u32, bool)>,
     pub institution_last_change: BTreeMap<Institution, u32>,
     pub last_diplomatic_spend: u64,
@@ -602,15 +626,23 @@ impl Game {
         Self::confirmed_game_with_calibration(GovernanceCalibration::default())
     }
     pub fn confirmed_game_with_calibration(calibration: GovernanceCalibration) -> Result<Self> {
+        Self::confirmed_game_with_labor_trial(calibration, false)
+    }
+    /// Opt-in only: pending_user_confirmation, excluded from confirmed defaults.
+    pub fn confirmed_game_with_labor_trial(
+        calibration: GovernanceCalibration,
+        enabled: bool,
+    ) -> Result<Self> {
         let doc = document()?;
         if doc["activation"] != "enabled" {
             return Err(Error::Invalid("confirmed initial document not activated"));
         }
-        Self::governance_from_map(scenario::generated()?, calibration, doc)
+        Self::governance_from_map(scenario::generated()?, calibration, enabled, doc)
     }
     fn governance_from_map(
         map: Value,
         calibration: GovernanceCalibration,
+        labor_trial_enabled: bool,
         doc: &Value,
     ) -> Result<Self> {
         calibration.validate()?;
@@ -707,6 +739,31 @@ impl Game {
                 },
             );
         }
+        let mut labor_trial_sources = BTreeMap::new();
+        for site in sites.keys() {
+            let labor_force = number(doc, &format!("/regions/{site}/labor_force/value"))? as u32;
+            let employed = number(doc, &format!("/regions/{site}/employed/value"))? as u32;
+            let manufacturing =
+                number(doc, &format!("/regions/{site}/manufacturing_output/value"))?
+                    / param(doc, "new_factory_output")?
+                    * param(doc, "new_factory_workers")?;
+            let nonmanufacturing = employed
+                .checked_sub(manufacturing as u32)
+                .ok_or(Error::Invalid("opening nonmanufacturing labor"))?;
+            labor_trial_sources.insert(
+                *site,
+                LaborTrialSource {
+                    initial_labor_force: labor_force,
+                    initial_nonmanufacturing_workers: nonmanufacturing,
+                    nonmanufacturing_workers: nonmanufacturing,
+                    cumulative_outbound: 0,
+                    cumulative_employed_recruits: 0,
+                    lost_worker_months: 0,
+                    cumulative_wage_loss: 0,
+                    cumulative_payroll_tax_loss: 0,
+                },
+            );
+        }
         let mut budgets = BTreeMap::new();
         for (kind, name) in [
             (Service::Health, "health"),
@@ -724,6 +781,8 @@ impl Game {
         }
         game.governance = Some(GovernanceState {
             rules_version: GOVERNANCE_RULES_VERSION.into(),
+            labor_trial_enabled,
+            labor_trial_sources,
             institution_changes: BTreeMap::new(),
             institution_last_change: BTreeMap::new(),
             last_diplomatic_spend: 0,
@@ -958,8 +1017,12 @@ impl Game {
             return Ok(());
         };
         let doc = document()?;
-        let mut replay =
-            Self::governance_from_map(self.map.clone(), state.calibration.clone(), doc)?;
+        let mut replay = Self::governance_from_map(
+            self.map.clone(),
+            state.calibration.clone(),
+            state.labor_trial_enabled,
+            doc,
+        )?;
         for completed in &state.completed_plans {
             if completed.month != replay.month {
                 return Err(Error::Invalid("governance plan history"));
@@ -1715,8 +1778,26 @@ impl GovernanceState {
             .housing_capacity
             .saturating_sub(s.population)
             .min(s.clinic_capacity.saturating_sub(s.population));
-        let potential_workers = local_idle
-            .saturating_add(migration_space.min(domestic_idle.saturating_sub(local_idle)));
+        let domestic_available = if self.labor_trial_enabled {
+            self.sites
+                .iter()
+                .filter(|(id, _)| **id != site)
+                .map(|(id, source)| {
+                    let trial = &self.labor_trial_sources[id];
+                    (source.idle_workers + trial.nonmanufacturing_workers)
+                        .min(trial.outbound_remaining())
+                        .min(
+                            (source.population as f64
+                                * self.calibration.migration_source_population_share)
+                                .floor() as u32,
+                        )
+                })
+                .sum::<u32>()
+                .min(self.calibration.domestic_migration_per_month)
+        } else {
+            domestic_idle.saturating_sub(local_idle)
+        };
+        let potential_workers = local_idle.saturating_add(migration_space.min(domestic_available));
         let domestic_new: f64 = self
             .factories
             .values()
@@ -2313,61 +2394,104 @@ impl GovernanceState {
             .map(|(id, _)| *id)
             .collect();
         destinations.sort_by_key(|id| (Some(*id) != self.selected_candidate, *id));
-        for site in destinations {
-            if [39, 74].contains(&site) {
-                continue;
+        // Complete the idle pass across every origin/destination before recruiting jobs.
+        let mut destination_remaining = BTreeMap::<u32, u32>::new();
+        for employed_pass in [false, true] {
+            if employed_pass && !self.labor_trial_enabled {
+                break;
             }
-            let s = &self.sites[&site];
-            if s.road_capacity == 0 || s.power_capacity == 0 || !s.water_access {
-                continue;
-            }
-            let target = s.road_capacity.min(s.power_capacity);
-            let allocated: u32 = self
-                .factories
-                .values()
-                .filter(|f| f.site == site && f.phase != FactoryPhase::Closed)
-                .map(|f| f.workers)
-                .sum();
-            let capacity = s
-                .housing_capacity
-                .saturating_sub(s.population)
-                .min(s.clinic_capacity.saturating_sub(s.population));
-            let mut need = target
-                .saturating_sub(s.idle_workers + allocated)
-                .min(capacity)
-                .min(self.calibration.domestic_migration_per_month);
-            let origins: Vec<_> = self
-                .sites
-                .keys()
-                .copied()
-                .filter(|id| *id != site)
-                .collect();
-            for origin in origins {
-                let source = self.sites.get_mut(&origin).unwrap();
-                let moved = source.idle_workers.min(need).min(source_remaining[&origin]);
-                let skilled_moved = moved
-                    .saturating_sub(source.idle_workers.saturating_sub(source.skilled_workers));
-                source.skilled_workers -= skilled_moved;
-                *source_remaining.get_mut(&origin).unwrap() -= moved;
-                source.idle_workers -= moved;
-                source.enrolled_students = source
-                    .enrolled_students
-                    .min(source.idle_workers.saturating_sub(source.skilled_workers));
-                source.population -= moved;
-                let dest = self.sites.get_mut(&site).unwrap();
-                dest.idle_workers += moved;
-                dest.skilled_workers += skilled_moved;
-                dest.population += moved;
-                need -= moved;
-                if moved > 0 {
-                    self.fact(
-                        game.month,
-                        format!("domestic_idle_migration:{moved}"),
-                        vec![format!("site/{origin}"), format!("site/{site}")],
+            for site in destinations.iter().copied() {
+                if [39, 74].contains(&site) {
+                    continue;
+                }
+                let s = &self.sites[&site];
+                if s.road_capacity == 0 || s.power_capacity == 0 || !s.water_access {
+                    continue;
+                }
+                let target = s.road_capacity.min(s.power_capacity);
+                let allocated: u32 = self
+                    .factories
+                    .values()
+                    .filter(|f| f.site == site && f.phase != FactoryPhase::Closed)
+                    .map(|f| f.workers)
+                    .sum();
+                let capacity = s
+                    .housing_capacity
+                    .saturating_sub(s.population)
+                    .min(s.clinic_capacity.saturating_sub(s.population));
+                let mut need = target
+                    .saturating_sub(s.idle_workers + allocated)
+                    .min(capacity)
+                    .min(self.calibration.domestic_migration_per_month);
+                if self.labor_trial_enabled {
+                    need = need.min(
+                        *destination_remaining
+                            .entry(site)
+                            .or_insert(self.calibration.domestic_migration_per_month),
                     );
                 }
-                if need == 0 {
-                    break;
+                let origins: Vec<_> = self
+                    .sites
+                    .keys()
+                    .copied()
+                    .filter(|id| *id != site)
+                    .collect();
+                for origin in origins {
+                    let source = self.sites.get_mut(&origin).unwrap();
+                    let trial = self.labor_trial_sources.get_mut(&origin).unwrap();
+                    let available = if employed_pass {
+                        trial.nonmanufacturing_workers
+                    } else {
+                        source.idle_workers
+                    };
+                    let mut moved = available.min(need).min(source_remaining[&origin]);
+                    if self.labor_trial_enabled {
+                        moved = moved.min(trial.outbound_remaining());
+                        trial.cumulative_outbound += moved;
+                        *destination_remaining.get_mut(&site).unwrap() -= moved;
+                    }
+                    if employed_pass {
+                        trial.nonmanufacturing_workers -= moved;
+                        trial.cumulative_employed_recruits += moved;
+                    }
+                    let skilled_moved = if employed_pass {
+                        0
+                    } else {
+                        moved.saturating_sub(
+                            source.idle_workers.saturating_sub(source.skilled_workers),
+                        )
+                    };
+                    source.skilled_workers -= skilled_moved;
+                    *source_remaining.get_mut(&origin).unwrap() -= moved;
+                    if !employed_pass {
+                        source.idle_workers -= moved;
+                    }
+                    source.enrolled_students = source
+                        .enrolled_students
+                        .min(source.idle_workers.saturating_sub(source.skilled_workers));
+                    source.population -= moved;
+                    let dest = self.sites.get_mut(&site).unwrap();
+                    dest.idle_workers += moved;
+                    dest.skilled_workers += skilled_moved;
+                    dest.population += moved;
+                    need -= moved;
+                    if moved > 0 {
+                        self.fact(
+                            game.month,
+                            format!(
+                                "{}:{moved}",
+                                if employed_pass {
+                                    "domestic_employed_migration"
+                                } else {
+                                    "domestic_idle_migration"
+                                }
+                            ),
+                            vec![format!("site/{origin}"), format!("site/{site}")],
+                        );
+                    }
+                    if need == 0 {
+                        break;
+                    }
                 }
             }
         }
@@ -2861,14 +2985,30 @@ impl GovernanceState {
         let factory_units = 4.25;
         let existing_factory_wages =
             factory_units * param(doc, "new_factory_workers")? * param(doc, "monthly_wage")?;
+        let mut wage_loss = 0;
+        let mut payroll_tax_loss = 0;
+        for source in self.labor_trial_sources.values_mut() {
+            let displaced = source.cumulative_employed_recruits;
+            let lost_wages = money(displaced as f64 * param(doc, "monthly_wage")?)?;
+            let lost_tax = money(currency(lost_wages) * param(doc, "payroll_tax_rate")?)?;
+            source.lost_worker_months += displaced as u64;
+            source.cumulative_wage_loss += lost_wages;
+            source.cumulative_payroll_tax_loss += lost_tax;
+            wage_loss += lost_wages;
+            payroll_tax_loss += lost_tax;
+        }
         game.settle_external(
             "households",
             Asset::Money,
-            money(baseline_wages - existing_factory_wages)? as i128,
+            money(baseline_wages - existing_factory_wages)?
+                .checked_sub(wage_loss)
+                .ok_or(Error::Invalid("nonmanufacturing wage loss"))? as i128,
             "existing_nonmanufacturing_employer_wages",
         )?;
         self.monthly_existing_payroll =
-            money((baseline_wages - existing_factory_wages) * param(doc, "payroll_tax_rate")?)?;
+            money((baseline_wages - existing_factory_wages) * param(doc, "payroll_tax_rate")?)?
+                .checked_sub(payroll_tax_loss)
+                .ok_or(Error::Invalid("nonmanufacturing payroll loss"))?;
         for (group, name) in [(Group::A, "group_a"), (Group::B, "group_b")] {
             let output = number(
                 doc,
@@ -3759,6 +3899,22 @@ impl GovernanceState {
         if self.rules_version != GOVERNANCE_RULES_VERSION {
             return Err(Error::Invalid("unsupported governance rules version"));
         }
+        if self.labor_trial_sources.keys().ne(self.sites.keys())
+            || self.labor_trial_sources.values().any(|source| {
+                source
+                    .nonmanufacturing_workers
+                    .checked_add(source.cumulative_employed_recruits)
+                    != Some(source.initial_nonmanufacturing_workers)
+                    || source.cumulative_employed_recruits > source.cumulative_outbound
+                    || source.cumulative_outbound > source.outbound_cap()
+                    || (!self.labor_trial_enabled
+                        && (source.cumulative_outbound != 0
+                            || source.cumulative_employed_recruits != 0
+                            || source.lost_worker_months != 0))
+            })
+        {
+            return Err(Error::Invalid("labor trial source invariants"));
+        }
         if self.clinical_coverage_institution
             || self
                 .institution_changes
@@ -3872,7 +4028,12 @@ impl GovernanceState {
                 labor += f.workers as u64;
             }
         }
-        if labor != 295 {
+        let recruited = self
+            .labor_trial_sources
+            .values()
+            .map(|s| s.cumulative_employed_recruits as u64)
+            .sum::<u64>();
+        if labor != 295 + recruited {
             return Err(Error::Invalid("domestic idle labor conservation"));
         }
         for (idx, r) in self.history.iter().enumerate() {
