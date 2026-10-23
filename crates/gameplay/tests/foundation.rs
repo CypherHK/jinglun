@@ -773,6 +773,28 @@ fn operational_water_suspend_resume_retire_and_explicit_protection_are_receipt_b
     );
     let bytes = g.save().unwrap();
     assert_eq!(Game::load(&bytes).unwrap().save().unwrap(), bytes);
+    let mut restored = Game::load(&bytes).unwrap();
+    for month in 1..=24 {
+        restored.end_month(month).unwrap();
+    }
+    restored
+        .apply(
+            "resume-after-expiry",
+            Command::SetOperationalWaterWaiting {
+                reservation: "new".into(),
+                waiting: false,
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        restored.reservations()["new"].phase,
+        AllocationPhase::Operational
+    );
+    let restored_bytes = restored.save().unwrap();
+    assert_eq!(
+        Game::load(&restored_bytes).unwrap().save().unwrap(),
+        restored_bytes
+    );
     g.apply(
         "retire-suspended",
         Command::Retire {

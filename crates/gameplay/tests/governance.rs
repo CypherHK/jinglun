@@ -143,11 +143,19 @@ fn water_renewal_continues_work_but_waits_for_water_before_activation() {
     assert_eq!(paid_before, 0);
     game.end_month(10).unwrap();
     assert!(!game.governance().unwrap().projects["house"].active);
+    assert_eq!(
+        game.governance().unwrap().projects["house"].first_operated_month,
+        None
+    );
     game = Game::load(&game.save().unwrap()).unwrap();
     for month in 11..=25 {
         game.end_month(month).unwrap();
     }
     assert!(game.governance().unwrap().projects["house"].active);
+    assert_eq!(
+        game.governance().unwrap().projects["house"].first_operated_month,
+        Some(25)
+    );
     assert_eq!(
         game.reservations()["public/house"].phase,
         AllocationPhase::Operational
@@ -264,7 +272,21 @@ fn domestic_road(game: &Game, site: u32) -> u32 {
         .unwrap() as u32
 }
 fn early_two_factory_fixture(renewal: RenewalChoice, through: u32) -> Game {
-    let mut game = fixture();
+    // Isolate existing cash and contract regressions from D026's pending skills calibration.
+    let calibration = GovernanceCalibration {
+        initial_skilled_idle_share: 1.0,
+        ..Default::default()
+    };
+    public_factory_fixture(calibration, renewal, through, 9, 10)
+}
+fn public_factory_fixture(
+    calibration: GovernanceCalibration,
+    renewal: RenewalChoice,
+    through: u32,
+    renewal_month: u32,
+    accept_a_from: u32,
+) -> Game {
+    let mut game = Game::confirmed_game_with_calibration(calibration).unwrap();
     let site = 29;
     let road = domestic_road(&game, site);
     game.queue_governance("target", GovernanceCommand::SelectCandidate { site })
@@ -286,7 +308,7 @@ fn early_two_factory_fixture(renewal: RenewalChoice, through: u32) -> Game {
             game.queue_governance("ordinary", GovernanceCommand::SignEnergy)
                 .unwrap();
         }
-        if month == 9 {
+        if month == renewal_month {
             game.queue_governance("renew", GovernanceCommand::RenewAid { choice: renewal })
                 .unwrap();
             game.queue_governance(
@@ -352,7 +374,7 @@ fn early_two_factory_fixture(renewal: RenewalChoice, through: u32) -> Game {
             let allowed = if intent.group == Group::B {
                 true
             } else {
-                month >= 10
+                month >= accept_a_from
             };
             if allowed
                 && game
@@ -508,7 +530,15 @@ fn b12_existing_industry_and_cross_border_water_share_the_real_capacity_and_corr
         let reservations: Vec<_> = game
             .reservations()
             .values()
-            .filter(|r| r.source == source && r.phase != AllocationPhase::WaitingForWater)
+            .filter(|r| {
+                r.source == source
+                    && !matches!(
+                        r.phase,
+                        AllocationPhase::WaitingForWater
+                            | AllocationPhase::OperationalWaitingForWater
+                            | AllocationPhase::Retired
+                    )
+            })
             .collect();
         let quota = game.map()["environment"]["water_sources"]
             .as_array()
@@ -568,7 +598,7 @@ fn b13_report_traces_water_choice_against_the_same_build_plan_counterfactual() {
         .filter(|f| f.site == 29 && f.phase == FactoryPhase::Operating)
         .count();
     println!("B13 W plants={water_factories} Decline plants={declined_factories}");
-    assert_eq!(water_factories, 1);
+    assert_eq!(water_factories, 0);
     assert_eq!(declined_factories, 2);
     let report = ws.report.as_ref().unwrap();
     assert_ne!(report.grade, GoalGrade::Achieved);
@@ -691,7 +721,9 @@ fn b8_closure_retires_land_but_stops_water_use_and_replays() {
             r.source == before.source
                 && !matches!(
                     r.phase,
-                    AllocationPhase::WaitingForWater | AllocationPhase::Retired
+                    AllocationPhase::WaitingForWater
+                        | AllocationPhase::OperationalWaitingForWater
+                        | AllocationPhase::Retired
                 )
         })
         .map(|r| r.water)
@@ -715,7 +747,9 @@ fn b8_closure_retires_land_but_stops_water_use_and_replays() {
             r.source == before.source
                 && !matches!(
                     r.phase,
-                    AllocationPhase::WaitingForWater | AllocationPhase::Retired
+                    AllocationPhase::WaitingForWater
+                        | AllocationPhase::OperationalWaitingForWater
+                        | AllocationPhase::Retired
                 )
         })
         .map(|r| r.water)
@@ -847,7 +881,7 @@ fn undefined_clinical_population_rejects_switch_atomically_and_old_true_flags() 
                 }
             ),
             Err(Error::Invalid(
-                "clinical coverage requires a confirmed disadvantaged population definition"
+                "clinical coverage switching is outside the first governance slice"
             ))
         ));
         assert_eq!(game.save().unwrap(), before);
@@ -861,4 +895,256 @@ fn undefined_clinical_population_rejects_switch_atomically_and_old_true_flags() 
         payload["governance"]["rules_version"] = "governance-rules-2".into();
     });
     assert!(Game::load(&old).is_err());
+}
+
+#[test]
+fn b10_late_water_signature_protects_only_initial_and_suspends_newest_operations() {
+    let calibration = GovernanceCalibration {
+        initial_skilled_idle_share: 1.0,
+        water_priority_fraction: 0.90,
+        ..Default::default()
+    };
+    let mut game = public_factory_fixture(calibration, RenewalChoice::WaterPriority, 11, 12, 1);
+    let mut operations: Vec<_> = game
+        .governance()
+        .unwrap()
+        .factories
+        .values()
+        .filter(|f| f.site == 29 && f.phase == FactoryPhase::Operating)
+        .map(|f| (f.first_operated_month.unwrap(), f.id.clone()))
+        .collect();
+    operations.sort();
+    println!("late W before operations={operations:?}");
+    assert_eq!(operations.len(), 2);
+    let housing_first = game.governance().unwrap().projects["work/Housing"].first_operated_month;
+    let baseline = game.save().unwrap();
+    game.queue_governance(
+        "late_W",
+        GovernanceCommand::RenewAid {
+            choice: RenewalChoice::WaterPriority,
+        },
+    )
+    .unwrap();
+    let forecast = game.treasury_forecast().unwrap();
+    game.withdraw_governance("late_W").unwrap();
+    assert_eq!(game.save().unwrap(), baseline);
+    game.queue_governance(
+        "late_W",
+        GovernanceCommand::RenewAid {
+            choice: RenewalChoice::WaterPriority,
+        },
+    )
+    .unwrap();
+    assert_eq!(forecast, game.treasury_forecast().unwrap());
+    game.end_month(12).unwrap();
+    assert_eq!(
+        forecast[0].treasury,
+        game.balance("treasury", &Asset::Money).unwrap()
+    );
+    assert_eq!(
+        forecast[0].recurring_balance,
+        game.governance().unwrap().last_recurring_balance
+    );
+    let state = game.governance().unwrap();
+    let oldest = &state.factories[&operations[0].1];
+    let newest = &state.factories[&operations[1].1];
+    assert!(!oldest.water_suspended);
+    assert!(oldest.output > 0.0);
+    assert!(newest.water_suspended);
+    assert_eq!(newest.output, 0.0);
+    assert_eq!(newest.loss_months, 1);
+    assert_eq!(
+        newest.after_tax_profit,
+        -(money(2.0 + 3.6).unwrap() as i128)
+    );
+    assert_eq!(newest.first_operated_month, Some(operations[1].0));
+    assert_eq!(
+        state.projects["work/Housing"].first_operated_month,
+        housing_first
+    );
+    for id in ["initial-industry/39", "initial-industry/74"] {
+        assert_eq!(game.reservations()[id].phase, AllocationPhase::Operational);
+    }
+    let value: serde_json::Value = serde_json::from_slice(&game.save().unwrap()).unwrap();
+    for admission in value["payload"]["admissions"].as_object().unwrap().values() {
+        assert!(
+            admission["grandfathered"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|id| id.as_str().unwrap().starts_with("initial-industry/"))
+        );
+    }
+    let bytes = game.save().unwrap();
+    assert_eq!(Game::load(&bytes).unwrap().save().unwrap(), bytes);
+    // Stop supplying new water for seven loss months; the normal exit path still runs.
+    for month in 13..=18 {
+        game.end_month(month).unwrap();
+    }
+    let closed = &game.governance().unwrap().factories[&operations[1].1];
+    assert_eq!(closed.phase, FactoryPhase::Closed);
+    assert_eq!(closed.first_operated_month, Some(operations[1].0));
+    assert_eq!(
+        game.reservations()[&operations[1].1].phase,
+        AllocationPhase::Retired
+    );
+    for month in 19..=25 {
+        game.end_month(month).unwrap();
+    }
+    assert_eq!(
+        game.governance().unwrap().factories[&operations[1].1].phase,
+        FactoryPhase::Closed
+    );
+    assert!(
+        game.governance()
+            .unwrap()
+            .report
+            .as_ref()
+            .unwrap()
+            .causes
+            .iter()
+            .any(|fact| fact.effect == "closed_factory_retains_land"
+                && fact.causes.contains(&operations[1].1))
+    );
+}
+
+#[test]
+fn water_suspended_housing_withdraws_capacity_without_moving_people_and_restores_once() {
+    let calibration = GovernanceCalibration {
+        initial_skilled_idle_share: 1.0,
+        water_priority_fraction: 1.0,
+        ..Default::default()
+    };
+    let mut game = public_factory_fixture(calibration, RenewalChoice::WaterPriority, 11, 12, 1);
+    let site_before = game.governance().unwrap().sites[&29].clone();
+    let first = game.governance().unwrap().projects["work/Housing"].first_operated_month;
+    assert!(first.is_some());
+    game.queue_governance(
+        "late_W",
+        GovernanceCommand::RenewAid {
+            choice: RenewalChoice::WaterPriority,
+        },
+    )
+    .unwrap();
+    game.end_month(12).unwrap();
+    let state = game.governance().unwrap();
+    assert!(state.projects["work/Housing"].water_suspended);
+    assert_eq!(state.sites[&29].population, site_before.population);
+    assert_eq!(
+        state.sites[&29].housing_capacity + state.calibration.housing_workers,
+        site_before.housing_capacity
+    );
+    assert!(!state.history.last().unwrap().housing_ok);
+    let bytes = game.save().unwrap();
+    game = Game::load(&bytes).unwrap();
+    for month in 13..=25 {
+        game.end_month(month).unwrap();
+    }
+    let state = game.governance().unwrap();
+    assert!(!state.projects["work/Housing"].water_suspended);
+    assert_eq!(state.projects["work/Housing"].first_operated_month, first);
+    assert_eq!(
+        state.sites[&29].housing_capacity,
+        site_before.housing_capacity
+    );
+    assert_eq!(
+        game.reservations()["public/work/Housing"].phase,
+        AllocationPhase::Operational
+    );
+    let bytes = game.save().unwrap();
+    let mut resumed = Game::load(&bytes).unwrap();
+    game.end_month(26).unwrap();
+    resumed.end_month(26).unwrap();
+    assert_eq!(game.save().unwrap(), resumed.save().unwrap());
+    assert_eq!(
+        game.governance().unwrap().sites[&29].housing_capacity,
+        site_before.housing_capacity
+    );
+}
+
+#[test]
+fn d026_rule_parameters_convert_only_existing_idle_workers_and_fund_fixed_export_orders() {
+    let mut game = fixture();
+    let state = game.governance().unwrap();
+    assert_eq!(state.sites[&39].skilled_workers, 30);
+    assert_eq!(state.sites[&74].skilled_workers, 7);
+    assert_eq!(state.calibration.initial_skilled_idle_share, 0.25);
+    assert_eq!(state.calibration.cooperation_export_orders_per_month, 100);
+    assert_eq!(
+        state.calibration.foreign_buyer_monthly_budget,
+        money(10.0).unwrap()
+    );
+    for month in 1..=6 {
+        if month == 2 {
+            game.queue_governance("cooperate", GovernanceCommand::SignCooperation)
+                .unwrap();
+        }
+        game.end_month(month).unwrap();
+    }
+    assert_eq!(game.governance().unwrap().export_orders, 100.0);
+    assert!(game.balance("foreign_buyer", &Asset::Money).unwrap() >= money(10.0).unwrap());
+    let old = rewrite_checked_save(&game, |payload| {
+        payload["governance"]["rules_version"] = "governance-rules-3".into();
+        payload["governance"]["calibration"]
+            .as_object_mut()
+            .unwrap()
+            .remove("initial_skilled_idle_share");
+    });
+    assert!(matches!(
+        Game::load(&old),
+        Err(Error::Invalid("unsupported governance rules version"))
+    ));
+}
+
+#[test]
+fn housing_and_factories_share_one_actual_operation_water_priority_order() {
+    let calibration = GovernanceCalibration {
+        // A larger protected cash floor legally cuts services to fund the extra house.
+        protected_treasury: money(20.0).unwrap(),
+        initial_skilled_idle_share: 1.0,
+        water_priority_fraction: 0.90,
+        ..Default::default()
+    };
+    let mut game = public_factory_fixture(calibration, RenewalChoice::WaterPriority, 8, 12, 1);
+    game.queue_governance(
+        "extra_housing",
+        GovernanceCommand::BuildPublic {
+            id: "newest_house".into(),
+            site: 29,
+            kind: PublicWork::Housing,
+            road_edge: None,
+        },
+    )
+    .unwrap();
+    for month in 9..=11 {
+        game.end_month(month).unwrap();
+    }
+    let before = game.governance().unwrap().sites[&29].clone();
+    assert_eq!(
+        game.governance().unwrap().projects["newest_house"].first_operated_month,
+        Some(11)
+    );
+    game.queue_governance(
+        "late_W",
+        GovernanceCommand::RenewAid {
+            choice: RenewalChoice::WaterPriority,
+        },
+    )
+    .unwrap();
+    game.end_month(12).unwrap();
+    let state = game.governance().unwrap();
+    assert!(state.projects["newest_house"].water_suspended);
+    assert!(!state.projects["work/Housing"].water_suspended);
+    assert_eq!(state.sites[&29].population, before.population);
+    assert_eq!(
+        state.sites[&29].housing_capacity + state.calibration.housing_workers,
+        before.housing_capacity
+    );
+    let mut plants: Vec<_> = state.factories.values().filter(|f| f.site == 29).collect();
+    plants.sort_by_key(|f| (f.first_operated_month, f.id.clone()));
+    assert_eq!(plants.len(), 2);
+    assert!(!plants[0].water_suspended);
+    assert!(plants[1].water_suspended);
+    let bytes = game.save().unwrap();
+    assert_eq!(Game::load(&bytes).unwrap().save().unwrap(), bytes);
 }

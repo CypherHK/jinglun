@@ -2,6 +2,21 @@ use crate::*;
 
 const SCHEMA_VERSION: u32 = 2;
 
+// Read the business version before deserializing fields introduced by that version.
+// Older foundation-only saves keep their existing schema and remain supported.
+#[derive(Deserialize)]
+struct BusinessVersionProbe {
+    payload: BusinessPayloadProbe,
+}
+#[derive(Deserialize)]
+struct BusinessPayloadProbe {
+    governance: Option<BusinessRulesProbe>,
+}
+#[derive(Deserialize)]
+struct BusinessRulesProbe {
+    rules_version: String,
+}
+
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Save {
@@ -73,6 +88,14 @@ impl Game {
         Ok(serde_json::to_vec(&save)?)
     }
     pub fn load(bytes: &[u8]) -> Result<Self> {
+        let probe: BusinessVersionProbe = serde_json::from_slice(bytes)?;
+        if probe
+            .payload
+            .governance
+            .is_some_and(|state| state.rules_version != governance::GOVERNANCE_RULES_VERSION)
+        {
+            return Err(Error::Invalid("unsupported governance rules version"));
+        }
         let save: Save = serde_json::from_slice(bytes)?;
         if save.schema_version != SCHEMA_VERSION
             || save.generator_version != GENERATOR_VERSION

@@ -2007,10 +2007,9 @@ impl GovernanceState {
                     .reservations
                     .get(&reservation)
                     .is_some_and(|r| r.source == source)
+                && let Some(month) = p.first_operated_month
             {
-                if let Some(month) = p.first_operated_month {
-                    order.push((month, reservation));
-                }
+                order.push((month, reservation));
             }
         }
         for (id, f) in &self.factories {
@@ -2019,10 +2018,9 @@ impl GovernanceState {
                     .reservations
                     .get(id)
                     .is_some_and(|r| r.source == source)
+                && let Some(month) = f.first_operated_month
             {
-                if let Some(month) = f.first_operated_month {
-                    order.push((month, id.clone()));
-                }
+                order.push((month, id.clone()));
             }
         }
         order.sort();
@@ -3758,6 +3756,51 @@ impl GovernanceState {
             {
                 return Err(Error::Invalid("factory business invariants"));
             }
+            let reservation = game
+                .reservations
+                .get(id)
+                .ok_or(Error::Invalid("factory reservation"))?;
+            let first = game
+                .applied
+                .values()
+                .filter_map(|a| match &a.command {
+                    Command::MarkOperational { reservation } if reservation == id => {
+                        Some(a.receipt.month)
+                    }
+                    _ => None,
+                })
+                .min();
+            if f.first_operated_month != first
+                || f.first_operated_month
+                    .is_some_and(|month| month > game.month)
+            {
+                return Err(Error::Invalid("factory first actual operation"));
+            }
+            let valid_phase = match f.phase {
+                FactoryPhase::Construction => {
+                    !f.water_suspended
+                        && f.first_operated_month.is_none()
+                        && matches!(
+                            reservation.phase,
+                            AllocationPhase::Reserved | AllocationPhase::WaitingForWater
+                        )
+                }
+                FactoryPhase::Closed => {
+                    !f.water_suspended && reservation.phase == AllocationPhase::Retired
+                }
+                _ => {
+                    f.first_operated_month.is_some()
+                        && reservation.phase
+                            == if f.water_suspended {
+                                AllocationPhase::OperationalWaitingForWater
+                            } else {
+                                AllocationPhase::Operational
+                            }
+                }
+            };
+            if !valid_phase {
+                return Err(Error::Invalid("factory operational water phase"));
+            }
             if f.phase != FactoryPhase::Closed {
                 labor += f.workers as u64;
             }
@@ -3782,6 +3825,51 @@ impl GovernanceState {
             }
         }
         for (id, p) in &self.projects {
+            if p.active != p.first_operated_month.is_some()
+                || p.first_operated_month
+                    .is_some_and(|month| month > game.month)
+                || (p.water_suspended && (!p.active || p.kind != PublicWork::Housing))
+            {
+                return Err(Error::Invalid("public first actual operation"));
+            }
+            if p.kind == PublicWork::Housing {
+                let reservation_id = format!("public/{id}");
+                let reservation = game
+                    .reservations
+                    .get(&reservation_id)
+                    .ok_or(Error::Invalid("housing reservation"))?;
+                let first = game
+                    .applied
+                    .values()
+                    .filter_map(|a| match &a.command {
+                        Command::MarkOperational { reservation }
+                            if reservation == &reservation_id =>
+                        {
+                            Some(a.receipt.month)
+                        }
+                        _ => None,
+                    })
+                    .min();
+                if p.first_operated_month != first {
+                    return Err(Error::Invalid("housing first actual operation"));
+                }
+                let valid = if p.active {
+                    reservation.phase
+                        == if p.water_suspended {
+                            AllocationPhase::OperationalWaitingForWater
+                        } else {
+                            AllocationPhase::Operational
+                        }
+                } else {
+                    matches!(
+                        reservation.phase,
+                        AllocationPhase::Reserved | AllocationPhase::WaitingForWater
+                    )
+                };
+                if !valid {
+                    return Err(Error::Invalid("housing operational water phase"));
+                }
+            }
             if id != &p.id
                 || p.worked_months > p.construction_months
                 || p.construction_months == 0

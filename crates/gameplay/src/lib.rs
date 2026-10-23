@@ -1082,7 +1082,9 @@ impl Game {
                 if let Some(r) = self.reservations.get(exempt)
                     && (!matches!(
                         r.phase,
-                        AllocationPhase::Operational | AllocationPhase::Retired
+                        AllocationPhase::Operational
+                            | AllocationPhase::OperationalWaitingForWater
+                            | AllocationPhase::Retired
                     ) || r.source != state.limit.source
                         || r.country != state.limit.country)
                 {
