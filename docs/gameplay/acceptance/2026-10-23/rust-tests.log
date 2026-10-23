@@ -1,0 +1,42 @@
+   Compiling jinglun-world v0.1.0 (/workspace/jinglun-gameplay/crates/world)
+   Compiling jinglun-server v0.1.0 (/workspace/jinglun-gameplay/crates/server)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.53s
+     Running unittests src/main.rs (/workspace/jinglun/target/debug/deps/jinglun_server-fcc533cb2a681237)
+
+running 1 test
+test tests::api_returns_real_world_and_structured_errors ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.64s
+
+     Running unittests src/lib.rs (/workspace/jinglun/target/debug/deps/jinglun_world-4b30baa306e31e9c)
+
+running 21 tests
+test environment::tests::high_plateau_is_flat_and_low_hills_are_not ... ok
+test construction::tests::high_flat_land_remains_buildable_and_water_crossing_is_not_an_open_road ... ok
+test hydrology::tests::cascaded_lakes_pass_only_real_overflow_without_river_shortcuts ... ok
+test hydrology::tests::drainage_is_acyclic_water_balances_and_arid_downstream_receives_water ... ok
+test environment::tests::moisture_budget_balances_and_mountain_has_directional_rain_shadow ... ok
+test hydrology::tests::closed_basin_retains_water_and_wet_basin_reconnects_to_ocean ... ok
+test lakes::tests::dry_closed_and_overflow_basins_have_conservative_months ... ok
+test lakes::tests::evaporation_concentrates_salts_and_seepage_exports_water_and_salt_together ... ok
+test seasonal::tests::drought_and_short_summers_constrain_growth_and_soil_stores_buffer_dry_months ... ok
+test lakes::tests::stored_water_buffers_a_dry_season_and_wet_months_can_spill ... ok
+test seasonal::tests::hemispheres_reverse_seasons_coast_buffers_temperature_and_annual_rain_is_preserved ... ok
+test seasonal::tests::winter_snow_is_stored_until_thaw_and_perennial_accumulation_is_accounted_for ... ok
+test soil::tests::material_is_conserved_steep_soils_thin_and_deposition_is_not_unlimited_fertility ... ok
+test hydrology::tests::supported_depression_becomes_lake_but_dry_pit_does_not ... ok
+test geology::tests::deposits_have_eligible_hosts_and_partitioned_stock_matches_global_stock ... ok
+test tests::tessellation_density_does_not_change_the_natural_world ... ok
+test water::tests::groundwater_delays_recharge_and_lake_seepage_without_creating_water_or_salt ... ok
+test water::tests::saline_water_is_not_fresh_supply_and_reserve_is_not_allocated_twice ... ok
+test tests::replay_is_deterministic_and_seed_changes_world ... ok
+test tests::climate_resources_and_parameter_boundaries_are_valid ... ok
+test tests::polygons_tile_rectangle_and_graph_matches_shared_borders ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 9.67s
+
+   Doc-tests jinglun_world
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

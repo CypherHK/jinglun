@@ -1,0 +1,65 @@
+{
+  "scope": "Fresh verification of 05a5fd3; historical handoff results were not reused. Script authored for this run.",
+  "checks": [
+    {
+      "name": "two ordered candidates",
+      "passed": true,
+      "evidence": [
+        "地块 7",
+        "地块 96"
+      ]
+    },
+    {
+      "name": "duplicate cannot be pinned",
+      "passed": true,
+      "evidence": null
+    },
+    {
+      "name": "four-candidate bound and order",
+      "passed": true,
+      "evidence": [
+        "地块 7",
+        "地块 96",
+        "地块 1",
+        "地块 8"
+      ]
+    },
+    {
+      "name": "water sources unique None",
+      "passed": true,
+      "evidence": {
+        "actual": 79,
+        "expected": 79,
+        "shared_sources": 3
+      }
+    }
+  ],
+  "page_errors": [],
+  "console_errors": [],
+  "sample": {
+    "path": "/workspace/.task-artifacts/jinglun-gameplay/current-acceptance/map-sample-100.json",
+    "bytes": 6500066,
+    "sha256": "a85bbbdfcaf0553ed2e48f12d0c1cc82c4c7a98f876d6a01796ce26f16202421",
+    "api_response_bytes": 6500113,
+    "generation_ms": 331.444078,
+    "request_elapsed_s": 0.5308288180001455,
+    "config": {
+      "seed": "经纶·综合治理·01",
+      "cell_count": 100,
+      "relaxations": 2,
+      "land_ratio": 0.45
+    },
+    "generator_version": "0.6.0",
+    "cells": 100,
+    "water_sources": 1893
+  },
+  "candidate_ids": [
+    6,
+    95,
+    0,
+    7
+  ],
+  "passed": false,
+  "failure": "Traceback (most recent call last):\n  File \"/workspace/.task-artifacts/jinglun-gameplay/current-acceptance/verify_current.py\", line 67, in <module>\n    water_check()\n  File \"/workspace/.task-artifacts/jinglun-gameplay/current-acceptance/verify_current.py\", line 65, in water_check\n    assert f'可规划淡水 {fmt(s[\"ceiling\"])} · 生态保留 {fmt(s[\"reserve\"])}' in text,(s,text)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: ({'number': 36, 'id': 630, 'members': [6], 'ceiling': 0.0, 'reserve': 0.0}, '共享流域 36 · 流向海洋\\n\\n涉及候选地 地块 7\\n\\n可规划淡水 0 · 生态保留 0\\n\\n水质分类 无外排水')\n",
+  "browser_version": "154.0.8037.57"
+}

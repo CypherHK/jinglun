@@ -1,0 +1,20 @@
+
+> jinglun@0.6.1-gameplay build
+> npm run check && vite build --config frontend/vite.config.ts
+
+
+> jinglun@0.6.1-gameplay check
+> tsc --noEmit -p frontend/tsconfig.json
+
+vite v7.3.7 building client environment for production...
+transforming...
+✓ 1179 modules transformed.
+rendering chunks...
+computing gzip size...
+../dist/index.html                         1.18 kB │ gzip:   0.60 kB
+../dist/assets/index-BvsRq95e.css         43.66 kB │ gzip:  10.02 kB
+../dist/assets/webworkerAll-t4kqjLnO.js   21.07 kB │ gzip:   6.41 kB
+../dist/assets/browserAll-DIe4gwy6.js     43.93 kB │ gzip:  11.40 kB
+../dist/assets/pixi-rivers-B0Hqg_LS.js   376.99 kB │ gzip: 110.10 kB
+../dist/assets/index-CyBVSyMj.js         467.20 kB │ gzip: 148.21 kB
+✓ built in 5.60s

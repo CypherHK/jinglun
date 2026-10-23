@@ -1,0 +1,34 @@
+
+> jinglun@0.6.1-gameplay test:web
+> node --experimental-strip-types --test tests/*.test.mjs
+
+✔ candidates stay unique, ordered and bounded during assembly, removal and re-addition (1.991227ms)
+✔ comparison uses annual climate, groundwater mean storage and summed baseflow; mixed land remains applicable (0.865614ms)
+✔ shared sources retain identity, world numbering and members without multiplying quantities by member count (0.406982ms)
+✔ SVG and GPU projections share letterboxing, pan and zoom at different aspect ratios (1.543054ms)
+✔ zoom keeps the point under the pointer stationary and respects limits (0.284588ms)
+✔ resize preserves selection and camera; a new world resets them with its own dimensions (1.022449ms)
+✔ prunes the screenshot comb of tiny tributaries without breaking the main stem (3.259317ms)
+✔ keeps long horizontal rivers; direction alone never removes geometry (0.260001ms)
+✔ keeps a long river split into short confluence links and significant tributaries (0.313892ms)
+✔ handles empty data and does not traverse a malformed cyclic network (0.322856ms)
+✔ monthly river styling shares a stable intensity scale and hides actual zero flow (0.467174ms)
+✔ ordinary map never loads Pixi; enabling and disabling releases its renderer (6.794419ms)
+✔ closing the overlay during initialization destroys the late renderer (1.501951ms)
+PixiJS river overlay unavailable; using SVG. Error: WebGL unavailable
+    at file:///workspace/jinglun-gameplay/tests/river-overlay.test.mjs:82:57
+    at createRiverRenderer (file:///workspace/jinglun-gameplay/tests/river-overlay.test.mjs:23:23)
+    at file:///workspace/jinglun-gameplay/frontend/src/river-overlay.ts:80:26
+✔ world replacement serializes GPU initialization and uses the newest camera (0.990761ms)
+✔ GPU creation failure and context loss fall back, with explicit re-enable retry (1.261319ms)
+✔ destroying while the module loads prevents GPU initialization entirely (0.718221ms)
+✔ rendering errors release GPU resources and preserve fallback state (0.57107ms)
+✔ month selected while GPU initializes is applied on arrival and survives re-enable (0.781346ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 18
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 322.69737

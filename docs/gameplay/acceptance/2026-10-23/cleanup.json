@@ -1,0 +1,9 @@
+{
+  "head": "05a5fd3bbbbabab98d4aaa02a14daf5bbae232da",
+  "git_status_porcelain": "",
+  "node_modules_exists": false,
+  "own_processes": {
+    "1920": "stopped",
+    "2027": "stopped"
+  }
+}

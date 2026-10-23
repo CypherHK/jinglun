@@ -1,0 +1,255 @@
+{
+  "scope": "Fresh verification of 05a5fd3; historical handoff results were not reused. Script authored for this run.",
+  "checks": [
+    {
+      "name": "two ordered candidates",
+      "passed": true,
+      "evidence": [
+        "地块 7",
+        "地块 96"
+      ]
+    },
+    {
+      "name": "duplicate cannot be pinned",
+      "passed": true,
+      "evidence": null
+    },
+    {
+      "name": "four-candidate bound and order",
+      "passed": true,
+      "evidence": [
+        "地块 7",
+        "地块 96",
+        "地块 1",
+        "地块 8"
+      ]
+    },
+    {
+      "name": "water sources unique None",
+      "passed": true,
+      "evidence": {
+        "actual": 79,
+        "expected": 79,
+        "shared_sources": 3
+      }
+    },
+    {
+      "name": "all water members and numeric conversion None",
+      "passed": true,
+      "evidence": [
+        {
+          "number": 36,
+          "id": 630,
+          "members": [
+            6
+          ],
+          "ceiling": 0.0,
+          "reserve": 0.0
+        },
+        {
+          "number": 37,
+          "id": 631,
+          "members": [
+            6
+          ],
+          "ceiling": 0.0,
+          "reserve": 0.0
+        },
+        {
+          "number": 38,
+          "id": 632,
+          "members": [
+            6
+          ],
+          "ceiling": 0.0,
+          "reserve": 0.0
+        }
+      ]
+    },
+    {
+      "name": "ocean land metrics unavailable",
+      "passed": true,
+      "evidence": null
+    },
+    {
+      "name": "mixed-cell land metrics retained",
+      "passed": true,
+      "evidence": "1,663,852.5 平方公里"
+    },
+    {
+      "name": "comparison period preserves layer and static metrics",
+      "passed": true,
+      "evidence": null
+    },
+    {
+      "name": "water sources unique 0",
+      "passed": true,
+      "evidence": {
+        "actual": 79,
+        "expected": 79,
+        "shared_sources": 3
+      }
+    },
+    {
+      "name": "all water members and numeric conversion 0",
+      "passed": true,
+      "evidence": [
+        {
+          "number": 36,
+          "id": 630,
+          "members": [
+            6
+          ],
+          "ceiling": 0.0,
+          "reserve": 0.0
+        },
+        {
+          "number": 37,
+          "id": 631,
+          "members": [
+            6
+          ],
+          "ceiling": 0.0,
+          "reserve": 0.0
+        },
+        {
+          "number": 38,
+          "id": 632,
+          "members": [
+            6
+          ],
+          "ceiling": 0.0,
+          "reserve": 0.0
+        }
+      ]
+    },
+    {
+      "name": "monthly temperatures read actual map months",
+      "passed": true,
+      "evidence": [
+        "-23.3 °C",
+        "-19.1 °C",
+        "21.1 °C",
+        "-15.7 °C"
+      ]
+    },
+    {
+      "name": "playback retains candidates",
+      "passed": true,
+      "evidence": null
+    },
+    {
+      "name": "explicit comparison period stops playback",
+      "passed": true,
+      "evidence": null
+    },
+    {
+      "name": "theme and drawer toggles retain pins and selection",
+      "passed": true,
+      "evidence": null
+    },
+    {
+      "name": "inspect pin changes selection only",
+      "passed": true,
+      "evidence": null
+    },
+    {
+      "name": "390px native keyboard scroll preserves period and layer",
+      "passed": true,
+      "evidence": {
+        "scrollLeft": 40,
+        "clientWidth": 306,
+        "scrollWidth": 565,
+        "firstLeft": 55,
+        "regionLeft": 55
+      }
+    },
+    {
+      "name": "all scroll keys isolated from global playback shortcuts",
+      "passed": true,
+      "evidence": null
+    },
+    {
+      "name": "390px sticky metric column and no document horizontal overflow",
+      "passed": true,
+      "evidence": {
+        "firstLeft": 55,
+        "regionLeft": 55,
+        "scrollLeft": 240
+      }
+    },
+    {
+      "name": "remove restores focus to adjacent remove control",
+      "passed": true,
+      "evidence": null
+    },
+    {
+      "name": "failed generation preserves pins and selected map",
+      "passed": true,
+      "evidence": null
+    },
+    {
+      "name": "same-seed real successful generation clears pins",
+      "passed": true,
+      "evidence": null
+    },
+    {
+      "name": "clear all restores focus",
+      "passed": true,
+      "evidence": null
+    },
+    {
+      "name": "mobile theme screenshots differ",
+      "passed": true,
+      "evidence": null
+    },
+    {
+      "name": "no uncaught browser exceptions",
+      "passed": true,
+      "evidence": []
+    }
+  ],
+  "page_errors": [],
+  "console_errors": [
+    "Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+  ],
+  "sample": {
+    "path": "/workspace/.task-artifacts/jinglun-gameplay/current-acceptance/map-sample-100.json",
+    "bytes": 6500066,
+    "sha256": "a85bbbdfcaf0553ed2e48f12d0c1cc82c4c7a98f876d6a01796ce26f16202421",
+    "api_response_bytes": 6500113,
+    "generation_ms": 311.675885,
+    "request_elapsed_s": 0.4823017769999751,
+    "config": {
+      "seed": "经纶·综合治理·01",
+      "cell_count": 100,
+      "relaxations": 2,
+      "land_ratio": 0.45
+    },
+    "generator_version": "0.6.0",
+    "cells": 100,
+    "water_sources": 1893
+  },
+  "candidate_ids": [
+    6,
+    95,
+    0,
+    7
+  ],
+  "theme_screenshots": [
+    {
+      "theme": "light",
+      "actual_theme": "light",
+      "panel_background": "rgba(250, 253, 250, .82)",
+      "file": "mobile-light.png"
+    },
+    {
+      "theme": "dark",
+      "actual_theme": "dark",
+      "panel_background": "rgba(8, 18, 32, .78)",
+      "file": "mobile-dark.png"
+    }
+  ],
+  "passed": true,
+  "browser_version": "154.0.8037.57"
+}

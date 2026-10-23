@@ -1,0 +1,5 @@
+
+> jinglun@0.6.1-gameplay preview
+> vite preview --config frontend/vite.config.ts --host 127.0.0.1
+
+  ➜  Local:   http://127.0.0.1:4173/
