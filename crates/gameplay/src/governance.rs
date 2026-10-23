@@ -2972,7 +2972,7 @@ impl GovernanceState {
         let mut domestic_remaining = number(doc, "/demand/initial_imports/value")?;
         let household_ceiling = number(doc, "/demand/payable_demand_ceiling/value")?;
         domestic_remaining = domestic_remaining.min((household_ceiling - 425.0).max(0.0));
-        let export_remaining = self
+        let mut export_remaining = self
             .export_orders
             .min(currency(self.calibration.foreign_buyer_monthly_budget) / price);
         let mut road_remaining: BTreeMap<_, _> = self
@@ -3035,13 +3035,13 @@ impl GovernanceState {
                 .unwrap_or(0);
             ordinary_allocations.extend(apportion(&demands, stock)?);
         }
-        // Assign the month's market orders before physical production. First actual
-        // operation wins; equal-month activations retain their stable ID order.
-        // Unfilled orders are deliberately not reassigned within the month.
+        // Assign domestic orders before physical production. First actual operation
+        // wins; equal-month activations retain their stable ID order. Unfilled
+        // domestic orders are not reassigned within the month. Exports retain the
+        // existing ID-ordered allocation from the actual remaining buyer budget.
         let mut order_ids = ids.clone();
         order_ids.sort_by_key(|id| (self.factories[id].first_operated_month, id.clone()));
         let mut domestic_unassigned = domestic_remaining;
-        let mut export_unassigned = export_remaining;
         let mut orders = BTreeMap::new();
         for id in order_ids {
             let f = &self.factories[&id];
@@ -3057,9 +3057,7 @@ impl GovernanceState {
             };
             let domestic = capacity.min(domestic_unassigned);
             domestic_unassigned -= domestic;
-            let exports = (capacity - domestic).min(export_unassigned);
-            export_unassigned -= exports;
-            orders.insert(id, (domestic, exports));
+            orders.insert(id, domestic);
         }
         // Keep the original ID order and deduct road/power only for actual sales.
         for id in ids {
@@ -3102,8 +3100,8 @@ impl GovernanceState {
             } else {
                 plant_demand[&id]
             };
-            let (domestic_order, export_order) = orders[&id];
-            let restored = domestic_order + export_order >= full_output
+            let domestic_order = orders[&id];
+            let restored = domestic_order + export_remaining >= full_output
                 && road_remaining[&f.site] >= full_output
                 && power_remaining[&f.site] >= full_output
                 && allocated_energy
@@ -3134,7 +3132,8 @@ impl GovernanceState {
             let possible = max_output.min(road).min(power).min(energy_output);
             let domestic = possible.min(domestic_order);
             domestic_remaining -= domestic;
-            let exports = (possible - domestic).min(export_order);
+            let exports = (possible - domestic).min(export_remaining);
+            export_remaining -= exports;
             f.output = domestic + exports;
             f.domestic_sales = domestic;
             f.export_sales = exports;
@@ -4096,6 +4095,33 @@ mod order_priority_tests {
         assert_eq!(state.factories["factory/1"].domestic_sales, 80.0);
         assert_eq!(state.factories["factory/1"].export_sales, 40.0);
         assert_eq!(state.factories["factory/2"].export_sales, 0.0);
+    }
+
+    #[test]
+    fn competing_exports_keep_id_priority_and_unused_budget_remains_available() {
+        for first_road in [600, 0] {
+            let (mut game, mut state) = production_fixture(600, 600);
+            // Technical capacity stress only: make both plants able to compete for
+            // the same100 export budget; approved defaults remain unchanged.
+            state.calibration.retrofit_output_increase = 2.0;
+            state.export_orders = 100.0;
+            state.factories.get_mut("factory/1").unwrap().site = 8;
+            state.sites.get_mut(&8).unwrap().road_capacity = first_road;
+            state.sites.get_mut(&8).unwrap().power_capacity = 600;
+            state.production(&mut game).unwrap();
+            assert_eq!(state.factories["factory/1"].domestic_sales, 0.0);
+            assert_eq!(state.factories["factory/2"].domestic_sales, 200.0);
+            // Earlier actual operation still gets domestic orders, but export
+            // priority stays ID-based and consumes only completed export sales.
+            assert_eq!(
+                state.factories["factory/1"].export_sales,
+                if first_road == 0 { 0.0 } else { 100.0 }
+            );
+            assert_eq!(
+                state.factories["factory/2"].export_sales,
+                if first_road == 0 { 100.0 } else { 0.0 }
+            );
+        }
     }
 
     #[test]
