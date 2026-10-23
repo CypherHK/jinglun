@@ -368,6 +368,21 @@ fn admission_is_separate_from_physical_and_preserves_operational_use() {
         reserve("after-expiry", "player", 8, 10542, 1, 1, LandUse::Housing),
     )
     .unwrap();
+    g.apply(
+        "release-grandfathered",
+        Command::Release {
+            reservation: "existing".into(),
+        },
+    )
+    .unwrap();
+    let mut restored = Game::load(&g.save().unwrap()).unwrap();
+    restored
+        .apply(
+            "released-capacity",
+            reserve("replacement", "player", 8, 10542, 1, 3, LandUse::Factory),
+        )
+        .unwrap();
+    assert_eq!(restored.reservations()["replacement"].water, 3);
 }
 #[test]
 fn obligation_is_explicit_cash_never_negative_todo_deadline_does_not_move() {
@@ -521,4 +536,54 @@ fn capacity_rejection_reports_all_shortfalls_without_consuming_command_id() {
         reserve("fits", "player", 8, 10542, 1, 1, LandUse::Factory),
     )
     .unwrap();
+}
+
+#[test]
+fn admission_starts_now_and_rejected_future_start_does_not_consume_id() {
+    let mut g = game();
+    let mut limit = AdmissionLimit {
+        id: "current-month-only".into(),
+        country: "player".into(),
+        source: 10542,
+        new_water_slots: 0,
+        start_month: 2,
+        end_month: 24,
+    };
+    assert_rollback(
+        &mut g,
+        "restriction",
+        Command::AddAdmissionLimit(limit.clone()),
+    );
+    limit.start_month = 1;
+    limit.end_month = 1;
+    g.apply("restriction", Command::AddAdmissionLimit(limit.clone()))
+        .unwrap();
+    assert_rollback(
+        &mut g,
+        "new-use",
+        reserve("new-use", "player", 8, 10542, 1, 1, LandUse::Housing),
+    );
+    let mut restored = Game::load(&g.save().unwrap()).unwrap();
+    restored.end_month(1).unwrap();
+    restored
+        .apply(
+            "new-use",
+            reserve("new-use", "player", 8, 10542, 1, 1, LandUse::Housing),
+        )
+        .unwrap();
+    restored
+        .apply(
+            "operational",
+            Command::MarkOperational {
+                reservation: "new-use".into(),
+            },
+        )
+        .unwrap();
+    restored.end_month(2).unwrap();
+    limit.id = "past-start".into();
+    assert_rollback(
+        &mut restored,
+        "past-start",
+        Command::AddAdmissionLimit(limit),
+    );
 }

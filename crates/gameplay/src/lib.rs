@@ -195,6 +195,7 @@ pub struct Receipt {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 struct Applied {
+    admission_grandfathered: Option<std::collections::BTreeSet<String>>,
     command: Command,
     receipt: Receipt,
 }
@@ -437,9 +438,16 @@ impl Game {
             command_id: command_id.clone(),
             month: candidate.month,
         };
+        let admission_grandfathered = match &command {
+            Command::AddAdmissionLimit(limit) => {
+                Some(candidate.admissions[&limit.id].grandfathered.clone())
+            }
+            _ => None,
+        };
         candidate.applied.insert(
             command_id,
             Applied {
+                admission_grandfathered,
                 command,
                 receipt: receipt.clone(),
             },
@@ -573,7 +581,7 @@ impl Game {
             }
             Command::AddAdmissionLimit(limit) => {
                 identifier(&limit.id)?;
-                if limit.start_month < self.month
+                if limit.start_month != self.month
                     || limit.end_month < limit.start_month
                     || self.admissions.contains_key(&limit.id)
                     || !self.scenario.countries.contains_key(&limit.country)
@@ -1028,6 +1036,11 @@ impl Game {
         let mut progress = BTreeMap::<String, u16>::new();
         let mut cancelled = std::collections::BTreeSet::new();
         for applied in self.applied.values() {
+            if !matches!(applied.command, Command::AddAdmissionLimit(_))
+                && applied.admission_grandfathered.is_some()
+            {
+                return Err(Error::Invalid("unexpected admission snapshot"));
+            }
             match &applied.command {
                 Command::Transfer {
                     from,
@@ -1093,7 +1106,12 @@ impl Game {
                     }
                 }
                 Command::AddAdmissionLimit(limit) => {
-                    if limit.start_month < applied.receipt.month
+                    if limit.start_month != applied.receipt.month
+                        || self
+                            .admissions
+                            .get(&limit.id)
+                            .map(|state| &state.grandfathered)
+                            != applied.admission_grandfathered.as_ref()
                         || admissions.insert(limit.id.clone(), limit.clone()).is_some()
                     {
                         return Err(Error::Invalid("admission receipt"));

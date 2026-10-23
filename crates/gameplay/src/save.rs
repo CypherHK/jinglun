@@ -219,6 +219,85 @@ mod tests {
             s.available.insert("technical".into(), 1);
         });
         assert!(Game::load(&early).is_err());
+        let mut admission = loaded.clone();
+        admission
+            .apply(
+                "limit",
+                Command::AddAdmissionLimit(AdmissionLimit {
+                    id: "limit".into(),
+                    country: "player".into(),
+                    source: 10542,
+                    new_water_slots: 0,
+                    start_month: 1,
+                    end_month: 24,
+                }),
+            )
+            .unwrap();
+        let mut after_limit = loaded.clone();
+        after_limit
+            .apply(
+                "limit",
+                Command::AddAdmissionLimit(AdmissionLimit {
+                    id: "limit".into(),
+                    country: "player".into(),
+                    source: 10542,
+                    new_water_slots: 1,
+                    start_month: 1,
+                    end_month: 24,
+                }),
+            )
+            .unwrap();
+        after_limit
+            .apply(
+                "reserve",
+                Command::Reserve(Reservation {
+                    id: "later".into(),
+                    country: "player".into(),
+                    cell: 8,
+                    source: 10542,
+                    land: 1,
+                    water: 1,
+                    purpose: LandUse::Housing,
+                    phase: AllocationPhase::Reserved,
+                }),
+            )
+            .unwrap();
+        after_limit
+            .apply(
+                "operate",
+                Command::MarkOperational {
+                    reservation: "later".into(),
+                },
+            )
+            .unwrap();
+        let forged_exemption = rewrite(&after_limit.save().unwrap(), |s| {
+            s.admissions
+                .get_mut("limit")
+                .unwrap()
+                .grandfathered
+                .insert("later".into());
+        });
+        assert!(Game::load(&forged_exemption).is_err());
+        let unexpected_snapshot = rewrite(&after_limit.save().unwrap(), |s| {
+            s.applied
+                .get_mut("reserve")
+                .unwrap()
+                .admission_grandfathered = Some(Default::default());
+        });
+        assert!(Game::load(&unexpected_snapshot).is_err());
+        let missing_snapshot = rewrite(&after_limit.save().unwrap(), |s| {
+            s.applied.get_mut("limit").unwrap().admission_grandfathered = None;
+        });
+        assert!(Game::load(&missing_snapshot).is_err());
+        let future_policy = rewrite(&admission.save().unwrap(), |s| {
+            s.admissions.get_mut("limit").unwrap().limit.start_month = 2;
+            if let Command::AddAdmissionLimit(limit) =
+                &mut s.applied.get_mut("limit").unwrap().command
+            {
+                limit.start_month = 2;
+            }
+        });
+        assert!(Game::load(&future_policy).is_err());
         let mut value: Value = serde_json::from_slice(&bytes).unwrap();
         value["schema_version"] = 99.into();
         assert!(Game::load(&serde_json::to_vec(&value).unwrap()).is_err());
