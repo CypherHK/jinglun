@@ -249,7 +249,7 @@ impl Default for GovernanceCalibration {
             security_recovery_budget_ratio: 1.5,
             security_decline_budget_ratio: 0.5,
             ordinary_energy_import_limit: 6.0,
-            water_priority_fraction: 0.94,
+            water_priority_fraction: 0.92,
             water_m3_per_slot: 50_000_000.0,
             water_slot_min: 0,
             water_slot_max: 64,

@@ -598,7 +598,7 @@ fn b13_report_traces_water_choice_against_the_same_build_plan_counterfactual() {
         .filter(|f| f.site == 29 && f.phase == FactoryPhase::Operating)
         .count();
     println!("B13 W plants={water_factories} Decline plants={declined_factories}");
-    assert_eq!(water_factories, 0);
+    assert_eq!(water_factories, 1);
     assert_eq!(declined_factories, 2);
     let report = ws.report.as_ref().unwrap();
     assert_ne!(report.grade, GoalGrade::Achieved);
@@ -1153,6 +1153,7 @@ fn housing_and_factories_share_one_actual_operation_water_priority_order() {
 fn b10_in_construction_factories_finish_but_wait_without_operating_losses() {
     let calibration = GovernanceCalibration {
         initial_skilled_idle_share: 1.0,
+        water_priority_fraction: 0.94,
         ..Default::default()
     };
     let mut game = public_factory_fixture(calibration, RenewalChoice::WaterPriority, 1, 9, 1);
