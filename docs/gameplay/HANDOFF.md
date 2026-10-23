@@ -2,6 +2,30 @@
 
 交接日期：2026-10-23，新加坡时间。本文件优先于同目录 `archive/` 中的历史草案和旧交接。
 
+## 2026-10-24 仓库与工作目录归位
+
+用户确认统一协作规则，并补充“不用的 worktree 及时删除”。长期规则现在统一在产品仓库根目录 [`AGENTS.md`](../../AGENTS.md)；本文件只保存当前位置与实施结果。`origin` 为 CypherHK 的 fork，唯一开发集成主线及 fork 默认分支为大写 `Develop`；`upstream` 为 CircuitMurderer，向作者提交 PR 仍使用小写 `develop`。上游同步须独立检查，不把应用版本号相同当作源码已同步。
+
+GitHub已核实fork默认分支为 `Develop`；本仓库 `origin/HEAD` 也已指向 `origin/Develop`。仅在本仓库设置 `pull.ff=only`、`remote.pushDefault=origin`、`push.default=simple`，没有修改全局Git配置。
+
+主目录 `/Users/wangyucheng/Projects/jinglun` 的本地 `Develop` 已从 `6b05785` 归位到远端开发基线 `e54aa2a977b8654b97514bf1788aa9513669fe14`；本次仅在该基线上增加协作规则和本节记录，随后以非强制推送同步 Develop。主目录原有两个独有地图文档提交未合入治理代码，保存在本地 `archive/local-develop-map-20261024`（完整HEAD `6b05785dade1c8a8305e02f60991e1075a468e23`，包含 `b37e141`）。主目录现在是日常查看、运行、验收入口；下方历史记录中的原目录旧基线已不代表当前主目录。
+
+2026-10-24 已删除9个闲置worktree：`foundation`、`governance-confirmed-data`、`governance-independent-tests`、`governance-rule-engine`、`initial-calibration-d020`、`initial-calibration-d021`、`initial-draft`、`natural-map-09-review`、`natural-map-review`。删除前核对干净状态、使用中的进程和补丁集成情况；cherry-pick过的提交按 `git cherry origin/Develop <分支>` 核对内容等价，而非仅看分支是否为祖先。对应9个旧本地任务／审查分支也已退役，未删除任何远端PR分支。
+
+旧 `governance-rule-engine` 中有独有未跟踪原型 `crates/gameplay/examples/governance_replay.rs`；已先逐字保存到本地 `archive/governance-prototype-20261024`，提交 `3c807d16b1b7ec666b04c189a78a1b2865a5f2d9`（文件SHA-256 `e2cd5e180e427ddd75de03d269915cbc59f41ad12d43ae0168825198bd9a68d1`），确认归档后才删除目录。两条归档分支均只保存历史／原型，不是当前开发入口，不把其内容接入正式初始化。所有删除均使用普通 `git worktree remove`，未强制清理未保存文件。
+
+目前保留主目录和5个辅助worktree。下列任务仍在使用，不能由另一任务顺带清理；完成集成、预览停止且耐久记录齐备后，应及时删除目录，不继续积累：
+
+| 目录（均在 `/Users/wangyucheng/Projects/jinglun-worktrees/`） | 分支 | 保留理由 |
+| --- | --- | --- |
+| `governance-d025-core` | `gameplay/governance-d025-core` | 新建立的D025实现任务；本轮未改动 |
+| `governance-d025-inputs` | `gameplay/governance-d025-inputs` | 新建立的D025输入任务；本轮未改动 |
+| `governance-d025-tests` | `gameplay/governance-d025-tests` | 新建立的D025验收任务；本轮未改动 |
+| `governance-rules` | `gameplay/governance-rules` | 治理集成仍在使用；历史规则回放产物也保留在其target目录 |
+| `natural-map-upstream-develop` | `feat/natural-map-upstream-ready` | 开放的上游PR #2及仍运行的0.9.0本机预览 |
+
+本次未修改应用代码、初始数值、应用版本或design/，未引入上游0.9.0到玩法Develop。验证使用Git工作区、引用、补丁等价、普通worktree删除结果、GitHub默认分支及现有预览进程；纯协作记录变更不重复运行玩法测试。本节不声明D025的实现进度或验收结果，后续交付仍须重新核实最新origin/Develop，保留本次协作规则和记录。
+
 ## 上游 PR 目标硬性规则
 
 用户于 2026-10-23 明确纠正：“这个是一个硬性规则，以后全都推到对方的Develop。”本项目以后所有向作者 `CircuitMurderer/jinglun` 提交的 PR，必须以作者开发分支为 base，禁止默认提交到 `main`。2026-10-23 GitHub 核实作者实际分支名为小写 `develop`，与 fork 的大写 `Develop` 不同；执行时核对作者远端的精确分支名。如果分支不存在或改名，先核实，不自动改投 `main`。该规则优先于本文件下方旧 PR 的历史目标、组合分支基线和工具默认值。
