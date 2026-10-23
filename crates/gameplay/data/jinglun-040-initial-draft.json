@@ -1,0 +1,1996 @@
+{
+  "activation": "disabled",
+  "candidate_capital": {
+    "29": {
+      "activation": "disabled",
+      "cash_gaps": {
+        "activation": "disabled",
+        "group_a": {
+          "activation": "disabled",
+          "formula": "factory_capital+operating_cash_buffer-group_starting_cash",
+          "inputs": {
+            "factory_capital": 67.67506964913187,
+            "group_starting_cash": 50,
+            "operating_cash_buffer": 10
+          },
+          "origin": "derived_proposal",
+          "principle": "D017.7",
+          "status": "pending_user_confirmation",
+          "unit": "currency",
+          "value": 27.67506964913187
+        },
+        "group_b": {
+          "activation": "disabled",
+          "formula": "factory_capital+operating_cash_buffer-group_starting_cash",
+          "inputs": {
+            "factory_capital": 67.67506964913187,
+            "group_starting_cash": 55,
+            "operating_cash_buffer": 10
+          },
+          "origin": "derived_proposal",
+          "principle": "D017.7",
+          "status": "pending_user_confirmation",
+          "unit": "currency",
+          "value": 22.67506964913187
+        },
+        "status": "pending_user_confirmation"
+      },
+      "factory_capital": {
+        "activation": "disabled",
+        "formula": "factory_base_capital*natural_cost",
+        "inputs": {
+          "factory_base_capital": 40,
+          "natural_cost": 1.6918767412282967
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.7;D010",
+        "status": "pending_user_confirmation",
+        "unit": "currency",
+        "value": 67.67506964913187
+      },
+      "natural_cost": {
+        "activation": "disabled",
+        "formula": "map.cells[id=29].construction.cost_multiplier",
+        "inputs": {
+          "raw_cell_id": 29
+        },
+        "origin": "natural_map",
+        "principle": "D017.7;D010",
+        "status": "pending_user_confirmation",
+        "unit": "ratio",
+        "value": 1.6918767412282967
+      },
+      "status": "pending_user_confirmation"
+    },
+    "8": {
+      "activation": "disabled",
+      "cash_gaps": {
+        "activation": "disabled",
+        "group_a": {
+          "activation": "disabled",
+          "formula": "factory_capital+operating_cash_buffer-group_starting_cash",
+          "inputs": {
+            "factory_capital": 78.2479699539489,
+            "group_starting_cash": 50,
+            "operating_cash_buffer": 10
+          },
+          "origin": "derived_proposal",
+          "principle": "D017.7",
+          "status": "pending_user_confirmation",
+          "unit": "currency",
+          "value": 38.247969953948896
+        },
+        "group_b": {
+          "activation": "disabled",
+          "formula": "factory_capital+operating_cash_buffer-group_starting_cash",
+          "inputs": {
+            "factory_capital": 78.2479699539489,
+            "group_starting_cash": 55,
+            "operating_cash_buffer": 10
+          },
+          "origin": "derived_proposal",
+          "principle": "D017.7",
+          "status": "pending_user_confirmation",
+          "unit": "currency",
+          "value": 33.247969953948896
+        },
+        "status": "pending_user_confirmation"
+      },
+      "factory_capital": {
+        "activation": "disabled",
+        "formula": "factory_base_capital*natural_cost",
+        "inputs": {
+          "factory_base_capital": 40,
+          "natural_cost": 1.9561992488487225
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.7;D010",
+        "status": "pending_user_confirmation",
+        "unit": "currency",
+        "value": 78.2479699539489
+      },
+      "natural_cost": {
+        "activation": "disabled",
+        "formula": "map.cells[id=8].construction.cost_multiplier",
+        "inputs": {
+          "raw_cell_id": 8
+        },
+        "origin": "natural_map",
+        "principle": "D017.7;D010",
+        "status": "pending_user_confirmation",
+        "unit": "ratio",
+        "value": 1.9561992488487225
+      },
+      "status": "pending_user_confirmation"
+    },
+    "activation": "disabled",
+    "status": "pending_user_confirmation"
+  },
+  "demand": {
+    "activation": "disabled",
+    "assumption": "Existing services and manufacturing pay all recorded wages. Sector balance sheets and external seller accounts are not built. Household purchases have a finite income budget. Import substitution displaces at most initial_imports; demand ceiling is not an order guarantee.",
+    "goods_budget": {
+      "activation": "disabled",
+      "formula": "wage_income*goods_budget_share",
+      "inputs": {
+        "goods_budget_share": 0.6,
+        "wage_income": 115.88
+      },
+      "origin": "derived_proposal",
+      "principle": "D017.3",
+      "status": "pending_user_confirmation",
+      "unit": "currency/month",
+      "value": 69.52799999999999
+    },
+    "initial_domestic_orders": {
+      "activation": "disabled",
+      "formula": "existing_domestic_output+initial_imports; must be <= payable ceiling",
+      "inputs": {
+        "existing_domestic_output": 425.0,
+        "initial_imports": 200
+      },
+      "origin": "derived_proposal",
+      "principle": "D017.3",
+      "status": "pending_user_confirmation",
+      "unit": "goods/month",
+      "value": 625.0
+    },
+    "initial_export_orders": {
+      "activation": "disabled",
+      "formula": "zero until future cooperation, no gifted orders",
+      "inputs": {},
+      "origin": "derived_proposal",
+      "principle": "D017.3",
+      "status": "pending_user_confirmation",
+      "unit": "goods/month",
+      "value": 0
+    },
+    "initial_imports": {
+      "activation": "disabled",
+      "formula": "2*new_factory_output",
+      "inputs": {
+        "new_factory_output": 100
+      },
+      "origin": "derived_proposal",
+      "principle": "D017.3",
+      "status": "pending_user_confirmation",
+      "unit": "goods/month",
+      "value": 200
+    },
+    "payable_demand_ceiling": {
+      "activation": "disabled",
+      "formula": "goods_budget/goods_price",
+      "inputs": {
+        "goods_budget": 69.52799999999999,
+        "goods_price": 0.1
+      },
+      "origin": "derived_proposal",
+      "principle": "D017.3",
+      "status": "pending_user_confirmation",
+      "unit": "goods/month",
+      "value": 695.2799999999999
+    },
+    "status": "pending_user_confirmation",
+    "wage_income": {
+      "activation": "disabled",
+      "formula": "sum(employed)*monthly_wage",
+      "inputs": {
+        "employed": 5794,
+        "monthly_wage": 0.02
+      },
+      "origin": "derived_proposal",
+      "principle": "D017.3",
+      "status": "pending_user_confirmation",
+      "unit": "currency/month",
+      "value": 115.88
+    }
+  },
+  "energy": {
+    "activation": "disabled",
+    "existing_demand": {
+      "activation": "disabled",
+      "formula": "existing_service_energy+existing_output/new_factory_output*new_factory_energy",
+      "inputs": {
+        "existing_output": 425.0,
+        "existing_service_energy": 20,
+        "new_factory_energy": 10,
+        "new_factory_output": 100
+      },
+      "origin": "derived_proposal",
+      "principle": "D017.4",
+      "status": "pending_user_confirmation",
+      "unit": "energy/month",
+      "value": 62.5
+    },
+    "existing_supply": {
+      "activation": "disabled",
+      "formula": "existing_demand; ordinary resource-country imports, no spare supply",
+      "inputs": {
+        "existing_demand": 62.5
+      },
+      "origin": "derived_proposal",
+      "principle": "D017.4",
+      "status": "pending_user_confirmation",
+      "unit": "energy/month",
+      "value": 62.5
+    },
+    "incremental_factory_demand": {
+      "activation": "disabled",
+      "formula": "proposed free parameter",
+      "inputs": {
+        "reason": "Separate incremental requirement."
+      },
+      "origin": "proposed_free_parameter",
+      "principle": "D017.4",
+      "status": "pending_user_confirmation",
+      "unit": "energy/month",
+      "value": 10
+    },
+    "long_price": {
+      "activation": "disabled",
+      "formula": "proposed free parameter",
+      "inputs": {
+        "reason": "Renewal costs more than sea."
+      },
+      "origin": "proposed_free_parameter",
+      "principle": "D017.4;D018",
+      "status": "pending_user_confirmation",
+      "unit": "currency/energy",
+      "value": 0.2
+    },
+    "maritime_price": {
+      "activation": "disabled",
+      "formula": "proposed free parameter",
+      "inputs": {
+        "reason": "Sea alternative costs more."
+      },
+      "origin": "proposed_free_parameter",
+      "principle": "D017.4",
+      "status": "pending_user_confirmation",
+      "unit": "currency/energy",
+      "value": 0.15
+    },
+    "ordinary_price": {
+      "activation": "disabled",
+      "formula": "proposed free parameter",
+      "inputs": {
+        "reason": "Resource-country ordinary contract."
+      },
+      "origin": "proposed_free_parameter",
+      "principle": "D017.4",
+      "status": "pending_user_confirmation",
+      "unit": "currency/energy",
+      "value": 0.1
+    },
+    "renewal_quantity": {
+      "activation": "disabled",
+      "formula": "2*new_factory_energy; draft only, no contract execution",
+      "inputs": {
+        "new_factory_energy": 10
+      },
+      "origin": "derived_proposal",
+      "principle": "D017.4;D018",
+      "status": "pending_user_confirmation",
+      "unit": "energy/month",
+      "value": 20
+    },
+    "status": "pending_user_confirmation"
+  },
+  "fiscal": {
+    "activation": "disabled",
+    "aid": {
+      "activation": "disabled",
+      "formula": "proposed free parameter",
+      "inputs": {
+        "reason": "External resource-country transfer proposal, expiry handled elsewhere."
+      },
+      "origin": "proposed_free_parameter",
+      "principle": "D017.6",
+      "status": "pending_user_confirmation",
+      "unit": "currency/month",
+      "value": 4
+    },
+    "aid_period_balance": {
+      "activation": "disabled",
+      "formula": "monthly_transition_aid-post_aid_gap",
+      "inputs": {
+        "monthly_transition_aid": 4,
+        "post_aid_gap": 1.3
+      },
+      "origin": "derived_proposal",
+      "principle": "D017.6",
+      "status": "pending_user_confirmation",
+      "unit": "currency/month",
+      "value": 2.7
+    },
+    "existing_tax_revenue": {
+      "activation": "disabled",
+      "formula": "existing_output*goods_price*manufacturing_sales_tax_rate+wage_income*payroll_tax_rate",
+      "inputs": {
+        "existing_output": 425.0,
+        "goods_price": 0.1,
+        "manufacturing_sales_tax_rate": 0.1,
+        "payroll_tax_rate": 0.1,
+        "wage_income": 115.88
+      },
+      "origin": "derived_proposal",
+      "principle": "D017.6",
+      "status": "pending_user_confirmation",
+      "unit": "currency/month",
+      "value": 15.838000000000001
+    },
+    "post_aid_gap": {
+      "activation": "disabled",
+      "formula": "recurring_spending-existing_tax_revenue",
+      "inputs": {
+        "existing_tax_revenue": 15.838000000000001,
+        "recurring_spending": 17.138
+      },
+      "origin": "derived_proposal",
+      "principle": "D017.6",
+      "status": "pending_user_confirmation",
+      "unit": "currency/month",
+      "value": 1.3
+    },
+    "recurring_spending": {
+      "activation": "disabled",
+      "formula": "existing_tax_revenue+1.3*reference_factory_tax",
+      "inputs": {
+        "existing_tax_revenue": 15.838000000000001,
+        "reference_factory_tax": 1.0
+      },
+      "origin": "derived_proposal",
+      "principle": "D017.6",
+      "status": "pending_user_confirmation",
+      "unit": "currency/month",
+      "value": 17.138
+    },
+    "reference_factory_tax": {
+      "activation": "disabled",
+      "formula": "new_factory_output*goods_price*manufacturing_sales_tax_rate",
+      "inputs": {
+        "goods_price": 0.1,
+        "manufacturing_sales_tax_rate": 0.1,
+        "new_factory_output": 100
+      },
+      "origin": "derived_proposal",
+      "principle": "D017.6",
+      "status": "pending_user_confirmation",
+      "unit": "currency/month",
+      "value": 1.0
+    },
+    "spending_breakdown": {
+      "activation": "disabled",
+      "education": {
+        "activation": "disabled",
+        "formula": "recurring_spending*proposed_share",
+        "inputs": {
+          "proposed_share": 0.25,
+          "recurring_spending": 17.138
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.6",
+        "status": "pending_user_confirmation",
+        "unit": "currency/month",
+        "value": 4.2845
+      },
+      "health": {
+        "activation": "disabled",
+        "formula": "recurring_spending*proposed_share",
+        "inputs": {
+          "proposed_share": 0.3,
+          "recurring_spending": 17.138
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.6",
+        "status": "pending_user_confirmation",
+        "unit": "currency/month",
+        "value": 5.1414
+      },
+      "maintenance": {
+        "activation": "disabled",
+        "formula": "recurring_spending*proposed_share",
+        "inputs": {
+          "proposed_share": 0.2,
+          "recurring_spending": 17.138
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.6",
+        "status": "pending_user_confirmation",
+        "unit": "currency/month",
+        "value": 3.4276000000000004
+      },
+      "safety": {
+        "activation": "disabled",
+        "formula": "recurring_spending*proposed_share",
+        "inputs": {
+          "proposed_share": 0.25,
+          "recurring_spending": 17.138
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.6",
+        "status": "pending_user_confirmation",
+        "unit": "currency/month",
+        "value": 4.2845
+      },
+      "status": "pending_user_confirmation"
+    },
+    "spending_origin": "Proposed existing recurring obligations envelope, apportioned below. No unfunded recurrent injection. Aid payer is an unbuilt external resource-country account.",
+    "status": "pending_user_confirmation"
+  },
+  "food": {
+    "activation": "disabled",
+    "assumption": "Opening inventory is already-paid household property. Households pay stable maritime food sellers from wage income outside the goods budget. External seller and settlement accounts are not implemented. Coverage assumes fixed population and uninterrupted imports, not a simulation result.",
+    "background_imports": {
+      "activation": "disabled",
+      "formula": "monthly_consumption",
+      "inputs": {
+        "monthly_consumption": 10.0
+      },
+      "origin": "derived_proposal",
+      "principle": "D017.8",
+      "status": "pending_user_confirmation",
+      "unit": "food/month",
+      "value": 10.0
+    },
+    "horizon_balance": {
+      "activation": "disabled",
+      "formula": "initial_inventory+24*(background_imports-monthly_consumption)",
+      "inputs": {
+        "background_imports": 10.0,
+        "initial_inventory": 20.0,
+        "monthly_consumption": 10.0
+      },
+      "origin": "derived_proposal",
+      "principle": "D017.8",
+      "status": "pending_user_confirmation",
+      "unit": "food",
+      "value": 20.0
+    },
+    "initial_inventory": {
+      "activation": "disabled",
+      "formula": "2*monthly_consumption",
+      "inputs": {
+        "monthly_consumption": 10.0
+      },
+      "origin": "derived_proposal",
+      "principle": "D017.8",
+      "status": "pending_user_confirmation",
+      "unit": "food",
+      "value": 20.0
+    },
+    "monthly_consumption": {
+      "activation": "disabled",
+      "formula": "total_population*food_consumption_per_person",
+      "inputs": {
+        "food_consumption_per_person": 0.001,
+        "total_population": 10000
+      },
+      "origin": "derived_proposal",
+      "principle": "D017.8",
+      "status": "pending_user_confirmation",
+      "unit": "food/month",
+      "value": 10.0
+    },
+    "monthly_import_bill": {
+      "activation": "disabled",
+      "formula": "background_imports*food_price",
+      "inputs": {
+        "background_imports": 10.0,
+        "food_price": 0.02
+      },
+      "origin": "derived_proposal",
+      "principle": "D017.8",
+      "status": "pending_user_confirmation",
+      "unit": "currency/month",
+      "value": 0.2
+    },
+    "status": "pending_user_confirmation"
+  },
+  "materials": {
+    "activation": "disabled",
+    "assumption": "Materials are paid from each future project capital budget, not a free treasury flow. Supplier prices and external accounts remain unbuilt. Two reference projects use the monthly flow exactly. Three projects burn four inventory units per month and exhaust the opening buffer after three months. Inventory is finite; heterogeneous projects require later calibration.",
+    "capital_monthly_output": {
+      "activation": "disabled",
+      "formula": "proposed existing capital production",
+      "inputs": {
+        "proposal": 6
+      },
+      "origin": "proposed_free_parameter",
+      "principle": "D017.9",
+      "status": "pending_user_confirmation",
+      "unit": "material/month",
+      "value": 6
+    },
+    "initial_inventory": {
+      "activation": "disabled",
+      "formula": "proposed opening paid capital inventory",
+      "inputs": {
+        "proposal": 12
+      },
+      "origin": "proposed_free_parameter",
+      "principle": "D017.9",
+      "status": "pending_user_confirmation",
+      "unit": "material",
+      "value": 12
+    },
+    "monthly_imports": {
+      "activation": "disabled",
+      "formula": "proposed stable external supply",
+      "inputs": {
+        "proposal": 2
+      },
+      "origin": "proposed_free_parameter",
+      "principle": "D017.9",
+      "status": "pending_user_confirmation",
+      "unit": "material/month",
+      "value": 2
+    },
+    "reference_project_duration": {
+      "activation": "disabled",
+      "formula": "proposed comparison project duration",
+      "inputs": {
+        "proposal": 3
+      },
+      "origin": "proposed_free_parameter",
+      "principle": "D017.9",
+      "status": "pending_user_confirmation",
+      "unit": "month",
+      "value": 3
+    },
+    "reference_project_monthly_use": {
+      "activation": "disabled",
+      "formula": "reference_project_total/duration",
+      "inputs": {
+        "duration": 3,
+        "reference_project_total": 12
+      },
+      "origin": "derived_proposal",
+      "principle": "D017.9",
+      "status": "pending_user_confirmation",
+      "unit": "material/project/month",
+      "value": 4
+    },
+    "reference_project_total": {
+      "activation": "disabled",
+      "formula": "monthly_use*duration",
+      "inputs": {
+        "duration": 3,
+        "monthly_use": 4
+      },
+      "origin": "derived_proposal",
+      "principle": "D017.9",
+      "status": "pending_user_confirmation",
+      "unit": "material/project",
+      "value": 12
+    },
+    "status": "pending_user_confirmation",
+    "sustainable_parallel_projects": {
+      "activation": "disabled",
+      "formula": "floor((capital_monthly_output+monthly_imports)/reference_project_monthly_use)",
+      "inputs": {
+        "capital_monthly_output": 6,
+        "monthly_imports": 2,
+        "reference_project_monthly_use": 4
+      },
+      "origin": "derived_proposal",
+      "principle": "D017.9",
+      "status": "pending_user_confirmation",
+      "unit": "project",
+      "value": 2
+    }
+  },
+  "parameters": {
+    "activation": "disabled",
+    "capital_weight_multiplier": {
+      "activation": "disabled",
+      "formula": "proposed free parameter",
+      "inputs": {
+        "reason": "Public capital weight, gives approximately forty percent."
+      },
+      "origin": "proposed_free_parameter",
+      "principle": "D017.1",
+      "status": "pending_user_confirmation",
+      "unit": "ratio",
+      "value": 2
+    },
+    "existing_service_energy": {
+      "activation": "disabled",
+      "formula": "proposed free parameter",
+      "inputs": {
+        "reason": "Existing nonmanufacturing demand."
+      },
+      "origin": "proposed_free_parameter",
+      "principle": "D017.4",
+      "status": "pending_user_confirmation",
+      "unit": "energy/month",
+      "value": 20
+    },
+    "factory_base_capital": {
+      "activation": "disabled",
+      "formula": "proposed free parameter",
+      "inputs": {
+        "reason": "Starting point from v2, not approved."
+      },
+      "origin": "proposed_free_parameter",
+      "principle": "D017.7;D010",
+      "status": "pending_user_confirmation",
+      "unit": "currency",
+      "value": 40
+    },
+    "food_consumption_per_person": {
+      "activation": "disabled",
+      "formula": "proposed free parameter",
+      "inputs": {
+        "reason": "Fixed population coverage arithmetic, migration not simulated."
+      },
+      "origin": "proposed_free_parameter",
+      "principle": "D017.8",
+      "status": "pending_user_confirmation",
+      "unit": "food/person/month",
+      "value": 0.001
+    },
+    "food_price": {
+      "activation": "disabled",
+      "formula": "proposed free parameter",
+      "inputs": {
+        "reason": "Background household food purchase price."
+      },
+      "origin": "proposed_free_parameter",
+      "principle": "D017.8",
+      "status": "pending_user_confirmation",
+      "unit": "currency/food",
+      "value": 0.02
+    },
+    "goods_budget_share": {
+      "activation": "disabled",
+      "formula": "proposed free parameter",
+      "inputs": {
+        "reason": "Household income fraction available for manufactured goods."
+      },
+      "origin": "proposed_free_parameter",
+      "principle": "D017.3",
+      "status": "pending_user_confirmation",
+      "unit": "ratio",
+      "value": 0.6
+    },
+    "goods_price": {
+      "activation": "disabled",
+      "formula": "proposed free parameter",
+      "inputs": {
+        "reason": "Fixed proposal price."
+      },
+      "origin": "proposed_free_parameter",
+      "principle": "D017.3",
+      "status": "pending_user_confirmation",
+      "unit": "currency/goods",
+      "value": 0.1
+    },
+    "group_a_starting_cash": {
+      "activation": "disabled",
+      "formula": "proposed free parameter",
+      "inputs": {
+        "reason": "Opening equity endowment proposal, not monthly injection."
+      },
+      "origin": "proposed_free_parameter",
+      "principle": "D017.7",
+      "status": "pending_user_confirmation",
+      "unit": "currency",
+      "value": 50
+    },
+    "group_b_starting_cash": {
+      "activation": "disabled",
+      "formula": "proposed free parameter",
+      "inputs": {
+        "reason": "Opening equity endowment proposal, not monthly injection."
+      },
+      "origin": "proposed_free_parameter",
+      "principle": "D017.7",
+      "status": "pending_user_confirmation",
+      "unit": "currency",
+      "value": 55
+    },
+    "idle_labor_cap": {
+      "activation": "disabled",
+      "formula": "proposed free parameter",
+      "inputs": {
+        "reason": "Existing employment leaves fewer idle workers than one factory needs."
+      },
+      "origin": "proposed_free_parameter",
+      "principle": "D017.5",
+      "status": "pending_user_confirmation",
+      "unit": "person",
+      "value": 30
+    },
+    "idle_labor_share": {
+      "activation": "disabled",
+      "formula": "proposed free parameter",
+      "inputs": {
+        "reason": "Unemployed share of labor force."
+      },
+      "origin": "proposed_free_parameter",
+      "principle": "D017.5",
+      "status": "pending_user_confirmation",
+      "unit": "ratio",
+      "value": 0.05
+    },
+    "labor_share": {
+      "activation": "disabled",
+      "formula": "proposed free parameter",
+      "inputs": {
+        "reason": "Proposed working population share."
+      },
+      "origin": "proposed_free_parameter",
+      "principle": "D017.5",
+      "status": "pending_user_confirmation",
+      "unit": "ratio",
+      "value": 0.6
+    },
+    "long_energy_price": {
+      "activation": "disabled",
+      "formula": "proposed free parameter",
+      "inputs": {
+        "reason": "Renewal costs more than sea."
+      },
+      "origin": "proposed_free_parameter",
+      "principle": "D017.4;D018",
+      "status": "pending_user_confirmation",
+      "unit": "currency/energy",
+      "value": 0.2
+    },
+    "manufacturing_sales_tax_rate": {
+      "activation": "disabled",
+      "formula": "proposed free parameter",
+      "inputs": {
+        "reason": "Proposed gross sales tax, not profit tax."
+      },
+      "origin": "proposed_free_parameter",
+      "principle": "D017.6",
+      "status": "pending_user_confirmation",
+      "unit": "ratio",
+      "value": 0.1
+    },
+    "maritime_energy_price": {
+      "activation": "disabled",
+      "formula": "proposed free parameter",
+      "inputs": {
+        "reason": "Sea alternative costs more."
+      },
+      "origin": "proposed_free_parameter",
+      "principle": "D017.4",
+      "status": "pending_user_confirmation",
+      "unit": "currency/energy",
+      "value": 0.15
+    },
+    "monthly_transition_aid": {
+      "activation": "disabled",
+      "formula": "proposed free parameter",
+      "inputs": {
+        "reason": "External resource-country transfer proposal, expiry handled elsewhere."
+      },
+      "origin": "proposed_free_parameter",
+      "principle": "D017.6",
+      "status": "pending_user_confirmation",
+      "unit": "currency/month",
+      "value": 4
+    },
+    "monthly_wage": {
+      "activation": "disabled",
+      "formula": "proposed free parameter",
+      "inputs": {
+        "reason": "Existing employment pays household income."
+      },
+      "origin": "proposed_free_parameter",
+      "principle": "D017.3",
+      "status": "pending_user_confirmation",
+      "unit": "currency/person/month",
+      "value": 0.02
+    },
+    "new_factory_energy": {
+      "activation": "disabled",
+      "formula": "proposed free parameter",
+      "inputs": {
+        "reason": "Separate incremental requirement."
+      },
+      "origin": "proposed_free_parameter",
+      "principle": "D017.4",
+      "status": "pending_user_confirmation",
+      "unit": "energy/month",
+      "value": 10
+    },
+    "new_factory_output": {
+      "activation": "disabled",
+      "formula": "proposed free parameter",
+      "inputs": {
+        "reason": "Reference factory scale."
+      },
+      "origin": "proposed_free_parameter",
+      "principle": "D017.2",
+      "status": "pending_user_confirmation",
+      "unit": "goods/month",
+      "value": 100
+    },
+    "new_factory_workers": {
+      "activation": "disabled",
+      "formula": "proposed free parameter",
+      "inputs": {
+        "reason": "Reference factory labor need."
+      },
+      "origin": "proposed_free_parameter",
+      "principle": "D017.5",
+      "status": "pending_user_confirmation",
+      "unit": "person",
+      "value": 100
+    },
+    "operating_cash_buffer": {
+      "activation": "disabled",
+      "formula": "proposed free parameter",
+      "inputs": {
+        "reason": "Working cash remains after construction."
+      },
+      "origin": "proposed_free_parameter",
+      "principle": "D017.7",
+      "status": "pending_user_confirmation",
+      "unit": "currency",
+      "value": 10
+    },
+    "ordinary_energy_price": {
+      "activation": "disabled",
+      "formula": "proposed free parameter",
+      "inputs": {
+        "reason": "Resource-country ordinary contract."
+      },
+      "origin": "proposed_free_parameter",
+      "principle": "D017.4",
+      "status": "pending_user_confirmation",
+      "unit": "currency/energy",
+      "value": 0.1
+    },
+    "payroll_tax_rate": {
+      "activation": "disabled",
+      "formula": "proposed free parameter",
+      "inputs": {
+        "reason": "Existing wage tax base."
+      },
+      "origin": "proposed_free_parameter",
+      "principle": "D017.6",
+      "status": "pending_user_confirmation",
+      "unit": "ratio",
+      "value": 0.1
+    },
+    "status": "pending_user_confirmation",
+    "total_population": {
+      "activation": "disabled",
+      "formula": "proposed free parameter",
+      "inputs": {
+        "reason": "Adjustable gameplay scale, not real map population."
+      },
+      "origin": "proposed_free_parameter",
+      "principle": "D017.1",
+      "status": "pending_user_confirmation",
+      "unit": "person",
+      "value": 10000
+    }
+  },
+  "provenance": {
+    "generator": "scripts/draft-initial-values.py",
+    "generator_sha256": "0249c816240de43feaf75ed61b1ca211190debfa0b55096c4509815e808f1bba",
+    "generator_version": "0.6.0",
+    "map_config": {
+      "cell_count": 100,
+      "land_ratio": 0.45,
+      "relaxations": 2,
+      "seed": "jinglun-040"
+    },
+    "map_sha256": "4c8714aaca565e0c4b932420aa320cb92a901ef63c29a897e507540db4de37a8",
+    "raw_candidate_cell_ids": [
+      8,
+      29
+    ],
+    "raw_capital_cell_id": 39,
+    "raw_player_cell_ids": [
+      8,
+      9,
+      26,
+      29,
+      38,
+      39,
+      63,
+      74,
+      83,
+      91
+    ],
+    "source_hashes": {
+      "/Users/wangyucheng/Projects/jinglun-design/design/DECISIONS.md": "44b820ffbfc00bc8319f4691bd73664c23e65ae4920145d75a85791899af92d7",
+      "/Users/wangyucheng/Projects/jinglun-design/design/handoffs/2026-10-23-first-governance-slice.md": "3f41f8fb0be94f82b90eda69cb734de845e76671f6d958b651bf138209781c8b"
+    }
+  },
+  "regions": {
+    "26": {
+      "activation": "disabled",
+      "employed": {
+        "activation": "disabled",
+        "formula": "labor_force-idle",
+        "inputs": {
+          "idle": 18,
+          "labor_force": 365
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.5",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 347
+      },
+      "idle": {
+        "activation": "disabled",
+        "formula": "min(idle_labor_cap,floor(labor_force*idle_labor_share))",
+        "inputs": {
+          "idle_labor_cap": 30,
+          "idle_labor_share": 0.05,
+          "labor_force": 365
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.5",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 18
+      },
+      "labor_force": {
+        "activation": "disabled",
+        "formula": "floor(population*labor_share)",
+        "inputs": {
+          "labor_share": 0.6,
+          "population": 609
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.5",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 365
+      },
+      "manufacturing_output": {
+        "activation": "disabled",
+        "formula": "39:3*new_factory_output;74:1.25*new_factory_output;others:0",
+        "inputs": {
+          "new_factory_output": 100
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.2",
+        "status": "pending_user_confirmation",
+        "unit": "goods/month",
+        "value": 0
+      },
+      "natural_support_index": {
+        "activation": "disabled",
+        "formula": "map.cells[id=26].construction.natural_support_index",
+        "inputs": {
+          "raw_cell_id": 26
+        },
+        "origin": "natural_map",
+        "principle": "D017.1",
+        "status": "pending_user_confirmation",
+        "unit": "index",
+        "value": 14
+      },
+      "non_labor": {
+        "activation": "disabled",
+        "formula": "population-labor_force",
+        "inputs": {
+          "labor_force": 365,
+          "population": 609
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.5",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 244
+      },
+      "population": {
+        "activation": "disabled",
+        "formula": "floor(total*weight/sum(weights)) plus deterministic largest remainder; ties ascending raw ID",
+        "inputs": {
+          "all_weights": {
+            "26": 14.0,
+            "29": 20.0,
+            "38": 6.0,
+            "39": 94.0,
+            "63": 15.0,
+            "74": 24.0,
+            "8": 15.0,
+            "83": 7.0,
+            "9": 16.0,
+            "91": 19.0
+          },
+          "total": 10000,
+          "weight": 14.0
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.1",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 609
+      },
+      "status": "pending_user_confirmation"
+    },
+    "29": {
+      "activation": "disabled",
+      "employed": {
+        "activation": "disabled",
+        "formula": "labor_force-idle",
+        "inputs": {
+          "idle": 26,
+          "labor_force": 522
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.5",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 496
+      },
+      "idle": {
+        "activation": "disabled",
+        "formula": "min(idle_labor_cap,floor(labor_force*idle_labor_share))",
+        "inputs": {
+          "idle_labor_cap": 30,
+          "idle_labor_share": 0.05,
+          "labor_force": 522
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.5",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 26
+      },
+      "labor_force": {
+        "activation": "disabled",
+        "formula": "floor(population*labor_share)",
+        "inputs": {
+          "labor_share": 0.6,
+          "population": 870
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.5",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 522
+      },
+      "manufacturing_output": {
+        "activation": "disabled",
+        "formula": "39:3*new_factory_output;74:1.25*new_factory_output;others:0",
+        "inputs": {
+          "new_factory_output": 100
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.2",
+        "status": "pending_user_confirmation",
+        "unit": "goods/month",
+        "value": 0
+      },
+      "natural_support_index": {
+        "activation": "disabled",
+        "formula": "map.cells[id=29].construction.natural_support_index",
+        "inputs": {
+          "raw_cell_id": 29
+        },
+        "origin": "natural_map",
+        "principle": "D017.1",
+        "status": "pending_user_confirmation",
+        "unit": "index",
+        "value": 20
+      },
+      "non_labor": {
+        "activation": "disabled",
+        "formula": "population-labor_force",
+        "inputs": {
+          "labor_force": 522,
+          "population": 870
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.5",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 348
+      },
+      "population": {
+        "activation": "disabled",
+        "formula": "floor(total*weight/sum(weights)) plus deterministic largest remainder; ties ascending raw ID",
+        "inputs": {
+          "all_weights": {
+            "26": 14.0,
+            "29": 20.0,
+            "38": 6.0,
+            "39": 94.0,
+            "63": 15.0,
+            "74": 24.0,
+            "8": 15.0,
+            "83": 7.0,
+            "9": 16.0,
+            "91": 19.0
+          },
+          "total": 10000,
+          "weight": 20.0
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.1",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 870
+      },
+      "status": "pending_user_confirmation"
+    },
+    "38": {
+      "activation": "disabled",
+      "employed": {
+        "activation": "disabled",
+        "formula": "labor_force-idle",
+        "inputs": {
+          "idle": 7,
+          "labor_force": 156
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.5",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 149
+      },
+      "idle": {
+        "activation": "disabled",
+        "formula": "min(idle_labor_cap,floor(labor_force*idle_labor_share))",
+        "inputs": {
+          "idle_labor_cap": 30,
+          "idle_labor_share": 0.05,
+          "labor_force": 156
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.5",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 7
+      },
+      "labor_force": {
+        "activation": "disabled",
+        "formula": "floor(population*labor_share)",
+        "inputs": {
+          "labor_share": 0.6,
+          "population": 261
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.5",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 156
+      },
+      "manufacturing_output": {
+        "activation": "disabled",
+        "formula": "39:3*new_factory_output;74:1.25*new_factory_output;others:0",
+        "inputs": {
+          "new_factory_output": 100
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.2",
+        "status": "pending_user_confirmation",
+        "unit": "goods/month",
+        "value": 0
+      },
+      "natural_support_index": {
+        "activation": "disabled",
+        "formula": "map.cells[id=38].construction.natural_support_index",
+        "inputs": {
+          "raw_cell_id": 38
+        },
+        "origin": "natural_map",
+        "principle": "D017.1",
+        "status": "pending_user_confirmation",
+        "unit": "index",
+        "value": 6
+      },
+      "non_labor": {
+        "activation": "disabled",
+        "formula": "population-labor_force",
+        "inputs": {
+          "labor_force": 156,
+          "population": 261
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.5",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 105
+      },
+      "population": {
+        "activation": "disabled",
+        "formula": "floor(total*weight/sum(weights)) plus deterministic largest remainder; ties ascending raw ID",
+        "inputs": {
+          "all_weights": {
+            "26": 14.0,
+            "29": 20.0,
+            "38": 6.0,
+            "39": 94.0,
+            "63": 15.0,
+            "74": 24.0,
+            "8": 15.0,
+            "83": 7.0,
+            "9": 16.0,
+            "91": 19.0
+          },
+          "total": 10000,
+          "weight": 6.0
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.1",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 261
+      },
+      "status": "pending_user_confirmation"
+    },
+    "39": {
+      "activation": "disabled",
+      "employed": {
+        "activation": "disabled",
+        "formula": "labor_force-idle",
+        "inputs": {
+          "idle": 30,
+          "labor_force": 2452
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.5",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 2422
+      },
+      "idle": {
+        "activation": "disabled",
+        "formula": "min(idle_labor_cap,floor(labor_force*idle_labor_share))",
+        "inputs": {
+          "idle_labor_cap": 30,
+          "idle_labor_share": 0.05,
+          "labor_force": 2452
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.5",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 30
+      },
+      "labor_force": {
+        "activation": "disabled",
+        "formula": "floor(population*labor_share)",
+        "inputs": {
+          "labor_share": 0.6,
+          "population": 4087
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.5",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 2452
+      },
+      "manufacturing_output": {
+        "activation": "disabled",
+        "formula": "39:3*new_factory_output;74:1.25*new_factory_output;others:0",
+        "inputs": {
+          "new_factory_output": 100
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.2",
+        "status": "pending_user_confirmation",
+        "unit": "goods/month",
+        "value": 300
+      },
+      "natural_support_index": {
+        "activation": "disabled",
+        "formula": "map.cells[id=39].construction.natural_support_index",
+        "inputs": {
+          "raw_cell_id": 39
+        },
+        "origin": "natural_map",
+        "principle": "D017.1",
+        "status": "pending_user_confirmation",
+        "unit": "index",
+        "value": 47
+      },
+      "non_labor": {
+        "activation": "disabled",
+        "formula": "population-labor_force",
+        "inputs": {
+          "labor_force": 2452,
+          "population": 4087
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.5",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 1635
+      },
+      "population": {
+        "activation": "disabled",
+        "formula": "floor(total*weight/sum(weights)) plus deterministic largest remainder; ties ascending raw ID",
+        "inputs": {
+          "all_weights": {
+            "26": 14.0,
+            "29": 20.0,
+            "38": 6.0,
+            "39": 94.0,
+            "63": 15.0,
+            "74": 24.0,
+            "8": 15.0,
+            "83": 7.0,
+            "9": 16.0,
+            "91": 19.0
+          },
+          "total": 10000,
+          "weight": 94.0
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.1",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 4087
+      },
+      "status": "pending_user_confirmation"
+    },
+    "63": {
+      "activation": "disabled",
+      "employed": {
+        "activation": "disabled",
+        "formula": "labor_force-idle",
+        "inputs": {
+          "idle": 19,
+          "labor_force": 391
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.5",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 372
+      },
+      "idle": {
+        "activation": "disabled",
+        "formula": "min(idle_labor_cap,floor(labor_force*idle_labor_share))",
+        "inputs": {
+          "idle_labor_cap": 30,
+          "idle_labor_share": 0.05,
+          "labor_force": 391
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.5",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 19
+      },
+      "labor_force": {
+        "activation": "disabled",
+        "formula": "floor(population*labor_share)",
+        "inputs": {
+          "labor_share": 0.6,
+          "population": 652
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.5",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 391
+      },
+      "manufacturing_output": {
+        "activation": "disabled",
+        "formula": "39:3*new_factory_output;74:1.25*new_factory_output;others:0",
+        "inputs": {
+          "new_factory_output": 100
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.2",
+        "status": "pending_user_confirmation",
+        "unit": "goods/month",
+        "value": 0
+      },
+      "natural_support_index": {
+        "activation": "disabled",
+        "formula": "map.cells[id=63].construction.natural_support_index",
+        "inputs": {
+          "raw_cell_id": 63
+        },
+        "origin": "natural_map",
+        "principle": "D017.1",
+        "status": "pending_user_confirmation",
+        "unit": "index",
+        "value": 15
+      },
+      "non_labor": {
+        "activation": "disabled",
+        "formula": "population-labor_force",
+        "inputs": {
+          "labor_force": 391,
+          "population": 652
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.5",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 261
+      },
+      "population": {
+        "activation": "disabled",
+        "formula": "floor(total*weight/sum(weights)) plus deterministic largest remainder; ties ascending raw ID",
+        "inputs": {
+          "all_weights": {
+            "26": 14.0,
+            "29": 20.0,
+            "38": 6.0,
+            "39": 94.0,
+            "63": 15.0,
+            "74": 24.0,
+            "8": 15.0,
+            "83": 7.0,
+            "9": 16.0,
+            "91": 19.0
+          },
+          "total": 10000,
+          "weight": 15.0
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.1",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 652
+      },
+      "status": "pending_user_confirmation"
+    },
+    "74": {
+      "activation": "disabled",
+      "employed": {
+        "activation": "disabled",
+        "formula": "labor_force-idle",
+        "inputs": {
+          "idle": 30,
+          "labor_force": 625
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.5",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 595
+      },
+      "idle": {
+        "activation": "disabled",
+        "formula": "min(idle_labor_cap,floor(labor_force*idle_labor_share))",
+        "inputs": {
+          "idle_labor_cap": 30,
+          "idle_labor_share": 0.05,
+          "labor_force": 625
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.5",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 30
+      },
+      "labor_force": {
+        "activation": "disabled",
+        "formula": "floor(population*labor_share)",
+        "inputs": {
+          "labor_share": 0.6,
+          "population": 1043
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.5",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 625
+      },
+      "manufacturing_output": {
+        "activation": "disabled",
+        "formula": "39:3*new_factory_output;74:1.25*new_factory_output;others:0",
+        "inputs": {
+          "new_factory_output": 100
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.2",
+        "status": "pending_user_confirmation",
+        "unit": "goods/month",
+        "value": 125.0
+      },
+      "natural_support_index": {
+        "activation": "disabled",
+        "formula": "map.cells[id=74].construction.natural_support_index",
+        "inputs": {
+          "raw_cell_id": 74
+        },
+        "origin": "natural_map",
+        "principle": "D017.1",
+        "status": "pending_user_confirmation",
+        "unit": "index",
+        "value": 24
+      },
+      "non_labor": {
+        "activation": "disabled",
+        "formula": "population-labor_force",
+        "inputs": {
+          "labor_force": 625,
+          "population": 1043
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.5",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 418
+      },
+      "population": {
+        "activation": "disabled",
+        "formula": "floor(total*weight/sum(weights)) plus deterministic largest remainder; ties ascending raw ID",
+        "inputs": {
+          "all_weights": {
+            "26": 14.0,
+            "29": 20.0,
+            "38": 6.0,
+            "39": 94.0,
+            "63": 15.0,
+            "74": 24.0,
+            "8": 15.0,
+            "83": 7.0,
+            "9": 16.0,
+            "91": 19.0
+          },
+          "total": 10000,
+          "weight": 24.0
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.1",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 1043
+      },
+      "status": "pending_user_confirmation"
+    },
+    "8": {
+      "activation": "disabled",
+      "employed": {
+        "activation": "disabled",
+        "formula": "labor_force-idle",
+        "inputs": {
+          "idle": 19,
+          "labor_force": 391
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.5",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 372
+      },
+      "idle": {
+        "activation": "disabled",
+        "formula": "min(idle_labor_cap,floor(labor_force*idle_labor_share))",
+        "inputs": {
+          "idle_labor_cap": 30,
+          "idle_labor_share": 0.05,
+          "labor_force": 391
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.5",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 19
+      },
+      "labor_force": {
+        "activation": "disabled",
+        "formula": "floor(population*labor_share)",
+        "inputs": {
+          "labor_share": 0.6,
+          "population": 652
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.5",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 391
+      },
+      "manufacturing_output": {
+        "activation": "disabled",
+        "formula": "39:3*new_factory_output;74:1.25*new_factory_output;others:0",
+        "inputs": {
+          "new_factory_output": 100
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.2",
+        "status": "pending_user_confirmation",
+        "unit": "goods/month",
+        "value": 0
+      },
+      "natural_support_index": {
+        "activation": "disabled",
+        "formula": "map.cells[id=8].construction.natural_support_index",
+        "inputs": {
+          "raw_cell_id": 8
+        },
+        "origin": "natural_map",
+        "principle": "D017.1",
+        "status": "pending_user_confirmation",
+        "unit": "index",
+        "value": 15
+      },
+      "non_labor": {
+        "activation": "disabled",
+        "formula": "population-labor_force",
+        "inputs": {
+          "labor_force": 391,
+          "population": 652
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.5",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 261
+      },
+      "population": {
+        "activation": "disabled",
+        "formula": "floor(total*weight/sum(weights)) plus deterministic largest remainder; ties ascending raw ID",
+        "inputs": {
+          "all_weights": {
+            "26": 14.0,
+            "29": 20.0,
+            "38": 6.0,
+            "39": 94.0,
+            "63": 15.0,
+            "74": 24.0,
+            "8": 15.0,
+            "83": 7.0,
+            "9": 16.0,
+            "91": 19.0
+          },
+          "total": 10000,
+          "weight": 15.0
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.1",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 652
+      },
+      "status": "pending_user_confirmation"
+    },
+    "83": {
+      "activation": "disabled",
+      "employed": {
+        "activation": "disabled",
+        "formula": "labor_force-idle",
+        "inputs": {
+          "idle": 9,
+          "labor_force": 182
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.5",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 173
+      },
+      "idle": {
+        "activation": "disabled",
+        "formula": "min(idle_labor_cap,floor(labor_force*idle_labor_share))",
+        "inputs": {
+          "idle_labor_cap": 30,
+          "idle_labor_share": 0.05,
+          "labor_force": 182
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.5",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 9
+      },
+      "labor_force": {
+        "activation": "disabled",
+        "formula": "floor(population*labor_share)",
+        "inputs": {
+          "labor_share": 0.6,
+          "population": 304
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.5",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 182
+      },
+      "manufacturing_output": {
+        "activation": "disabled",
+        "formula": "39:3*new_factory_output;74:1.25*new_factory_output;others:0",
+        "inputs": {
+          "new_factory_output": 100
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.2",
+        "status": "pending_user_confirmation",
+        "unit": "goods/month",
+        "value": 0
+      },
+      "natural_support_index": {
+        "activation": "disabled",
+        "formula": "map.cells[id=83].construction.natural_support_index",
+        "inputs": {
+          "raw_cell_id": 83
+        },
+        "origin": "natural_map",
+        "principle": "D017.1",
+        "status": "pending_user_confirmation",
+        "unit": "index",
+        "value": 7
+      },
+      "non_labor": {
+        "activation": "disabled",
+        "formula": "population-labor_force",
+        "inputs": {
+          "labor_force": 182,
+          "population": 304
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.5",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 122
+      },
+      "population": {
+        "activation": "disabled",
+        "formula": "floor(total*weight/sum(weights)) plus deterministic largest remainder; ties ascending raw ID",
+        "inputs": {
+          "all_weights": {
+            "26": 14.0,
+            "29": 20.0,
+            "38": 6.0,
+            "39": 94.0,
+            "63": 15.0,
+            "74": 24.0,
+            "8": 15.0,
+            "83": 7.0,
+            "9": 16.0,
+            "91": 19.0
+          },
+          "total": 10000,
+          "weight": 7.0
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.1",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 304
+      },
+      "status": "pending_user_confirmation"
+    },
+    "9": {
+      "activation": "disabled",
+      "employed": {
+        "activation": "disabled",
+        "formula": "labor_force-idle",
+        "inputs": {
+          "idle": 20,
+          "labor_force": 417
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.5",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 397
+      },
+      "idle": {
+        "activation": "disabled",
+        "formula": "min(idle_labor_cap,floor(labor_force*idle_labor_share))",
+        "inputs": {
+          "idle_labor_cap": 30,
+          "idle_labor_share": 0.05,
+          "labor_force": 417
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.5",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 20
+      },
+      "labor_force": {
+        "activation": "disabled",
+        "formula": "floor(population*labor_share)",
+        "inputs": {
+          "labor_share": 0.6,
+          "population": 696
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.5",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 417
+      },
+      "manufacturing_output": {
+        "activation": "disabled",
+        "formula": "39:3*new_factory_output;74:1.25*new_factory_output;others:0",
+        "inputs": {
+          "new_factory_output": 100
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.2",
+        "status": "pending_user_confirmation",
+        "unit": "goods/month",
+        "value": 0
+      },
+      "natural_support_index": {
+        "activation": "disabled",
+        "formula": "map.cells[id=9].construction.natural_support_index",
+        "inputs": {
+          "raw_cell_id": 9
+        },
+        "origin": "natural_map",
+        "principle": "D017.1",
+        "status": "pending_user_confirmation",
+        "unit": "index",
+        "value": 16
+      },
+      "non_labor": {
+        "activation": "disabled",
+        "formula": "population-labor_force",
+        "inputs": {
+          "labor_force": 417,
+          "population": 696
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.5",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 279
+      },
+      "population": {
+        "activation": "disabled",
+        "formula": "floor(total*weight/sum(weights)) plus deterministic largest remainder; ties ascending raw ID",
+        "inputs": {
+          "all_weights": {
+            "26": 14.0,
+            "29": 20.0,
+            "38": 6.0,
+            "39": 94.0,
+            "63": 15.0,
+            "74": 24.0,
+            "8": 15.0,
+            "83": 7.0,
+            "9": 16.0,
+            "91": 19.0
+          },
+          "total": 10000,
+          "weight": 16.0
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.1",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 696
+      },
+      "status": "pending_user_confirmation"
+    },
+    "91": {
+      "activation": "disabled",
+      "employed": {
+        "activation": "disabled",
+        "formula": "labor_force-idle",
+        "inputs": {
+          "idle": 24,
+          "labor_force": 495
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.5",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 471
+      },
+      "idle": {
+        "activation": "disabled",
+        "formula": "min(idle_labor_cap,floor(labor_force*idle_labor_share))",
+        "inputs": {
+          "idle_labor_cap": 30,
+          "idle_labor_share": 0.05,
+          "labor_force": 495
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.5",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 24
+      },
+      "labor_force": {
+        "activation": "disabled",
+        "formula": "floor(population*labor_share)",
+        "inputs": {
+          "labor_share": 0.6,
+          "population": 826
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.5",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 495
+      },
+      "manufacturing_output": {
+        "activation": "disabled",
+        "formula": "39:3*new_factory_output;74:1.25*new_factory_output;others:0",
+        "inputs": {
+          "new_factory_output": 100
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.2",
+        "status": "pending_user_confirmation",
+        "unit": "goods/month",
+        "value": 0
+      },
+      "natural_support_index": {
+        "activation": "disabled",
+        "formula": "map.cells[id=91].construction.natural_support_index",
+        "inputs": {
+          "raw_cell_id": 91
+        },
+        "origin": "natural_map",
+        "principle": "D017.1",
+        "status": "pending_user_confirmation",
+        "unit": "index",
+        "value": 19
+      },
+      "non_labor": {
+        "activation": "disabled",
+        "formula": "population-labor_force",
+        "inputs": {
+          "labor_force": 495,
+          "population": 826
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.5",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 331
+      },
+      "population": {
+        "activation": "disabled",
+        "formula": "floor(total*weight/sum(weights)) plus deterministic largest remainder; ties ascending raw ID",
+        "inputs": {
+          "all_weights": {
+            "26": 14.0,
+            "29": 20.0,
+            "38": 6.0,
+            "39": 94.0,
+            "63": 15.0,
+            "74": 24.0,
+            "8": 15.0,
+            "83": 7.0,
+            "9": 16.0,
+            "91": 19.0
+          },
+          "total": 10000,
+          "weight": 19.0
+        },
+        "origin": "derived_proposal",
+        "principle": "D017.1",
+        "status": "pending_user_confirmation",
+        "unit": "person",
+        "value": 826
+      },
+      "status": "pending_user_confirmation"
+    },
+    "activation": "disabled",
+    "status": "pending_user_confirmation"
+  },
+  "scenario": "jinglun-040",
+  "schema": "jinglun.initial-values-draft.v1",
+  "scope": "Arithmetic proposal only. No enterprise, pressure, todo behavior or Game activation. All economic values require user confirmation. No B1-B15 replay or experience acceptance claimed.",
+  "status": "pending_user_confirmation"
+}
