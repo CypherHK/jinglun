@@ -286,7 +286,24 @@ fn public_factory_fixture(
     renewal_month: u32,
     accept_a_from: u32,
 ) -> Game {
-    let mut game = Game::confirmed_game_with_calibration(calibration).unwrap();
+    public_factory_fixture_with_trial(
+        calibration,
+        renewal,
+        through,
+        renewal_month,
+        accept_a_from,
+        false,
+    )
+}
+fn public_factory_fixture_with_trial(
+    calibration: GovernanceCalibration,
+    renewal: RenewalChoice,
+    through: u32,
+    renewal_month: u32,
+    accept_a_from: u32,
+    trial: bool,
+) -> Game {
+    let mut game = Game::confirmed_game_with_labor_trial(calibration, trial).unwrap();
     let site = 29;
     let road = domestic_road(&game, site);
     game.queue_governance("target", GovernanceCommand::SelectCandidate { site })
@@ -1475,4 +1492,71 @@ fn d028_public_retrofits_sell_only_the_national_orders_with_real_receipts() {
         Game::load(&game.save().unwrap()).unwrap().save().unwrap(),
         game.save().unwrap()
     );
+}
+
+#[test]
+fn labor_trial_defaults_off_and_rejects_previous_rules_or_forged_source_records() {
+    let default = fixture();
+    let explicit_off =
+        Game::confirmed_game_with_labor_trial(GovernanceCalibration::default(), false).unwrap();
+    assert_eq!(default.save().unwrap(), explicit_off.save().unwrap());
+    let old = rewrite_checked_save(&default, |p| {
+        p["governance"]["rules_version"] = "governance-rules-5".into()
+    });
+    assert!(
+        format!("{:?}", Game::load(&old).unwrap_err())
+            .contains("unsupported governance rules version")
+    );
+    let mut trial =
+        Game::confirmed_game_with_labor_trial(GovernanceCalibration::default(), true).unwrap();
+    trial.end_month(1).unwrap();
+    assert_eq!(
+        Game::load(&trial.save().unwrap()).unwrap().save().unwrap(),
+        trial.save().unwrap()
+    );
+    // This remains internally plausible and below the cap; deterministic reconstruction must reject it.
+    let fake_denominator = rewrite_checked_save(&trial, |p| {
+        p["governance"]["labor_trial_sources"]["8"]["initial_labor_force"] = 999.into()
+    });
+    assert!(Game::load(&fake_denominator).is_err());
+    let fake_losses = rewrite_checked_save(&trial, |p| {
+        p["governance"]["labor_trial_sources"]["8"]["cumulative_wage_loss"] = 1.into()
+    });
+    assert!(Game::load(&fake_losses).is_err());
+}
+#[test]
+fn labor_trial_recruited_workers_and_lost_wages_survive_real_plan_replay() {
+    // Isolated replay fixture supplies room for all allowed recruits; shipped defaults stay frozen.
+    let game = public_factory_fixture_with_trial(
+        GovernanceCalibration {
+            road_output_capacity: 1000,
+            power_output_capacity: 1000,
+            housing_workers: 1000,
+            clinic_people: 1000,
+            ..Default::default()
+        },
+        RenewalChoice::Decline,
+        18,
+        9,
+        10,
+        true,
+    );
+    assert!(
+        game.governance()
+            .unwrap()
+            .labor_trial_sources
+            .values()
+            .any(|s| s.cumulative_employed_recruits > 0)
+    );
+    let saved = game.save().unwrap();
+    let loaded = Game::load(&saved).unwrap();
+    assert_eq!(loaded.save().unwrap(), saved);
+    let fake = rewrite_checked_save(&game, |p| {
+        let source = &mut p["governance"]["labor_trial_sources"]["8"];
+        let remaining = source["nonmanufacturing_workers"].as_u64().unwrap();
+        let recruits = source["cumulative_employed_recruits"].as_u64().unwrap();
+        source["nonmanufacturing_workers"] = (remaining + 1).into();
+        source["cumulative_employed_recruits"] = recruits.saturating_sub(1).into();
+    });
+    assert!(Game::load(&fake).is_err());
 }

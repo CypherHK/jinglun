@@ -1838,8 +1838,28 @@ impl GovernanceState {
             .sites
             .iter()
             .filter(|(id, _)| **id != site)
-            .map(|(_, s)| s.skilled_workers)
-            .sum();
+            .map(|(id, source)| {
+                if self.labor_trial_enabled {
+                    let idle_available = source
+                        .idle_workers
+                        .min(self.labor_trial_sources[id].outbound_remaining())
+                        .min(
+                            (source.population as f64
+                                * self.calibration.migration_source_population_share)
+                                .floor() as u32,
+                        );
+                    idle_available
+                        .saturating_sub(source.idle_workers.saturating_sub(source.skilled_workers))
+                } else {
+                    source.skilled_workers
+                }
+            })
+            .sum::<u32>();
+        let migrant_skills = if self.labor_trial_enabled {
+            migrant_skills.min(self.calibration.domestic_migration_per_month)
+        } else {
+            migrant_skills
+        };
         let potential_skills = actual.skilled_workers
             + migration_space.min(migrant_skills)
             + if s.vocational_schools > 0 {
@@ -4306,5 +4326,174 @@ mod order_priority_tests {
         assert_eq!(state.factories["factory/1"].domestic_sales, 120.0);
         assert_eq!(state.factories["factory/2"].domestic_sales, 0.0);
         assert_eq!(state.factories["factory/2"].first_operated_month, Some(8));
+    }
+    fn labor_trial_fixture(enabled: bool) -> (Game, GovernanceState) {
+        let mut game =
+            Game::confirmed_game_with_labor_trial(GovernanceCalibration::default(), enabled)
+                .unwrap();
+        let mut state = game.governance.take().unwrap();
+        let dest = state.sites.get_mut(&29).unwrap();
+        dest.admitted = true;
+        dest.road_capacity = 1000;
+        dest.power_capacity = 1000;
+        dest.water_access = true;
+        dest.housing_capacity += 1000;
+        dest.clinic_capacity += 1000;
+        (game, state)
+    }
+    #[test]
+    fn labor_trial_idle_priority_fixed_caps_monthly_limits_and_conservation() {
+        let (game, mut state) = labor_trial_fixture(true);
+        let opening = state.clone();
+        let opening_idle: u32 = state.sites.values().map(|s| s.idle_workers).sum();
+        let opening_nonmanufacturing: u32 = state
+            .labor_trial_sources
+            .values()
+            .map(|s| s.nonmanufacturing_workers)
+            .sum();
+        assert_eq!(opening_nonmanufacturing, 5276);
+        assert_eq!(
+            state.labor_trial_sources[&39].initial_nonmanufacturing_workers,
+            2452 - 122 - 300
+        );
+        let mut previous = state.clone();
+        for _ in 0..24 {
+            state.migrate(&game);
+            let mut monthly = 0;
+            for (site, source) in &state.labor_trial_sources {
+                let moved = source.cumulative_outbound
+                    - previous.labor_trial_sources[site].cumulative_outbound;
+                monthly += moved;
+                assert!(moved <= (previous.sites[site].population as f64 * 0.01).floor() as u32);
+                assert!(
+                    source.cumulative_outbound
+                        <= opening.labor_trial_sources[site].initial_labor_force / 10
+                );
+                assert_eq!(
+                    source.nonmanufacturing_workers + source.cumulative_employed_recruits,
+                    source.initial_nonmanufacturing_workers
+                );
+                // Only source idle exhausted within this month's cap may yield on-job recruits.
+                let recruited = source.cumulative_employed_recruits
+                    - previous.labor_trial_sources[site].cumulative_employed_recruits;
+                if recruited > 0 {
+                    assert_eq!(state.sites[site].idle_workers, 0);
+                }
+            }
+            assert!(monthly <= 100);
+            assert_eq!(
+                state.sites.values().map(|s| s.population).sum::<u32>(),
+                10000
+            );
+            assert_eq!(
+                state.sites.values().map(|s| s.idle_workers).sum::<u32>()
+                    + state
+                        .labor_trial_sources
+                        .values()
+                        .map(|s| s.nonmanufacturing_workers)
+                        .sum::<u32>(),
+                opening_idle + opening_nonmanufacturing
+            );
+            previous = state.clone();
+        }
+        assert!(
+            state
+                .labor_trial_sources
+                .values()
+                .any(|s| s.cumulative_employed_recruits > 0)
+        );
+        assert!(
+            state
+                .labor_trial_sources
+                .values()
+                .filter(|s| s.cumulative_outbound > 0)
+                .all(|s| s.outbound_remaining() == 0)
+        );
+        // Even after inbound population inflates the destination, its denominator stays opening.
+        assert_eq!(
+            state.labor_trial_sources[&29].initial_labor_force,
+            opening.labor_trial_sources[&29].initial_labor_force
+        );
+    }
+    #[test]
+    fn labor_trial_displacement_reduces_real_external_wages_and_payroll_same_month() {
+        let (mut off_game, mut off) = labor_trial_fixture(false);
+        let (mut on_game, mut on) = labor_trial_fixture(true);
+        for _ in 0..8 {
+            off.migrate(&off_game);
+            on.migrate(&on_game);
+        }
+        let displaced: u32 = on
+            .labor_trial_sources
+            .values()
+            .map(|s| s.cumulative_employed_recruits)
+            .sum();
+        assert!(displaced > 0);
+        off.production(&mut off_game).unwrap();
+        on.production(&mut on_game).unwrap();
+        let wages = |game: &Game| {
+            game.system_receipts
+                .iter()
+                .find(|r| r.reason == "existing_nonmanufacturing_employer_wages")
+                .unwrap()
+                .delta
+        };
+        let loss = money(displaced as f64 * 0.02).unwrap();
+        assert_eq!(wages(&off_game) - wages(&on_game), loss as i128);
+        let rate = param(document().unwrap(), "payroll_tax_rate").unwrap();
+        assert_eq!(
+            off.monthly_existing_payroll - on.monthly_existing_payroll,
+            money(currency(loss) * rate).unwrap()
+        );
+        assert_eq!(
+            on.labor_trial_sources
+                .values()
+                .map(|s| s.lost_worker_months)
+                .sum::<u64>(),
+            displaced as u64
+        );
+        assert_eq!(
+            on.labor_trial_sources
+                .values()
+                .map(|s| s.cumulative_wage_loss)
+                .sum::<u64>(),
+            loss
+        );
+        assert!(
+            off.labor_trial_sources
+                .values()
+                .all(|s| s.cumulative_outbound == 0 && s.cumulative_wage_loss == 0)
+        );
+    }
+    #[test]
+    fn labor_trial_scorecard_sees_the_same_monthly_capped_ordinary_recruits() {
+        let (game, mut state) = labor_trial_fixture(true);
+        for source in state.labor_trial_sources.values_mut() {
+            source.cumulative_outbound = source.outbound_cap();
+        }
+        state.sites.get_mut(&29).unwrap().idle_workers = 0;
+        state.sites.get_mut(&8).unwrap().idle_workers = 0;
+        state
+            .labor_trial_sources
+            .get_mut(&8)
+            .unwrap()
+            .cumulative_outbound = 0;
+        let card = state
+            .assess_excluding_commitment(&game, Group::A, 29, None)
+            .unwrap();
+        assert_eq!(card.gaps["labor"], 94.0); // 652 population => 6/month, ordinary workers only.
+        assert_eq!(
+            card.gaps["skills"],
+            state.calibration.factory_skill_workers as f64
+        );
+        state
+            .labor_trial_sources
+            .get_mut(&8)
+            .unwrap()
+            .cumulative_outbound = 39;
+        let capped = state
+            .assess_excluding_commitment(&game, Group::A, 29, None)
+            .unwrap();
+        assert_eq!(capped.gaps["labor"], 100.0);
     }
 }
