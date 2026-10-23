@@ -230,6 +230,7 @@ fn business_replay_rejects_balanced_counterfeit_receipts_and_plausible_state_cha
 }
 #[test]
 fn currency_quantization_is_central_and_checked() {
+    assert_eq!(money(100_000_000.00000001).unwrap(), 10_000_000_000_000_001);
     assert_eq!(money(0.0000000049).unwrap(), 0);
     assert_eq!(money(0.000000005).unwrap(), 1);
     assert_eq!(currency(money(55.0).unwrap()), 55.0);

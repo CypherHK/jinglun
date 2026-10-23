@@ -7,12 +7,36 @@ pub const GOVERNANCE_RULES_VERSION: &str = "governance-rules-1";
 pub const MONEY_SCALE: u64 = 100_000_000;
 pub fn money(value: f64) -> Result<u64> {
     scenario::finite_nonnegative(value)?;
-    let scaled = (value * MONEY_SCALE as f64).round();
-    if !scaled.is_finite() || scaled >= u64::MAX as f64 {
-        return Err(Error::Overflow);
+    if value == 0.0 {
+        return Ok(0);
     }
-    Ok(scaled as u64)
+    let bits = value.to_bits();
+    let exponent = ((bits >> 52) & 0x7ff) as i32;
+    let significand = (bits & ((1u64 << 52) - 1)) | if exponent == 0 { 0 } else { 1u64 << 52 };
+    let binary_shift = if exponent == 0 {
+        -1074
+    } else {
+        exponent - 1023 - 52
+    };
+    let numerator = significand as u128 * MONEY_SCALE as u128;
+    let rounded = if binary_shift >= 0 {
+        let shift = binary_shift as u32;
+        if shift >= 64 || numerator > (u64::MAX >> shift) as u128 {
+            return Err(Error::Overflow);
+        }
+        numerator << shift
+    } else {
+        let shift = (-binary_shift) as u32;
+        if shift >= 128 {
+            0
+        } else {
+            let denominator = 1u128 << shift;
+            (numerator + denominator / 2) / denominator
+        }
+    };
+    u64::try_from(rounded).map_err(|_| Error::Overflow)
 }
+
 pub fn currency(value: u64) -> f64 {
     value as f64 / MONEY_SCALE as f64
 }
