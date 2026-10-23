@@ -101,8 +101,10 @@ fn opening_sources_and_material_owners_are_explicit() {
 
 #[test]
 fn water_renewal_continues_work_but_waits_for_water_before_activation() {
-    let mut calibration = GovernanceCalibration::default();
-    calibration.water_priority_fraction = 1.0;
+    let calibration = GovernanceCalibration {
+        water_priority_fraction: 1.0,
+        ..Default::default()
+    };
     let mut game = Game::confirmed_game_with_calibration(calibration).unwrap();
     for month in 1..=7 {
         game.end_month(month).unwrap();

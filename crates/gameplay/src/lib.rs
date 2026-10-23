@@ -615,12 +615,10 @@ impl Game {
                 } else {
                     AllocationPhase::Reserved
                 };
-                if !waiting {
-                    if let Err(error) = self.validate_capacity() {
-                        self.reservations.get_mut(reservation).unwrap().phase =
-                            AllocationPhase::WaitingForWater;
-                        return Err(error);
-                    }
+                if !waiting && let Err(error) = self.validate_capacity() {
+                    self.reservations.get_mut(reservation).unwrap().phase =
+                        AllocationPhase::WaitingForWater;
+                    return Err(error);
                 }
             }
             Command::MarkOperational { reservation } => {
