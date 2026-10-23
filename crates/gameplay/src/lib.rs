@@ -176,6 +176,10 @@ pub enum Command {
     MarkOperational {
         reservation: String,
     },
+    SetWaterWaiting {
+        reservation: String,
+        waiting: bool,
+    },
     AddAdmissionLimit(AdmissionLimit),
     RecordObligation(PaymentObligation),
     PayObligation {
@@ -199,6 +203,7 @@ pub struct Receipt {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 struct Applied {
+    execution_order: u64,
     admission_grandfathered: Option<std::collections::BTreeSet<String>>,
     command: Command,
     receipt: Receipt,
@@ -468,6 +473,7 @@ impl Game {
         candidate.applied.insert(
             command_id,
             Applied {
+                execution_order: candidate.applied.len() as u64,
                 admission_grandfathered,
                 command,
                 receipt: receipt.clone(),
@@ -587,6 +593,35 @@ impl Game {
                 self.reservations
                     .remove(reservation)
                     .ok_or(Error::Missing("reservation"))?;
+            }
+            Command::SetWaterWaiting {
+                reservation,
+                waiting,
+            } => {
+                let r = self
+                    .reservations
+                    .get_mut(reservation)
+                    .ok_or(Error::Missing("water reservation"))?;
+                let expected = if *waiting {
+                    AllocationPhase::Reserved
+                } else {
+                    AllocationPhase::WaitingForWater
+                };
+                if r.phase != expected {
+                    return Err(Error::Invalid("water reservation waiting transition"));
+                }
+                r.phase = if *waiting {
+                    AllocationPhase::WaitingForWater
+                } else {
+                    AllocationPhase::Reserved
+                };
+                if !waiting {
+                    if let Err(error) = self.validate_capacity() {
+                        self.reservations.get_mut(reservation).unwrap().phase =
+                            AllocationPhase::WaitingForWater;
+                        return Err(error);
+                    }
+                }
             }
             Command::MarkOperational { reservation } => {
                 let r = self
@@ -847,8 +882,10 @@ impl Game {
             self.validate_reservation(reservation)?;
             let l = land.entry(reservation.cell).or_default();
             *l = l.checked_add(reservation.land).ok_or(Error::Overflow)?;
-            let w = water.entry(reservation.source).or_default();
-            *w = w.checked_add(reservation.water).ok_or(Error::Overflow)?;
+            if reservation.phase != AllocationPhase::WaitingForWater {
+                let w = water.entry(reservation.source).or_default();
+                *w = w.checked_add(reservation.water).ok_or(Error::Overflow)?;
+            }
         }
         let land_shortfalls = land
             .iter()
@@ -875,6 +912,7 @@ impl Game {
             let mut used = 0u64;
             for r in self.reservations.values().filter(|r| {
                 r.country == state.limit.country
+                    && r.phase != AllocationPhase::WaitingForWater
                     && r.source == state.limit.source
                     && !state.grandfathered.contains(&r.id)
             }) {
@@ -978,6 +1016,13 @@ impl Game {
             }
             todo.validate(self.month)?;
         }
+        let orders: std::collections::BTreeSet<_> =
+            self.applied.values().map(|a| a.execution_order).collect();
+        if orders.len() != self.applied.len()
+            || orders.iter().copied().ne(0..self.applied.len() as u64)
+        {
+            return Err(Error::Invalid("command execution order"));
+        }
         for (id, applied) in &self.applied {
             identifier(id)?;
             if &applied.receipt.command_id != id
@@ -1060,6 +1105,7 @@ impl Game {
         let mut reserved = BTreeMap::new();
         let mut released = std::collections::BTreeSet::new();
         let mut operational = std::collections::BTreeSet::new();
+        let mut water_waiting = BTreeMap::<String, (u64, bool)>::new();
         let mut obligations = BTreeMap::new();
         let mut payments = BTreeMap::<(String, u32), u64>::new();
         let mut todos = BTreeMap::new();
@@ -1098,6 +1144,17 @@ impl Game {
                 Command::Release { reservation } => {
                     if !released.insert(reservation.clone()) {
                         return Err(Error::Invalid("duplicate release receipt"));
+                    }
+                }
+                Command::SetWaterWaiting {
+                    reservation,
+                    waiting,
+                } => {
+                    let entry = water_waiting
+                        .entry(reservation.clone())
+                        .or_insert((applied.execution_order, *waiting));
+                    if applied.execution_order > entry.0 {
+                        *entry = (applied.execution_order, *waiting);
                     }
                 }
                 Command::MarkOperational { reservation } => {
@@ -1173,6 +1230,17 @@ impl Game {
         }
         for id in &released {
             reserved.remove(id);
+        }
+        for (id, (_, waiting)) in water_waiting {
+            let r = reserved
+                .get_mut(&id)
+                .ok_or(Error::Invalid("water waiting lifecycle receipt"))?;
+            if waiting {
+                if operational.contains(&id) {
+                    return Err(Error::Invalid("operational facility waiting for water"));
+                }
+                r.phase = AllocationPhase::WaitingForWater;
+            }
         }
         for id in &operational {
             if let Some(r) = reserved.get_mut(id) {

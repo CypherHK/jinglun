@@ -3,6 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 /// One currency unit is 100,000,000 ledger units. Each conversion rounds to the
 /// nearest unit, with an absolute error of at most 5e-9 currency units.
+pub const GOVERNANCE_RULES_VERSION: &str = "governance-rules-1";
 pub const MONEY_SCALE: u64 = 100_000_000;
 pub fn money(value: f64) -> Result<u64> {
     scenario::finite_nonnegative(value)?;
@@ -60,7 +61,7 @@ pub enum Service {
     Education,
     Maintenance,
 }
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Institution {
     ClinicalCoverage,
     LaborProtection,
@@ -123,6 +124,10 @@ pub enum GovernanceCommand {
     Retrofit {
         factory: String,
     },
+    ExpediteProject {
+        id: String,
+        additional_months: u32,
+    },
 }
 
 /// These rule coefficients are a calibration proposal, not changes to the
@@ -136,14 +141,19 @@ pub struct GovernanceCalibration {
     pub administrative_capacity: usize,
     pub housing_workers: u32,
     pub clinic_people: u32,
-    pub trained_workers_per_month: u32,
-    pub cooperation_training_per_month: u32,
+    pub trained_workers_per_quarter: u32,
+    pub cooperation_training_per_quarter: u32,
     pub cooperation_export_orders_per_month: u32,
     pub cooperation_delay_months: u32,
     pub road_output_capacity: u32,
     pub power_output_capacity: u32,
     pub factory_skill_workers: u32,
+    pub maximum_payback_months: f64,
     pub domestic_migration_per_month: u32,
+    pub migration_source_population_share: f64,
+    pub cooperation_monthly_fee: u64,
+    pub foreign_buyer_monthly_budget: u64,
+    pub public_work_monthly_maintenance: u64,
     pub water_priority_fraction: f64,
     pub capital_output_ratio: f64,
     pub protected_treasury: u64,
@@ -163,14 +173,19 @@ impl Default for GovernanceCalibration {
             administrative_capacity: 4,
             housing_workers: 200,
             clinic_people: 200,
-            trained_workers_per_month: 25,
-            cooperation_training_per_month: 25,
+            trained_workers_per_quarter: 20,
+            cooperation_training_per_quarter: 10,
             cooperation_export_orders_per_month: 20,
-            cooperation_delay_months: 2,
+            cooperation_delay_months: 3,
             road_output_capacity: 200,
             power_output_capacity: 200,
             factory_skill_workers: 20,
+            maximum_payback_months: 48.0,
             domestic_migration_per_month: 100,
+            migration_source_population_share: 0.01,
+            cooperation_monthly_fee: MONEY_SCALE,
+            foreign_buyer_monthly_budget: 2 * MONEY_SCALE,
+            public_work_monthly_maintenance: MONEY_SCALE / 20,
             water_priority_fraction: 0.5,
             capital_output_ratio: 0.5,
             protected_treasury: 5 * MONEY_SCALE,
@@ -188,6 +203,9 @@ impl GovernanceCalibration {
         if self.status != "pending_user_confirmation"
             || self.owner.is_empty()
             || self.review_date.is_empty()
+            || !(0.0..=1.0).contains(&self.migration_source_population_share)
+            || !self.maximum_payback_months.is_finite()
+            || self.maximum_payback_months <= 0.0
             || self.administrative_capacity == 0
             || self.housing_workers == 0
             || self.clinic_people == 0
@@ -216,6 +234,9 @@ pub struct SiteState {
     pub road_capacity: u32,
     pub power_capacity: u32,
     pub vocational_schools: u32,
+    pub teachers: u32,
+    pub enrolled_students: u32,
+    pub training_months: u32,
     pub water_access: bool,
     pub admitted: bool,
     pub subsidy_cap: u64,
@@ -236,6 +257,7 @@ pub struct PublicProject {
     pub paused: bool,
     pub escrow: String,
     pub reserved_materials: u64,
+    pub expedite_months: u32,
 }
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum FactoryPhase {
@@ -269,6 +291,7 @@ pub struct Factory {
     pub after_tax_profit: i128,
     pub operating_subsidy: u64,
     pub retrofitted: bool,
+    pub retrofit_activate_month: Option<u32>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -388,6 +411,9 @@ pub struct Scorecard {
     pub autonomous_ready: bool,
     pub conditional_ready: bool,
     pub recognizes_promises_after_month: u32,
+    pub six_month_sales_forecast: Vec<f64>,
+    pub forecast_monthly_profit: i128,
+    pub static_payback_months: Option<f64>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -407,6 +433,13 @@ struct CompletedPlan {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct GovernanceState {
+    pub rules_version: String,
+    pub institution_changes: BTreeMap<Institution, (u32, bool)>,
+    pub institution_last_change: BTreeMap<Institution, u32>,
+    pub last_diplomatic_spend: u64,
+    pending_taxes: Vec<(String, Group, u64, u64)>,
+    monthly_energy_used: f64,
+    pub pending_export_orders: Option<(u32, f64)>,
     pub calibration: GovernanceCalibration,
     pub selected_candidate: Option<u32>,
     pub sites: BTreeMap<u32, SiteState>,
@@ -452,6 +485,7 @@ pub struct SystemReceipt {
     pub delta: i128,
     pub external_counterbalance: i128,
     pub reason: String,
+    pub external_party: String,
 }
 impl SystemReceipt {
     pub(crate) fn validate(&self, game: &Game) -> Result<()> {
@@ -463,6 +497,7 @@ impl SystemReceipt {
             || self.delta.checked_neg() != Some(self.external_counterbalance)
             || !game.ledger.accounts.contains_key(&self.account)
             || self.reason.is_empty()
+            || self.external_party != external_party(&self.reason)
             || game.governance.is_none()
         {
             return Err(Error::Invalid("system receipt"));
@@ -494,17 +529,21 @@ impl Game {
             ("group_a", param(doc, "group_a_starting_cash")?),
             ("group_b", param(doc, "group_b_starting_cash")?),
             ("construction", 0.0),
+            ("households", 0.0),
+            ("capital_inventory", 0.0),
+            ("resource_supplier", 0.0),
+            ("foreign_buyer", 0.0),
         ] {
             accounts.push(InitialAccount {
                 id: id.into(),
                 balances: BTreeMap::from([(Asset::Money, money(amount)?)]),
             });
         }
-        accounts[0].balances.insert(
+        accounts[5].balances.insert(
             Asset::Material("construction".into()),
             number(doc, "/materials/initial_inventory/value")? as u64,
         );
-        accounts[0].balances.insert(
+        accounts[4].balances.insert(
             Asset::Material("food".into()),
             number(doc, "/food/initial_inventory/value")? as u64,
         );
@@ -534,6 +573,9 @@ impl Game {
                     road_capacity: if [39, 74].contains(site) { 1000 } else { 0 },
                     power_capacity: if [39, 74].contains(site) { 1000 } else { 0 },
                     vocational_schools: 0,
+                    teachers: 0,
+                    enrolled_students: 0,
+                    training_months: 0,
                     water_access: [39, 74].contains(site),
                     admitted: [39, 74].contains(site),
                     subsidy_cap: 0,
@@ -556,6 +598,13 @@ impl Game {
             );
         }
         game.governance = Some(GovernanceState {
+            rules_version: GOVERNANCE_RULES_VERSION.into(),
+            institution_changes: BTreeMap::new(),
+            institution_last_change: BTreeMap::new(),
+            last_diplomatic_spend: 0,
+            pending_taxes: vec![],
+            monthly_energy_used: 0.0,
+            pending_export_orders: None,
             calibration,
             selected_candidate: None,
             sites,
@@ -631,9 +680,6 @@ impl Game {
             .governance
             .as_ref()
             .ok_or(Error::Invalid("formal game required"))?;
-        if self.month > 24 {
-            return Err(Error::Invalid("scenario complete"));
-        }
         if let Some((_, existing)) = state.planned.iter().find(|(key, _)| key == &id) {
             return if existing == &command {
                 Ok(())
@@ -737,6 +783,7 @@ impl Game {
             delta,
             external_counterbalance: delta.checked_neg().ok_or(Error::Overflow)?,
             reason: reason.into(),
+            external_party: external_party(reason).into(),
         });
         Ok(())
     }
@@ -885,7 +932,7 @@ impl GovernanceState {
                     .get(intent_id)
                     .ok_or(Error::Missing("investment intent"))?
                     .clone();
-                if month > intent.due_month || *deadline < month || *deadline > 24 {
+                if month > intent.due_month || *deadline < month {
                     return Err(Error::Invalid("commitment deadline"));
                 }
                 if self.active_commitments() >= self.calibration.administrative_capacity {
@@ -987,16 +1034,50 @@ impl GovernanceState {
                 }
                 if *choice == RenewalChoice::EnergyLongTerm {
                     self.energy_long_start = Some(month);
+                    let doc = document()?;
+                    game.apply_internal(
+                        format!("{id}/obligation"),
+                        Command::RecordObligation(PaymentObligation {
+                            id: "resource_energy_long_term".into(),
+                            payer: "treasury".into(),
+                            payee: "resource_supplier".into(),
+                            start_month: month,
+                            months: 24,
+                            quantity_per_month: number(doc, "/energy/renewal_quantity")? as u64,
+                            unit_price: money(param(doc, "long_energy_price")?)?,
+                        }),
+                    )?;
                 }
                 if *choice == RenewalChoice::WaterPriority {
                     for source in self.shared_resource_sources(game) {
+                        let in_construction: Vec<_> = game
+                            .reservations
+                            .values()
+                            .filter(|r| {
+                                r.country == "player"
+                                    && r.source == source
+                                    && r.phase == AllocationPhase::Reserved
+                            })
+                            .map(|r| r.id.clone())
+                            .collect();
+                        for reservation in in_construction {
+                            game.apply_internal(
+                                format!("{id}/wait/{reservation}"),
+                                Command::SetWaterWaiting {
+                                    reservation,
+                                    waiting: true,
+                                },
+                            )?;
+                        }
                         let total = game.projection.water[&source];
                         let occupied =
                             (total as f64 * self.calibration.water_priority_fraction).ceil() as u64;
                         let used: u64 = game
                             .reservations
                             .values()
-                            .filter(|r| r.source == source)
+                            .filter(|r| {
+                                r.source == source && r.phase != AllocationPhase::WaitingForWater
+                            })
                             .map(|r| r.water)
                             .sum();
                         let additional = occupied.min(total.saturating_sub(used));
@@ -1044,10 +1125,31 @@ impl GovernanceState {
             GovernanceCommand::SetServiceBudget { kind, monthly } => {
                 self.budgets.insert(*kind, *monthly);
             }
-            GovernanceCommand::SetInstitution { kind, enabled } => match kind {
-                Institution::ClinicalCoverage => self.clinical_coverage_institution = *enabled,
-                Institution::LaborProtection => self.labor_protection = *enabled,
-            },
+            GovernanceCommand::SetInstitution { kind, enabled } => {
+                if self.institution_changes.contains_key(kind)
+                    || self
+                        .institution_last_change
+                        .get(kind)
+                        .is_some_and(|last| month < last + 3)
+                {
+                    return Err(Error::Invalid("institution three-month cooldown"));
+                }
+                let current = match kind {
+                    Institution::ClinicalCoverage => self.clinical_coverage_institution,
+                    Institution::LaborProtection => self.labor_protection,
+                };
+                if current == *enabled {
+                    return Err(Error::Invalid("institution unchanged"));
+                }
+                if *enabled && self.active_commitments() >= self.calibration.administrative_capacity
+                {
+                    return Err(Error::Insufficient("administrative capacity"));
+                }
+                self.institution_changes
+                    .insert(*kind, (month + 1, *enabled));
+                self.institution_last_change.insert(*kind, month);
+                self.fact(month, "institution_announced_next_month", vec![id.into()]);
+            }
             GovernanceCommand::SetSpendingPriority { order } => {
                 if order.len() != 4 || order.iter().copied().collect::<BTreeSet<_>>().len() != 4 {
                     return Err(Error::Invalid("all four spending services exactly once"));
@@ -1067,12 +1169,54 @@ impl GovernanceState {
                 }
                 p.paused = *paused;
             }
+            GovernanceCommand::ExpediteProject {
+                id: project_id,
+                additional_months,
+            } => {
+                let p = self
+                    .projects
+                    .get_mut(project_id)
+                    .ok_or(Error::Missing("public project"))?;
+                let remaining = p
+                    .construction_months
+                    .saturating_sub(p.worked_months)
+                    .saturating_sub(1)
+                    .saturating_sub(p.expedite_months);
+                if *additional_months == 0
+                    || *additional_months > remaining
+                    || p.active
+                    || p.activate_month.is_some()
+                {
+                    return Err(Error::Invalid("extra construction progress"));
+                }
+                let fee = ((p.cost as u128 * *additional_months as u128
+                    + p.construction_months as u128
+                    - 1)
+                    / p.construction_months as u128) as u64;
+                game.apply_internal(
+                    format!("{id}/fee"),
+                    Command::Transfer {
+                        from: "treasury".into(),
+                        to: "construction".into(),
+                        asset: Asset::Money,
+                        amount: fee,
+                    },
+                )?;
+                p.expedite_months += *additional_months;
+                p.paused = false;
+                self.fact(
+                    month,
+                    "additional_paid_construction_progress",
+                    vec![id.into(), project_id.clone()],
+                );
+            }
             GovernanceCommand::Retrofit { factory } => {
                 let f = self
                     .factories
                     .get_mut(factory)
                     .ok_or(Error::Missing("factory"))?;
                 if f.retrofitted
+                    || f.retrofit_activate_month.is_some()
                     || matches!(f.phase, FactoryPhase::Construction | FactoryPhase::Closed)
                 {
                     return Err(Error::Invalid("operating unmodified factory"));
@@ -1083,7 +1227,22 @@ impl GovernanceState {
                     -(self.calibration.retrofit_cost as i128),
                     "equipment_retrofit",
                 )?;
-                f.retrofitted = true;
+                game.apply_internal(
+                    format!("{id}/materials"),
+                    Command::Transfer {
+                        from: "capital_inventory".into(),
+                        to: "construction".into(),
+                        asset: Asset::Material("construction".into()),
+                        amount: 2,
+                    },
+                )?;
+                game.settle_external(
+                    "construction",
+                    Asset::Material("construction".into()),
+                    -2,
+                    "equipment_retrofit_materials",
+                )?;
+                f.retrofit_activate_month = Some(month + 2);
             }
         }
         self.decision_log
@@ -1095,6 +1254,18 @@ impl GovernanceState {
             .values()
             .filter(|c| c.status == CommitmentStatus::Pending)
             .count()
+            + self
+                .projects
+                .values()
+                .filter(|p| !p.active || p.kind == PublicWork::Vocational)
+                .count()
+            + usize::from(self.clinical_coverage_institution)
+            + usize::from(self.labor_protection)
+            + self
+                .institution_changes
+                .values()
+                .filter(|(_, enabled)| *enabled)
+                .count()
     }
     fn apply_plans(&mut self, game: &mut Game) -> Result<()> {
         for (id, command) in self.planned.clone() {
@@ -1215,6 +1386,9 @@ impl GovernanceState {
         {
             return Err(Error::Invalid("new domestic public project"));
         }
+        if self.active_commitments() >= self.calibration.administrative_capacity {
+            return Err(Error::Insufficient("administrative capacity"));
+        }
         let (cost, months) = self.public_work_quote(game, site, kind, road_edge)?;
         let materials = (months * 2) as u64;
         if matches!(kind, PublicWork::Housing) {
@@ -1233,7 +1407,7 @@ impl GovernanceState {
         game.apply_internal(
             format!("{cause}/materials"),
             Command::Transfer {
-                from: "treasury".into(),
+                from: "capital_inventory".into(),
                 to: "construction".into(),
                 asset: Asset::Material("construction".into()),
                 amount: materials,
@@ -1255,6 +1429,7 @@ impl GovernanceState {
                 paused: false,
                 escrow,
                 reserved_materials: materials,
+                expedite_months: 0,
             },
         );
         self.fact(
@@ -1345,7 +1520,9 @@ impl GovernanceState {
             .sum();
         let import_cap = number(&doc, "/demand/initial_imports/value")?;
         let remaining_domestic = import_cap - domestic_new.min(import_cap);
-        let available_orders = remaining_domestic.max(0.0) + self.export_orders;
+        let export_committed = (domestic_new - import_cap).max(0.0);
+        let available_orders =
+            remaining_domestic.max(0.0) + (self.export_orders - export_committed).max(0.0);
         let mut gaps = BTreeMap::new();
         gaps.insert("admission".into(), if s.admitted { 0.0 } else { 1.0 });
         gaps.insert(
@@ -1358,12 +1535,12 @@ impl GovernanceState {
         );
         let potential_skills = actual.skilled_workers
             + if s.vocational_schools > 0 {
-                self.calibration.trained_workers_per_month * 3
+                self.calibration.trained_workers_per_quarter
             } else {
                 0
             }
             + if self.cooperation_start.is_some() {
-                self.calibration.cooperation_training_per_month * 3
+                self.calibration.cooperation_training_per_quarter
             } else {
                 0
             };
@@ -1396,7 +1573,7 @@ impl GovernanceState {
         let water_used: u64 = game
             .reservations
             .values()
-            .filter(|r| r.source == source)
+            .filter(|r| r.source == source && r.phase != AllocationPhase::WaitingForWater)
             .map(|r| r.water)
             .sum();
         gaps.insert(
@@ -1419,6 +1596,7 @@ impl GovernanceState {
                 .values()
                 .filter(|r| {
                     r.country == "player"
+                        && r.phase != AllocationPhase::WaitingForWater
                         && r.source == source
                         && !limit.grandfathered.contains(&r.id)
                 })
@@ -1428,6 +1606,51 @@ impl GovernanceState {
                 admission_gap.max((used + 1).saturating_sub(limit.limit.new_water_slots));
         }
         gaps.insert("admission_quota".into(), admission_gap as f64);
+        let conservative_sales = available_orders
+            .min(output)
+            .min(s.road_capacity.saturating_sub(allocated_workers) as f64)
+            .min(s.power_capacity.saturating_sub(allocated_workers) as f64);
+        let energy_price = if self
+            .energy_long_start
+            .is_some_and(|start| game.month < start + 24)
+        {
+            param(doc, "long_energy_price")?
+        } else if self.energy_contract_start.is_some() {
+            param(doc, "ordinary_energy_price")?
+        } else {
+            param(doc, "maritime_energy_price")?
+        };
+        let projected_wages = workers as f64
+            * param(doc, "monthly_wage")?
+            * if self.labor_protection {
+                self.calibration.labor_protection_wage_multiplier
+            } else {
+                1.0
+            };
+        let profit = conservative_sales
+            * param(doc, "goods_price")?
+            * (1.0 - param(doc, "manufacturing_sales_tax_rate")?)
+            - projected_wages
+            - param(doc, "factory_other_fixed_monthly_cost")?
+            - conservative_sales / output * param(doc, "new_factory_energy")? * energy_price;
+        let forecast_monthly_profit = if profit >= 0.0 {
+            money(profit)? as i128
+        } else {
+            -(money(-profit)? as i128)
+        };
+        let self_capital = currency(capital.saturating_sub(s.subsidy_cap.min(cash_gap)));
+        let static_payback_months = if profit > 0.0 {
+            Some(self_capital / profit)
+        } else {
+            None
+        };
+        gaps.insert("profit".into(), (-profit).max(0.0));
+        gaps.insert(
+            "payback_months".into(),
+            static_payback_months
+                .map(|months| (months - self.calibration.maximum_payback_months).max(0.0))
+                .unwrap_or(self.calibration.maximum_payback_months),
+        );
         let conditional_ready = gaps.values().all(|v| *v == 0.0);
         let actual_ready = actual.idle_workers >= workers
             && actual.skilled_workers >= self.calibration.factory_skill_workers
@@ -1444,12 +1667,12 @@ impl GovernanceState {
             autonomous_ready: conditional_ready && cash_gap == 0 && actual_ready,
             conditional_ready,
             recognizes_promises_after_month: recognizes,
+            six_month_sales_forecast: vec![conservative_sales; 6],
+            forecast_monthly_profit,
+            static_payback_months,
         })
     }
     pub(crate) fn stage(&mut self, game: &mut Game, stage: Stage) -> Result<()> {
-        if game.month > 24 {
-            return Err(Error::Invalid("24-month scenario complete"));
-        }
         match stage {
             Stage::CommandsEscrow => self.apply_plans(game)?,
             Stage::SeasonAnnouncementsAi => self.announcements(game),
@@ -1458,7 +1681,10 @@ impl GovernanceState {
                 self.migrate(game);
                 self.enterprise_decisions(game)?;
             }
-            Stage::ProductionConstruction => self.construction(game)?,
+            Stage::ProductionConstruction => {
+                self.construction(game)?;
+                self.production(game)?;
+            }
             Stage::LivelihoodTraining => self.train(game),
             Stage::DiplomacySecurity => self.diplomacy(game)?,
             Stage::TaxesLongTerm => self.economy(game)?,
@@ -1546,7 +1772,70 @@ impl GovernanceState {
             );
         }
     }
+    fn water_ready(&mut self, game: &mut Game, id: &str) -> Result<bool> {
+        if game
+            .reservations
+            .get(id)
+            .is_some_and(|r| r.phase == AllocationPhase::WaitingForWater)
+        {
+            match game.apply_internal(
+                format!("water/resume/{id}/{}", game.month),
+                Command::SetWaterWaiting {
+                    reservation: id.into(),
+                    waiting: false,
+                },
+            ) {
+                Ok(_) => {}
+                Err(Error::CapacityShortfalls { .. }) => {
+                    self.fact(
+                        game.month,
+                        "completed_facility_waits_for_water",
+                        vec![id.into(), "aid/renewal".into()],
+                    );
+                    return Ok(false);
+                }
+                Err(error) => return Err(error),
+            }
+        }
+        Ok(true)
+    }
     fn activate(&mut self, game: &mut Game) -> Result<()> {
+        if game.month == 25 {
+            let ids: Vec<_> = game
+                .reservations
+                .keys()
+                .filter(|id| id.starts_with("resource-priority/"))
+                .cloned()
+                .collect();
+            for id in ids {
+                game.apply_internal(format!("expire/{id}"), Command::Release { reservation: id })?;
+            }
+        }
+        if self
+            .pending_export_orders
+            .is_some_and(|(month, _)| month <= game.month)
+        {
+            self.export_orders = self.pending_export_orders.take().unwrap().1;
+        }
+        let changes: Vec<_> = self
+            .institution_changes
+            .iter()
+            .filter(|(_, (month, _))| *month <= game.month)
+            .map(|(kind, (_, enabled))| (*kind, *enabled))
+            .collect();
+        for (kind, enabled) in changes {
+            match kind {
+                Institution::ClinicalCoverage => self.clinical_coverage_institution = enabled,
+                Institution::LaborProtection => self.labor_protection = enabled,
+            }
+            self.institution_changes.remove(&kind);
+        }
+        for f in self.factories.values_mut() {
+            if f.retrofit_activate_month.is_some_and(|m| m <= game.month) {
+                f.retrofitted = true;
+                f.retrofit_activate_month = None;
+            }
+        }
         let projects: Vec<_> = self
             .projects
             .values()
@@ -1555,8 +1844,24 @@ impl GovernanceState {
             .collect();
         for id in projects {
             let p = self.projects[&id].clone();
+            if p.kind == PublicWork::Housing && !self.water_ready(game, &format!("public/{id}"))? {
+                continue;
+            }
             let mut site = self.sites[&p.site].clone();
             self.add_capacity(&mut site, p.kind);
+            if p.kind == PublicWork::Vocational {
+                if site.idle_workers == 0 {
+                    self.fact(
+                        game.month,
+                        "vocational_school_missing_teacher",
+                        vec![id.clone()],
+                    );
+                    continue;
+                }
+                site.idle_workers -= 1;
+                site.skilled_workers = site.skilled_workers.min(site.idle_workers);
+                site.teachers += 1;
+            }
             self.sites.insert(p.site, site);
             self.projects.get_mut(&id).unwrap().active = true;
             if p.kind == PublicWork::Housing {
@@ -1569,23 +1874,40 @@ impl GovernanceState {
             }
             self.fact(game.month, "public_capacity_activated", vec![id]);
         }
-        let month = game.month;
-        for f in self.factories.values_mut().filter(|f| {
-            f.phase == FactoryPhase::Construction
-                && f.worked_months == f.construction_months
-                && f.activate_month <= month
-        }) {
-            f.phase = FactoryPhase::Operating;
+        let ids: Vec<_> = self
+            .factories
+            .values()
+            .filter(|f| {
+                f.phase == FactoryPhase::Construction
+                    && f.worked_months == f.construction_months
+                    && f.activate_month <= game.month
+            })
+            .map(|f| f.id.clone())
+            .collect();
+        for id in ids {
+            if !self.water_ready(game, &id)? {
+                continue;
+            }
+            self.factories.get_mut(&id).unwrap().phase = FactoryPhase::Operating;
             game.apply_internal(
-                format!("operate/{}", f.id),
-                Command::MarkOperational {
-                    reservation: f.id.clone(),
-                },
+                format!("operate/{id}"),
+                Command::MarkOperational { reservation: id },
             )?;
         }
         Ok(())
     }
     fn migrate(&mut self, game: &Game) {
+        let mut source_remaining: BTreeMap<_, _> = self
+            .sites
+            .iter()
+            .map(|(id, s)| {
+                (
+                    *id,
+                    (s.population as f64 * self.calibration.migration_source_population_share)
+                        .floor() as u32,
+                )
+            })
+            .collect();
         let mut destinations: Vec<_> = self
             .sites
             .iter()
@@ -1624,14 +1946,19 @@ impl GovernanceState {
                 .collect();
             for origin in origins {
                 let source = self.sites.get_mut(&origin).unwrap();
-                let moved = source
-                    .idle_workers
-                    .min(need)
-                    .min((source.population as f64 * 0.01).floor() as u32);
+                let moved = source.idle_workers.min(need).min(source_remaining[&origin]);
+                let skilled_moved = moved
+                    .saturating_sub(source.idle_workers.saturating_sub(source.skilled_workers));
+                source.skilled_workers -= skilled_moved;
+                *source_remaining.get_mut(&origin).unwrap() -= moved;
                 source.idle_workers -= moved;
+                source.enrolled_students = source
+                    .enrolled_students
+                    .min(source.idle_workers.saturating_sub(source.skilled_workers));
                 source.population -= moved;
                 let dest = self.sites.get_mut(&site).unwrap();
                 dest.idle_workers += moved;
+                dest.skilled_workers += skilled_moved;
                 dest.population += moved;
                 need -= moved;
                 if moved > 0 {
@@ -1648,20 +1975,41 @@ impl GovernanceState {
         }
     }
     fn train(&mut self, _game: &Game) {
-        for site in self.sites.values_mut() {
-            let education_active = self.budgets[&Service::Education] > 0;
-            let training = if education_active {
-                site.vocational_schools * self.calibration.trained_workers_per_month
-            } else {
-                0
-            } + if self.cooperation_start.is_some()
-                && self.cooperation_months >= self.calibration.cooperation_delay_months
-            {
-                self.calibration.cooperation_training_per_month
-            } else {
-                0
-            };
-            site.skilled_workers = (site.skilled_workers + training).min(site.idle_workers);
+        let education_active = self.budgets[&Service::Education] > 0;
+        let mut foreign_slots = if self.cooperation_start.is_some()
+            && self.cooperation_months > 0
+            && self.cooperation_months % 3 == 0
+        {
+            self.calibration.cooperation_training_per_quarter
+        } else {
+            0
+        };
+        let mut sites: Vec<_> = self.sites.keys().copied().collect();
+        sites.sort_by_key(|id| (Some(*id) != self.selected_candidate, *id));
+        for id in sites {
+            let site = self.sites.get_mut(&id).unwrap();
+            let ordinary = site.idle_workers.saturating_sub(site.skilled_workers);
+            if education_active && site.teachers > 0 && site.vocational_schools > 0 {
+                if site.training_months == 0 {
+                    site.enrolled_students = ordinary.min(
+                        site.vocational_schools * self.calibration.trained_workers_per_quarter,
+                    );
+                }
+                site.enrolled_students = site.enrolled_students.min(ordinary);
+                site.training_months += 1;
+                if site.training_months == 3 {
+                    site.skilled_workers += site.enrolled_students;
+                    site.enrolled_students = 0;
+                    site.training_months = 0;
+                }
+            }
+            let foreign = foreign_slots.min(
+                site.idle_workers
+                    .saturating_sub(site.skilled_workers)
+                    .saturating_sub(site.enrolled_students),
+            );
+            site.skilled_workers += foreign;
+            foreign_slots -= foreign;
         }
     }
     fn enterprise_decisions(&mut self, game: &mut Game) -> Result<()> {
@@ -1787,6 +2135,28 @@ impl GovernanceState {
     ) -> Result<()> {
         let doc = document()?;
         let card = self.assess(game, group, site)?;
+        let actual = &self.sites[&site];
+        let used: u32 = self
+            .factories
+            .values()
+            .filter(|f| f.site == site && f.phase != FactoryPhase::Closed)
+            .map(|f| f.workers)
+            .sum();
+        if !actual.admitted
+            || !actual.water_access
+            || actual.road_capacity < used + 100
+            || actual.power_capacity < used + 100
+            || actual.idle_workers < 100
+            || actual.skilled_workers < self.calibration.factory_skill_workers
+        {
+            return Err(Error::Insufficient("actual factory facilities and labor"));
+        }
+        if card.gaps.get("land_quota").copied().unwrap_or(0.0) > 0.0
+            || card.gaps.get("water_quota").copied().unwrap_or(0.0) > 0.0
+            || card.gaps.get("admission_quota").copied().unwrap_or(0.0) > 0.0
+        {
+            return Err(Error::Insufficient("factory quota"));
+        }
         let id = format!("factory/{}", self.next_factory_id);
         let capital = card.factory_capital;
         let own = capital
@@ -1798,7 +2168,7 @@ impl GovernanceState {
         }
         let materials = number(&doc, "/materials/reference_project_total/value")? as u64;
         if game
-            .balance("treasury", &Asset::Material("construction".into()))
+            .balance("capital_inventory", &Asset::Material("construction".into()))
             .unwrap_or(0)
             < materials
         {
@@ -1822,7 +2192,7 @@ impl GovernanceState {
         game.apply_internal(
             format!("materials/{id}"),
             Command::Transfer {
-                from: "treasury".into(),
+                from: "capital_inventory".into(),
                 to: "construction".into(),
                 asset: Asset::Material("construction".into()),
                 amount: materials,
@@ -1830,14 +2200,20 @@ impl GovernanceState {
         )?;
         let s = self.sites.get_mut(&site).unwrap();
         let workers = param(&doc, "new_factory_workers")? as u32;
+        let assigned_skills = workers
+            .saturating_sub(s.idle_workers.saturating_sub(s.skilled_workers))
+            .max(self.calibration.factory_skill_workers);
         s.idle_workers = s
             .idle_workers
             .checked_sub(workers)
             .ok_or(Error::Insufficient("factory labor"))?;
         s.skilled_workers = s
             .skilled_workers
-            .checked_sub(self.calibration.factory_skill_workers)
+            .checked_sub(assigned_skills)
             .ok_or(Error::Insufficient("factory skills"))?;
+        s.enrolled_students = s
+            .enrolled_students
+            .min(s.idle_workers.saturating_sub(s.skilled_workers));
         let months = param(&doc, "d021_factory_construction_months")? as u32;
         self.factories.insert(
             id.clone(),
@@ -1858,11 +2234,12 @@ impl GovernanceState {
                 loss_months: 0,
                 close_month: None,
                 workers,
-                skilled_workers: self.calibration.factory_skill_workers,
+                skilled_workers: assigned_skills,
                 output: 0.0,
                 after_tax_profit: 0,
                 operating_subsidy: 0,
                 retrofitted: false,
+                retrofit_activate_month: None,
             },
         );
         self.next_factory_id += 1;
@@ -1882,7 +2259,9 @@ impl GovernanceState {
             .collect();
         for id in ids {
             let p = self.projects.get_mut(&id).unwrap();
-            p.worked_months += 1;
+            let advance = (1 + p.expedite_months).min(p.construction_months - p.worked_months);
+            p.expedite_months = 0;
+            p.worked_months += advance;
             let progress = (p.worked_months * 10_000 / p.construction_months) as u16;
             game.apply_internal(
                 format!("progress/public/{id}/{}", game.month),
@@ -1894,10 +2273,10 @@ impl GovernanceState {
             game.settle_external(
                 "construction",
                 Asset::Material("construction".into()),
-                -2,
+                -(2 * advance as i128),
                 "public_construction_consumption",
             )?;
-            p.reserved_materials -= 2;
+            p.reserved_materials -= 2 * advance as u64;
             if p.worked_months == p.construction_months {
                 p.activate_month = Some(game.month + 1);
             }
@@ -1940,25 +2319,25 @@ impl GovernanceState {
         }
         let doc = document()?;
         game.settle_external(
-            "treasury",
+            "capital_inventory",
             Asset::Material("construction".into()),
             number(&doc, "/materials/capital_monthly_output/value")? as i128,
             "capital_material_production",
         )?;
         game.settle_external(
-            "treasury",
+            "capital_inventory",
             Asset::Material("construction".into()),
             number(&doc, "/materials/monthly_imports/value")? as i128,
             "background_material_import_paid_in_project_capital",
         )?;
         game.settle_external(
-            "treasury",
+            "households",
             Asset::Material("food".into()),
             number(&doc, "/food/background_imports/value")? as i128,
             "household_background_food_import",
         )?;
         game.settle_external(
-            "treasury",
+            "households",
             Asset::Material("food".into()),
             -(number(&doc, "/food/monthly_consumption/value")? as i128),
             "household_food_consumption",
@@ -1966,8 +2345,26 @@ impl GovernanceState {
         Ok(())
     }
     fn diplomacy(&mut self, game: &mut Game) -> Result<()> {
+        self.last_diplomatic_spend = 0;
         if self.cooperation_start.is_some() {
-            if self.security < 50.0 {
+            let fee = self.calibration.cooperation_monthly_fee;
+            let cash = game.balance("treasury", &Asset::Money).unwrap_or(0);
+            if cash >= fee {
+                game.settle_external(
+                    "treasury",
+                    Asset::Money,
+                    -(fee as i128),
+                    "market_training_cooperation_maintenance",
+                )?;
+                self.last_diplomatic_spend = fee;
+            } else {
+                self.cooperation_risk_since.get_or_insert(game.month);
+            }
+        }
+        if self.cooperation_start.is_some() {
+            if self.security < 50.0
+                || self.last_diplomatic_spend < self.calibration.cooperation_monthly_fee
+            {
                 let since = *self.cooperation_risk_since.get_or_insert(game.month);
                 self.todo(
                     "cooperation/risk".into(),
@@ -2002,35 +2399,129 @@ impl GovernanceState {
         }
         Ok(())
     }
-    fn economy(&mut self, game: &mut Game) -> Result<()> {
+    fn production(&mut self, game: &mut Game) -> Result<()> {
         let doc = document()?;
         let month = game.month;
-        let mut recurring_income =
-            money(number(&doc, "/fiscal/existing_tax_revenue/value")?)? as i128;
+        self.pending_taxes.clear();
+        let price = param(doc, "goods_price")?;
+        let baseline_wages = number(doc, "/demand/wage_income")?;
+        let factory_units = 4.25;
+        let existing_factory_wages =
+            factory_units * param(doc, "new_factory_workers")? * param(doc, "monthly_wage")?;
         game.settle_external(
-            "treasury",
+            "households",
             Asset::Money,
-            recurring_income,
-            "existing_economy_tax_once",
+            money(baseline_wages - existing_factory_wages)? as i128,
+            "existing_nonmanufacturing_employer_wages",
         )?;
         for (group, name) in [(Group::A, "group_a"), (Group::B, "group_b")] {
+            let output = number(
+                doc,
+                &format!("/d021_existing_ownership_and_retention/groups/{name}/existing_output"),
+            )?;
+            let units = output / param(doc, "new_factory_output")?;
+            let sales = money(output * price)?;
+            game.apply_internal(
+                format!("existing/sales/{group:?}/{month}"),
+                Command::Transfer {
+                    from: "households".into(),
+                    to: group.account().into(),
+                    asset: Asset::Money,
+                    amount: sales,
+                },
+            )?;
+            game.settle_external(
+                group.account(),
+                Asset::Material("manufactured".into()),
+                money(output)? as i128,
+                "existing_manufacturing_production",
+            )?;
+            game.settle_external(
+                group.account(),
+                Asset::Material("manufactured".into()),
+                -(money(output)? as i128),
+                "existing_household_goods_delivery",
+            )?;
+            let wage =
+                money(units * param(doc, "new_factory_workers")? * param(doc, "monthly_wage")?)?;
+            game.apply_internal(
+                format!("existing/wages/{group:?}/{month}"),
+                Command::Transfer {
+                    from: group.account().into(),
+                    to: "households".into(),
+                    asset: Asset::Money,
+                    amount: wage,
+                },
+            )?;
+            let sales_tax = money(currency(sales) * param(doc, "manufacturing_sales_tax_rate")?)?;
+            let maintenance = money(units * param(doc, "factory_other_fixed_monthly_cost")?)?;
+            let energy = money(
+                units * param(doc, "new_factory_energy")? * param(doc, "ordinary_energy_price")?,
+            )?;
+            game.apply_internal(
+                format!("existing/energy/{group:?}/{month}"),
+                Command::Transfer {
+                    from: group.account().into(),
+                    to: "resource_supplier".into(),
+                    asset: Asset::Money,
+                    amount: energy,
+                },
+            )?;
+            game.settle_external(
+                group.account(),
+                Asset::Money,
+                -(maintenance as i128),
+                "existing_manufacturing_maintenance",
+            )?;
+            let surplus = sales - wage - sales_tax - maintenance - energy;
             let retained = money(number(
-                &doc,
+                doc,
                 &format!(
-                    "/d021_existing_ownership_and_retention/groups/{name}/monthly_existing_retained_income/value"
+                    "/d021_existing_ownership_and_retention/groups/{name}/monthly_existing_retained_income"
                 ),
             )?)?;
             game.settle_external(
                 group.account(),
                 Asset::Money,
-                retained as i128,
-                "existing_industry_retained_operating_surplus_not_new_aid",
+                -((surplus - retained) as i128),
+                "existing_outside_shareholder_distribution",
+            )?;
+            self.pending_taxes
+                .push((format!("existing/{group:?}"), group, sales_tax, 0));
+        }
+        let import_budget = self.calibration.foreign_buyer_monthly_budget;
+        if self.export_orders > 0.0 {
+            game.settle_external(
+                "foreign_buyer",
+                Asset::Money,
+                import_budget as i128,
+                "foreign_contract_buyer_budget",
             )?;
         }
         let mut domestic_remaining = number(&doc, "/demand/initial_imports/value")?;
         let household_ceiling = number(&doc, "/demand/payable_demand_ceiling/value")?;
         domestic_remaining = domestic_remaining.min((household_ceiling - 425.0).max(0.0));
-        let mut export_remaining = self.export_orders;
+        let mut export_remaining = self
+            .export_orders
+            .min(currency(self.calibration.foreign_buyer_monthly_budget) / price);
+        let mut road_remaining: BTreeMap<_, _> = self
+            .sites
+            .iter()
+            .map(|(id, s)| (*id, s.road_capacity as f64))
+            .collect();
+        let mut power_remaining: BTreeMap<_, _> = self
+            .sites
+            .iter()
+            .map(|(id, s)| (*id, s.power_capacity as f64))
+            .collect();
+        let long_active = self
+            .energy_long_start
+            .is_some_and(|start| month < start + 24);
+        let mut energy_remaining = if long_active {
+            number(doc, "/energy/renewal_quantity")?
+        } else {
+            f64::INFINITY
+        };
         let mut energy_used = 0.0;
         let mut close = vec![];
         let ids: Vec<_> = self
@@ -2042,7 +2533,13 @@ impl GovernanceState {
         for id in ids {
             let f = self.factories.get_mut(&id).unwrap();
             let s = &self.sites[&f.site];
-            let rate = if f.phase == FactoryPhase::Reduced || f.phase == FactoryPhase::ClosureWarned
+            let restored = domestic_remaining + export_remaining
+                >= param(doc, "new_factory_output")?
+                && road_remaining[&f.site] >= param(doc, "new_factory_output")?
+                && power_remaining[&f.site] >= param(doc, "new_factory_output")?;
+            let rate = if (f.phase == FactoryPhase::Reduced
+                || f.phase == FactoryPhase::ClosureWarned)
+                && !restored
             {
                 0.5
             } else {
@@ -2055,23 +2552,24 @@ impl GovernanceState {
                 } else {
                     1.0
                 };
-            let road = s.road_capacity as f64;
-            let power = s.power_capacity as f64;
-            let possible = max_output.min(road).min(power);
+            let _ = s;
+            let road = road_remaining[&f.site];
+            let power = power_remaining[&f.site];
+            let energy_output = energy_remaining / param(doc, "new_factory_energy")?
+                * param(doc, "new_factory_output")?;
+            let possible = max_output.min(road).min(power).min(energy_output);
             let domestic = possible.min(domestic_remaining);
             domestic_remaining -= domestic;
             let exports = (possible - domestic).min(export_remaining);
             export_remaining -= exports;
             f.output = domestic + exports;
-            let energy = param(&doc, "new_factory_energy")?
-                * rate
-                * if f.retrofitted {
-                    1.0 + self.calibration.retrofit_output_increase
-                } else {
-                    1.0
-                };
+            *road_remaining.get_mut(&f.site).unwrap() -= f.output;
+            *power_remaining.get_mut(&f.site).unwrap() -= f.output;
+            let energy =
+                f.output / param(doc, "new_factory_output")? * param(doc, "new_factory_energy")?;
+            energy_remaining -= energy;
             energy_used += energy;
-            let energy_price = if self.energy_long_start.is_some() {
+            let energy_price = if long_active {
                 param(&doc, "long_energy_price")?
             } else if self.energy_contract_start.is_some() {
                 param(&doc, "ordinary_energy_price")?
@@ -2108,37 +2606,69 @@ impl GovernanceState {
                 -(money(f.output)? as i128),
                 "market_goods_delivery_scaled_quantity",
             )?;
-            game.settle_external(
-                f.group.account(),
-                Asset::Money,
-                sales as i128,
-                "manufactured_goods_market_sales",
-            )?;
-            let account = f.group.account();
-            let cash = game.balance(account, &Asset::Money).unwrap_or(0);
-            let tax = sales_tax + payroll_tax;
-            let tax_paid = tax.min(cash);
-            if tax_paid > 0 {
-                game.apply_internal(
-                    format!("tax/{id}/{month}"),
-                    Command::Transfer {
-                        from: account.into(),
-                        to: "treasury".into(),
-                        asset: Asset::Money,
-                        amount: tax_paid,
-                    },
-                )?;
+            let domestic_bill = money(domestic * price)?;
+            let export_bill = sales - domestic_bill;
+            for (part, buyer, amount) in [
+                ("domestic", "households", domestic_bill),
+                ("export", "foreign_buyer", export_bill),
+            ] {
+                if amount > 0 {
+                    game.apply_internal(
+                        format!("sales/{id}/{part}/{month}"),
+                        Command::Transfer {
+                            from: buyer.into(),
+                            to: f.group.account().into(),
+                            asset: Asset::Money,
+                            amount,
+                        },
+                    )?;
+                }
             }
-            recurring_income += tax_paid as i128;
+            let account = f.group.account();
+            self.pending_taxes
+                .push((id.clone(), f.group, sales_tax, payroll_tax));
             for (reason, amount) in [
                 ("factory_wages", wages),
                 ("new_factory_energy", energy_bill),
                 ("factory_maintenance", fixed),
             ] {
-                let paid = amount.min(game.balance(account, &Asset::Money).unwrap_or(0));
-                game.settle_external(account, Asset::Money, -(paid as i128), reason)?;
+                let paid = amount.min(
+                    game.balance(account, &Asset::Money)
+                        .unwrap_or(0)
+                        .saturating_sub(sales_tax),
+                );
+                if reason == "factory_wages" && paid > 0 {
+                    game.apply_internal(
+                        format!("wage/{id}/{month}"),
+                        Command::Transfer {
+                            from: account.into(),
+                            to: "households".into(),
+                            asset: Asset::Money,
+                            amount: paid,
+                        },
+                    )?;
+                } else if reason == "new_factory_energy" && paid > 0 {
+                    game.apply_internal(
+                        format!("energy/{id}/{month}"),
+                        Command::Transfer {
+                            from: account.into(),
+                            to: if long_active {
+                                "treasury".into()
+                            } else {
+                                "resource_supplier".into()
+                            },
+                            asset: Asset::Money,
+                            amount: paid,
+                        },
+                    )?;
+                } else {
+                    game.settle_external(account, Asset::Money, -(paid as i128), reason)?;
+                }
                 if paid < amount {
                     f.after_tax_profit = f.after_tax_profit.min(-1);
+                    if long_active && reason == "new_factory_energy" {
+                        self.aid_breached = true;
+                    }
                 }
             }
             if f.after_tax_profit > 0 {
@@ -2209,22 +2739,80 @@ impl GovernanceState {
             )?;
             self.fact(month, "factory_closed_after_seven_loss_months", vec![id]);
         }
+        let imported = money(domestic_remaining * price)?;
+        game.settle_external(
+            "households",
+            Asset::Money,
+            -(imported as i128),
+            "remaining_household_manufactured_imports",
+        )?;
+        let food_bill = money(number(doc, "/food/monthly_import_bill")?)?;
+        game.settle_external(
+            "households",
+            Asset::Money,
+            -(food_bill as i128),
+            "household_food_import_payment",
+        )?;
+        self.monthly_energy_used = energy_used;
+        Ok(())
+    }
+    fn economy(&mut self, game: &mut Game) -> Result<()> {
+        let doc = document()?;
+        let month = game.month;
+        let mut recurring_income = 0i128;
+        let baseline_payroll =
+            money(number(doc, "/demand/wage_income")? * param(doc, "payroll_tax_rate")?)?;
+        game.apply_internal(
+            format!("existing/payroll/{month}"),
+            Command::Transfer {
+                from: "households".into(),
+                to: "treasury".into(),
+                asset: Asset::Money,
+                amount: baseline_payroll,
+            },
+        )?;
+        recurring_income += baseline_payroll as i128;
+        for (id, group, sales_tax, payroll_tax) in std::mem::take(&mut self.pending_taxes) {
+            for (part, account, amount) in [
+                ("sales", group.account(), sales_tax),
+                ("payroll", "households", payroll_tax),
+            ] {
+                let paid = amount.min(game.balance(account, &Asset::Money).unwrap_or(0));
+                if paid > 0 {
+                    game.apply_internal(
+                        format!("tax/{id}/{part}/{month}"),
+                        Command::Transfer {
+                            from: account.into(),
+                            to: "treasury".into(),
+                            asset: Asset::Money,
+                            amount: paid,
+                        },
+                    )?;
+                }
+                recurring_income += paid as i128;
+            }
+        }
+        let energy_used = self.monthly_energy_used;
         self.last_energy_unused_bill = 0;
         if let Some(start) = self.energy_long_start {
             if month < start + 24 {
-                let due = money(
-                    (number(&doc, "/energy/renewal_quantity/value")? - energy_used).max(0.0)
-                        * param(&doc, "long_energy_price")?,
-                )?;
+                let due = game.obligations["resource_energy_long_term"]
+                    .terms
+                    .monthly_due()?;
                 let paid = due.min(game.balance("treasury", &Asset::Money).unwrap_or(0));
-                game.settle_external(
-                    "treasury",
-                    Asset::Money,
-                    -(paid as i128),
-                    "E_unused_take_or_pay_energy",
-                )?;
-                self.last_energy_unused_bill = due;
-                recurring_income -= paid as i128;
+                if paid > 0 {
+                    game.apply_internal(
+                        format!("E/payment/{month}"),
+                        Command::PayObligation {
+                            obligation: "resource_energy_long_term".into(),
+                            due_month: month,
+                            amount: paid,
+                        },
+                    )?;
+                }
+                let resale = money(energy_used * param(doc, "long_energy_price")?)?;
+                self.last_energy_unused_bill = due.saturating_sub(resale);
+                recurring_income -= self.last_energy_unused_bill as i128;
                 if paid < due {
                     self.aid_breached = true;
                     self.fact(
@@ -2252,7 +2840,15 @@ impl GovernanceState {
         let mut recurring_spend = 0i128;
         let mut paid_service = BTreeMap::new();
         for kind in self.spending_priority.clone() {
-            let due = self.budgets[&kind];
+            let maintenance = if kind == Service::Maintenance {
+                self.projects.values().filter(|p| p.active).count() as u64
+                    * self.calibration.public_work_monthly_maintenance
+            } else {
+                0
+            };
+            let due = self.budgets[&kind]
+                .checked_add(maintenance)
+                .ok_or(Error::Overflow)?;
             let cash = game.balance("treasury", &Asset::Money).unwrap_or(0);
             let paid = due.min(cash.saturating_sub(self.calibration.protected_treasury));
             game.settle_external(
@@ -2292,7 +2888,9 @@ impl GovernanceState {
                 s.clinic_capacity = s.clinic_capacity.max(s.initial_population);
             }
         }
-        self.last_recurring_balance = recurring_income + self.last_aid as i128 - recurring_spend;
+        self.last_recurring_balance = recurring_income + self.last_aid as i128
+            - recurring_spend
+            - self.last_diplomatic_spend as i128;
         Ok(())
     }
     fn archive(&mut self, game: &mut Game) -> Result<()> {
@@ -2532,7 +3130,17 @@ impl GovernanceState {
         {
             return Err(Error::Invalid("governance state invariants"));
         }
-        let mut labor: u64 = self.sites.values().map(|s| s.idle_workers as u64).sum();
+        if self.sites.values().any(|s| {
+            s.skilled_workers > s.idle_workers
+                || s.enrolled_students > s.idle_workers.saturating_sub(s.skilled_workers)
+        }) {
+            return Err(Error::Invalid("skilled and enrolled worker subsets"));
+        }
+        let mut labor: u64 = self
+            .sites
+            .values()
+            .map(|s| (s.idle_workers + s.teachers) as u64)
+            .sum();
         for (id, f) in &self.factories {
             if id != &f.id
                 || !self.sites.contains_key(&f.site)
@@ -2590,5 +3198,34 @@ impl GovernanceState {
             }
         }
         Ok(())
+    }
+}
+
+fn external_party(reason: &str) -> &'static str {
+    match reason {
+        "existing_nonmanufacturing_employer_wages" => "existing_nonmanufacturing_employers",
+        "foreign_contract_buyer_budget" => "maritime_contract_buyer_finance",
+        "existing_manufacturing_maintenance" | "factory_maintenance" => "maintenance_suppliers",
+        "existing_outside_shareholder_distribution"
+        | "outside_shareholder_distribution_no_reinjection" => "outside_shareholders",
+        "remaining_household_manufactured_imports" => "maritime_goods_exporter",
+        "household_food_import_payment" | "household_background_food_import" => "food_exporter",
+        "capital_material_production" => "capital_material_producers",
+        "background_material_import_paid_in_project_capital" => "maritime_material_supplier",
+        "equipment_retrofit" | "equipment_retrofit_materials" => "equipment_supplier",
+        "public_construction_consumption" | "factory_construction_consumption" => {
+            "construction_process"
+        }
+        "household_food_consumption" => "household_consumption",
+        "existing_manufacturing_production" | "factory_goods_production_scaled_quantity" => {
+            "manufacturing_process"
+        }
+        "existing_household_goods_delivery" | "market_goods_delivery_scaled_quantity" => {
+            "manufactured_goods_consumers"
+        }
+        "market_training_cooperation_maintenance" => "maritime_training_partner",
+        "resource_transition_aid" => "resource_government",
+        s if s.starts_with("recurring_service_") => "public_service_suppliers",
+        _ => "unspecified_settlement",
     }
 }

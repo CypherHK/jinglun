@@ -55,6 +55,7 @@ pub struct PayableView {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum AllocationPhase {
     Reserved,
+    WaitingForWater,
     Operational,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
