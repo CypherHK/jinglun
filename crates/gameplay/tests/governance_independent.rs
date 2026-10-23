@@ -62,10 +62,9 @@ fn monthly_plan_preserves_live_ledger_and_failed_dependency_withdrawal_is_atomic
     }
     assert!(game.withdraw_governance("clinic").is_err());
     assert_eq!(game.save().unwrap(), planned);
-    assert!(
-        game.queue_governance("clinic", GovernanceCommand::OpenRegion { site: 29 })
-            .is_err()
-    );
+    assert!(game
+        .queue_governance("clinic", GovernanceCommand::OpenRegion { site: 29 })
+        .is_err());
     assert_eq!(game.save().unwrap(), planned);
     game.withdraw_governance("pause").unwrap();
     game.withdraw_governance("clinic").unwrap();
@@ -243,12 +242,10 @@ fn report_keeps_historical_guard_failures_but_fiscal_recovery_is_separate() {
             .take(3)
             .all(|r| r.recurring_balance >= 0)
     );
-    assert!(
-        !report
-            .failures
-            .iter()
-            .any(|r| r == "last_three_month_livelihood_or_security_guardrail_failed")
-    );
+    assert!(!report
+        .failures
+        .iter()
+        .any(|r| r == "last_three_month_livelihood_or_security_guardrail_failed"));
 }
 
 fn loss_warning_game(restore_in_warning_month: bool) -> Game {
@@ -408,16 +405,15 @@ fn institution_announcement_waits_one_month_and_cooldown_rejections_are_atomic()
     assert!(!game.governance().unwrap().labor_protection);
     for month in [2, 3] {
         let before = game.save().unwrap();
-        assert!(
-            game.queue_governance(
+        assert!(game
+            .queue_governance(
                 format!("too-early-{month}"),
                 GovernanceCommand::SetInstitution {
                     kind: Institution::LaborProtection,
                     enabled: false,
                 }
             )
-            .is_err()
-        );
+            .is_err());
         assert_eq!(game.save().unwrap(), before);
         game.end_month(month).unwrap();
         assert!(game.governance().unwrap().labor_protection);
@@ -488,11 +484,10 @@ fn early_subsidy_alone_changes_cash_gap_into_next_month_investment_intent() {
     let mut waiting = early_public_conditions(8);
     let card = waiting.scorecard(Group::B, 8).unwrap();
     assert!(card.gaps["cash"] > 0.0);
-    assert!(
-        card.gaps
-            .iter()
-            .all(|(name, gap)| name == "cash" || *gap == 0.0)
-    );
+    assert!(card
+        .gaps
+        .iter()
+        .all(|(name, gap)| name == "cash" || *gap == 0.0));
     let mut subsidized = waiting.clone();
     subsidized
         .queue_governance(
@@ -512,22 +507,18 @@ fn early_subsidy_alone_changes_cash_gap_into_next_month_investment_intent() {
     assert!(subsidized.scorecard(Group::B, 8).unwrap().conditional_ready);
     waiting.end_month(4).unwrap();
     subsidized.end_month(4).unwrap();
-    assert!(
-        !waiting
-            .governance()
-            .unwrap()
-            .intents
-            .values()
-            .any(|i| i.site == 8 && i.group == Group::B)
-    );
-    assert!(
-        subsidized
-            .governance()
-            .unwrap()
-            .intents
-            .values()
-            .any(|i| i.site == 8 && i.group == Group::B && i.created_month == 4)
-    );
+    assert!(!waiting
+        .governance()
+        .unwrap()
+        .intents
+        .values()
+        .any(|i| i.site == 8 && i.group == Group::B));
+    assert!(subsidized
+        .governance()
+        .unwrap()
+        .intents
+        .values()
+        .any(|i| i.site == 8 && i.group == Group::B && i.created_month == 4));
 }
 
 #[test]
@@ -567,15 +558,14 @@ fn investment_intent_expires_at_original_deadline_and_renewal_expires_at_twelve(
     assert!(game.governance().unwrap().todos["aid/renewal"].resolved);
     assert_eq!(game.governance().unwrap().renewal, None);
     let before = game.save().unwrap();
-    assert!(
-        game.queue_governance(
+    assert!(game
+        .queue_governance(
             "too-late",
             GovernanceCommand::RenewAid {
                 choice: RenewalChoice::WaterPriority
             }
         )
-        .is_err()
-    );
+        .is_err());
     assert_eq!(game.save().unwrap(), before);
     game.end_month(13).unwrap();
     assert_eq!(game.governance().unwrap().last_aid, 0);
@@ -635,11 +625,9 @@ fn breached_promise_ignores_new_work_for_six_months_but_recognizes_completed_cap
     let recognized = game.scorecard(Group::A, 8).unwrap();
     assert!(ignored.promised_projects.is_empty());
     assert!(ignored.gaps["power"] > 0.0);
-    assert!(
-        recognized
-            .promised_projects
-            .contains(&"independent-8-power".into())
-    );
+    assert!(recognized
+        .promised_projects
+        .contains(&"independent-8-power".into()));
     assert_eq!(recognized.gaps["power"], 0.0);
     advance(&mut game, 9);
     assert!(game.governance().unwrap().projects["independent-8-power"].active);
@@ -647,28 +635,23 @@ fn breached_promise_ignores_new_work_for_six_months_but_recognizes_completed_cap
     advance(&mut game, 12);
     public_project(&mut game, 26, "deadline-water", PublicWork::Water);
     assert_eq!(game.month(), 13);
-    assert!(
-        game.scorecard(Group::B, 26)
-            .unwrap()
-            .promised_projects
-            .is_empty()
-    );
-    assert!(
-        !game
-            .scorecard(Group::A, 26)
-            .unwrap()
-            .promised_projects
-            .is_empty()
-    );
+    assert!(game
+        .scorecard(Group::B, 26)
+        .unwrap()
+        .promised_projects
+        .is_empty());
+    assert!(!game
+        .scorecard(Group::A, 26)
+        .unwrap()
+        .promised_projects
+        .is_empty());
     game.end_month(13).unwrap();
     assert_eq!(game.month(), 14);
-    assert!(
-        !game
-            .scorecard(Group::B, 26)
-            .unwrap()
-            .promised_projects
-            .is_empty()
-    );
+    assert!(!game
+        .scorecard(Group::B, 26)
+        .unwrap()
+        .promised_projects
+        .is_empty());
 }
 
 #[test]
@@ -996,16 +979,15 @@ fn default_calibration_report_traces_water_against_identical_cooperation_plan() 
     assert_eq!(operating(ds), 2);
     assert_ne!(ws.report.as_ref().unwrap().grade, GoalGrade::Achieved);
     assert_eq!(ds.report.as_ref().unwrap().grade, GoalGrade::Achieved);
-    assert!(
-        ws.report
-            .as_ref()
-            .unwrap()
-            .causes
-            .iter()
-            .any(|f| f.month == 9
-                && f.effect == "water_priority_limits_next_factory"
-                && f.causes.contains(&"aid/renewal".into()))
-    );
+    assert!(ws
+        .report
+        .as_ref()
+        .unwrap()
+        .causes
+        .iter()
+        .any(|f| f.month == 9
+            && f.effect == "water_priority_limits_next_factory"
+            && f.causes.contains(&"aid/renewal".into())));
 }
 
 /// D028's expected capital-plus-two-candidate topology needs three plants.
@@ -1035,6 +1017,15 @@ fn default_labor_pool_diagnostic_cannot_staff_three_standard_new_factories() {
 /// 25..32 must never count as the 24-month slice passing.
 #[test]
 fn d028_default_order_rescue_bounded_diagnostic() {
+    labor_trial_order_rescue_domain(false);
+}
+
+#[test]
+fn labor_trial_on_order_rescue_bounded_diagnostic() {
+    labor_trial_order_rescue_domain(true);
+}
+
+fn labor_trial_order_rescue_domain(enabled: bool) {
     let calibration = GovernanceCalibration::default();
     assert_eq!(calibration.initial_skilled_idle_share, 0.25);
     assert_eq!(calibration.water_priority_fraction, 0.92);
@@ -1042,7 +1033,8 @@ fn d028_default_order_rescue_bounded_diagnostic() {
     for site in [8, 29] {
         for cap_month in [1, 6, 10] {
             for cut_month in [8, 11, 14, 17] {
-                let mut opening = fixture();
+                let mut opening =
+                    Game::confirmed_game_with_labor_trial(calibration.clone(), enabled).unwrap();
                 opening
                     .queue_governance(
                         "diagnostic-education",
@@ -1189,7 +1181,7 @@ fn d028_default_order_rescue_bounded_diagnostic() {
                                 )
                                 .unwrap();
                             println!(
-                                "B8 re-sign site={site} prepare={cap_month} cut={cut_month} M{month}"
+                                "B8 trial={enabled} re-sign site={site} prepare={cap_month} cut={cut_month} M{month}"
                             );
                             resumed = true;
                         }
@@ -1202,7 +1194,7 @@ fn d028_default_order_rescue_bounded_diagnostic() {
                         && month > cut_month
                     {
                         println!(
-                            "B8 suspended site={site} prepare={cap_month} cut={cut_month} M{month}"
+                            "B8 trial={enabled} suspended site={site} prepare={cap_month} cut={cut_month} M{month}"
                         );
                         rescue_accepted = accepted.clone();
                         recovering = Some(game.clone());
@@ -1226,12 +1218,54 @@ fn d028_default_order_rescue_bounded_diagnostic() {
                             .filter(|f| f.phase != FactoryPhase::Closed)
                             .map(|f| f.workers)
                             .sum::<u32>();
-                    assert_eq!(labor, 295);
+                    let recruited: u32 = state
+                        .labor_trial_sources
+                        .values()
+                        .map(|s| s.cumulative_employed_recruits)
+                        .sum();
+                    assert_eq!(labor, 295 + recruited);
+                    verify_trial_labor(&game);
                     let domestic: f64 = state.factories.values().map(|f| f.domestic_sales).sum();
                     assert!(domestic <= 200.0 + 1e-9);
                     if month == 24 {
+                        let bytes = game.save().unwrap();
+                        let saved: Value = serde_json::from_slice(&bytes).unwrap();
+                        let applied = &saved["payload"]["applied"];
+                        let gross_existing: u64 = [Group::A, Group::B]
+                            .iter()
+                            .map(|group| {
+                                applied[format!("existing/wages/{group:?}/24")]["command"]
+                                    ["Transfer"]["amount"]
+                                    .as_u64()
+                                    .unwrap()
+                            })
+                            .sum();
+                        let remaining_wages = game
+                            .system_receipts()
+                            .iter()
+                            .rev()
+                            .find(|r| r.reason == "existing_nonmanufacturing_employer_wages")
+                            .unwrap()
+                            .delta as u64;
+                        let actual_tax = applied["existing/payroll/24"]["command"]["Transfer"]
+                            ["amount"]
+                            .as_u64()
+                            .unwrap();
+                        assert_eq!(
+                            actual_tax,
+                            money(currency(remaining_wages) * 0.01).unwrap()
+                                + money(currency(gross_existing) * 0.01).unwrap()
+                        );
+                        let loaded = Game::load(&bytes).unwrap();
+                        assert_eq!(loaded.save().unwrap(), bytes);
+                        let mut replay = loaded;
+                        let mut original = game.clone();
+                        replay.end_month(25).unwrap();
+                        original.end_month(25).unwrap();
+                        assert_eq!(replay.save().unwrap(), original.save().unwrap());
+                        println!("B8 trial={enabled} sources site={site} prepare={cap_month} cut={cut_month} {:?}", state.labor_trial_sources);
                         println!(
-                            "B8 M24 scorecards site={site} prepare={cap_month} cut={cut_month} treasury={:?} A={:?} B={:?}",
+                            "B8 trial={enabled} M24 scorecards site={site} prepare={cap_month} cut={cut_month} treasury={:?} A={:?} B={:?}",
                             game.balance("treasury", &Asset::Money),
                             game.scorecard(Group::A, site).unwrap().gaps,
                             game.scorecard(Group::B, site).unwrap().gaps
@@ -1266,7 +1300,7 @@ fn d028_default_order_rescue_bounded_diagnostic() {
                                 .collect::<Vec<_>>()
                         });
                         println!(
-                            "B8 diagnostic site={site} cap={cap_month} cut={cut_month} M{month} security={} export={} warning={warning:?} resumed={resumed} factories={fs:?} rescue={rescue_fs:?}",
+                            "B8 trial={enabled} diagnostic site={site} cap={cap_month} cut={cut_month} M{month} security={} export={} warning={warning:?} resumed={resumed} factories={fs:?} rescue={rescue_fs:?}",
                             state.security, state.export_orders
                         );
                     }
@@ -1281,7 +1315,17 @@ fn d028_default_order_rescue_bounded_diagnostic() {
 /// while domestic import substitution remains the D022-confirmed 200 units.
 #[test]
 fn default_double_retrofit_cooperation_order_loss_remains_profitable_diagnostic() {
-    let mut opening = fixture();
+    double_retrofit_trial_diagnostic(false);
+}
+
+#[test]
+fn labor_trial_on_double_retrofit_diagnostic() {
+    double_retrofit_trial_diagnostic(true);
+}
+
+fn double_retrofit_trial_diagnostic(enabled: bool) {
+    let mut opening =
+        Game::confirmed_game_with_labor_trial(GovernanceCalibration::default(), enabled).unwrap();
     opening
         .queue_governance(
             "order-test-budget",
@@ -1376,7 +1420,13 @@ fn default_double_retrofit_cooperation_order_loss_remains_profitable_diagnostic(
         .filter(|f| f.site == 29 && f.phase == FactoryPhase::Operating)
         .map(|f| f.id.clone())
         .collect();
-    assert_eq!(factories.len(), 2);
+    println!(
+        "B8 retrofit trial={enabled} candidate operating count={}",
+        factories.len()
+    );
+    if !enabled {
+        assert_eq!(factories.len(), 2);
+    }
     for id in factories {
         common
             .queue_governance(
@@ -1400,6 +1450,7 @@ fn default_double_retrofit_cooperation_order_loss_remains_profitable_diagnostic(
         let orders_at_opening = suspended.governance().unwrap().export_orders;
         maintained.end_month(month).unwrap();
         suspended.end_month(month).unwrap();
+        verify_trial_labor(&suspended);
         let state = suspended.governance().unwrap();
         let kept = maintained.governance().unwrap();
         let lost_output: f64 = state
@@ -1427,7 +1478,7 @@ fn default_double_retrofit_cooperation_order_loss_remains_profitable_diagnostic(
             .map(|f| f.export_sales)
             .sum();
         println!(
-            "B8 default retrofit diagnostic M{month}: maintained output={kept_output} exports={kept_exports}; suspended output={lost_output} exports={lost_exports}; months_after_24_are_diagnostic_only={}",
+            "B8 trial={enabled} default retrofit diagnostic M{month}: maintained output={kept_output} exports={kept_exports}; suspended output={lost_output} exports={lost_exports}; months_after_24_are_diagnostic_only={}",
             month > 24
         );
         if state.cooperation_start.is_none() && orders_at_opening == 0.0 {
@@ -1436,14 +1487,16 @@ fn default_double_retrofit_cooperation_order_loss_remains_profitable_diagnostic(
             let output: f64 = factories.iter().map(|f| f.output).sum();
             let domestic: f64 = factories.iter().map(|f| f.domestic_sales).sum();
             let exports: f64 = factories.iter().map(|f| f.export_sales).sum();
-            assert_eq!(domestic, 200.0);
-            assert_eq!(exports, 0.0);
-            assert_eq!(output, 200.0);
-            assert!(factories.iter().all(|f| f.after_tax_profit > 0
-                && f.loss_months == 0
-                && f.phase == FactoryPhase::Operating));
+            if !enabled {
+                assert_eq!(domestic, 200.0);
+                assert_eq!(exports, 0.0);
+                assert_eq!(output, 200.0);
+                assert!(factories.iter().all(|f| f.after_tax_profit > 0
+                    && f.loss_months == 0
+                    && f.phase == FactoryPhase::Operating));
+            }
             println!(
-                "B8 bounded order-loss M{month}: output={output}, factories={:?}",
+                "B8 trial={enabled} bounded order-loss M{month}: output={output}, factories={:?}",
                 factories
                     .iter()
                     .map(|f| (
@@ -1461,11 +1514,10 @@ fn default_double_retrofit_cooperation_order_loss_remains_profitable_diagnostic(
     let lost = suspended.governance().unwrap();
     assert!(kept.export_orders > 0.0);
     assert_eq!(lost.export_orders, 0.0);
-    assert!(
-        lost.facts
-            .iter()
-            .any(|f| f.effect == "cooperation_suspended")
-    );
+    assert!(lost
+        .facts
+        .iter()
+        .any(|f| f.effect == "cooperation_suspended"));
     let kept_output: f64 = kept
         .factories
         .values()
@@ -1479,7 +1531,7 @@ fn default_double_retrofit_cooperation_order_loss_remains_profitable_diagnostic(
         .map(|f| f.output)
         .sum();
     println!(
-        "B8 bounded counterfactual: maintained output={kept_output}, suspended output={lost_output}, suspension_month={:?}, final_export_orders={}/{}",
+        "B8 trial={enabled} bounded counterfactual: maintained output={kept_output}, suspended output={lost_output}, suspension_month={:?}, final_export_orders={}/{}",
         lost.facts
             .iter()
             .find(|f| f.effect == "cooperation_suspended")
@@ -1488,22 +1540,23 @@ fn default_double_retrofit_cooperation_order_loss_remains_profitable_diagnostic(
         lost.export_orders
     );
     assert!(observed_order_loss_months >= 6);
-    assert_eq!(kept_output, 240.0);
-    assert_eq!(
-        kept.factories
+    if !enabled {
+        assert_eq!(kept_output, 240.0);
+        assert_eq!(
+            kept.factories
+                .values()
+                .filter(|f| f.site == 29)
+                .map(|f| f.export_sales)
+                .sum::<f64>(),
+            40.0
+        );
+        assert!(kept_output > lost_output);
+        assert_eq!(lost_output, 200.0);
+        assert!(lost
+            .factories
             .values()
-            .filter(|f| f.site == 29)
-            .map(|f| f.export_sales)
-            .sum::<f64>(),
-        40.0
-    );
-    assert!(kept_output > lost_output);
-    assert_eq!(lost_output, 200.0);
-    assert!(
-        lost.factories
-            .values()
-            .all(|f| f.phase != FactoryPhase::ClosureWarned)
-    );
+            .all(|f| f.phase != FactoryPhase::ClosureWarned));
+    }
 }
 
 /// Explicit historical skill-share fixture isolates D025 water behavior. This
@@ -1578,11 +1631,9 @@ fn historical_skill_share_two_operating_factories_before_late_water(fraction: f6
         .filter(|f| f.site == 29)
         .collect();
     assert_eq!(factories.len(), 2);
-    assert!(
-        factories
-            .iter()
-            .all(|f| f.phase == FactoryPhase::Operating && f.output == 100.0)
-    );
+    assert!(factories
+        .iter()
+        .all(|f| f.phase == FactoryPhase::Operating && f.output == 100.0));
     assert_ne!(
         factories[0].first_operated_month,
         factories[1].first_operated_month
@@ -1655,10 +1706,9 @@ fn historical_skill_fixture_late_water_suspends_new_factories_but_protects_initi
         assert_eq!(factory.loss_months, 6);
     }
     game.end_month(18).unwrap();
-    assert!(
-        ids.iter()
-            .all(|id| game.governance().unwrap().factories[id].phase == FactoryPhase::Closed)
-    );
+    assert!(ids
+        .iter()
+        .all(|id| game.governance().unwrap().factories[id].phase == FactoryPhase::Closed));
 }
 
 #[test]
@@ -1751,4 +1801,175 @@ fn historical_skill_fixture_housing_loses_and_recovers_capacity_without_resettin
         state.projects[project].first_operated_month,
         before.first_operated_month
     );
+}
+
+fn verify_trial_labor(game: &Game) {
+    let state = game.governance().unwrap();
+    let baseline = fixture();
+    let opening = baseline.governance().unwrap();
+    assert_eq!(
+        state.sites.values().map(|s| s.population).sum::<u32>(),
+        opening.sites.values().map(|s| s.population).sum::<u32>()
+    );
+    let employed: u32 = state
+        .labor_trial_sources
+        .values()
+        .map(|s| s.nonmanufacturing_workers)
+        .sum();
+    let opening_employed: u32 = opening
+        .labor_trial_sources
+        .values()
+        .map(|s| s.nonmanufacturing_workers)
+        .sum();
+    let mobile = state
+        .sites
+        .values()
+        .map(|s| s.idle_workers + s.teachers)
+        .sum::<u32>()
+        + state
+            .factories
+            .values()
+            .filter(|f| f.phase != FactoryPhase::Closed)
+            .map(|f| f.workers)
+            .sum::<u32>();
+    assert_eq!(mobile + employed + 425, 295 + opening_employed + 425);
+    if game.month() > 1 {
+        let displaced: u32 = state
+            .labor_trial_sources
+            .values()
+            .map(|s| s.cumulative_employed_recruits)
+            .sum();
+        let receipt = game
+            .system_receipts()
+            .iter()
+            .rev()
+            .find(|r| r.reason == "existing_nonmanufacturing_employer_wages")
+            .unwrap();
+        assert_eq!(
+            receipt.delta,
+            money(105.52).unwrap() as i128 - money(displaced as f64 * 0.02).unwrap() as i128
+        );
+    }
+    // Public causal records expose which sources supplied each migration pass.
+    let month = game.month().saturating_sub(1);
+    let movements: Vec<_> = state
+        .facts
+        .iter()
+        .filter(|f| {
+            f.month == month
+                && (f.effect.starts_with("domestic_idle_migration:")
+                    || f.effect.starts_with("domestic_employed_migration:"))
+        })
+        .collect();
+    let mut employed_seen = false;
+    for movement in &movements {
+        if movement.effect.starts_with("domestic_employed") {
+            employed_seen = true;
+        } else {
+            assert!(
+                !employed_seen,
+                "idle pass occurred after recruiting an occupied job"
+            );
+        }
+    }
+    if state.labor_trial_enabled
+        && !state
+            .factories
+            .values()
+            .any(|f| f.phase == FactoryPhase::Closed)
+    {
+        for movement in movements
+            .iter()
+            .filter(|f| f.effect.starts_with("domestic_employed"))
+        {
+            let destination: u32 = movement.causes[1]
+                .strip_prefix("site/")
+                .unwrap()
+                .parse()
+                .unwrap();
+            for (origin, source) in &state.sites {
+                if *origin == destination || source.idle_workers == 0 {
+                    continue;
+                }
+                let mut outbound = 0u32;
+                let mut inbound = 0u32;
+                for f in &movements {
+                    let count: u32 = f.effect.split(':').nth(1).unwrap().parse().unwrap();
+                    if f.causes[0] == format!("site/{origin}") {
+                        outbound += count;
+                    }
+                    if f.causes[1] == format!("site/{origin}") {
+                        inbound += count;
+                    }
+                }
+                let opening_population = source.population + outbound - inbound;
+                let monthly_limit = (opening_population as f64 * 0.01).floor() as u32;
+                let record = &state.labor_trial_sources[origin];
+                assert!(
+                    outbound >= monthly_limit
+                        || record.cumulative_outbound == record.initial_labor_force / 10,
+                    "employed recruited despite reachable idle at {origin}"
+                );
+            }
+        }
+    }
+    for (id, source) in &state.labor_trial_sources {
+        assert_eq!(
+            source.initial_nonmanufacturing_workers,
+            opening.labor_trial_sources[id].initial_nonmanufacturing_workers
+        );
+        if state.labor_trial_enabled {
+            let mut outbound = 0;
+            let mut recruited = 0;
+            let mut worker_months = 0;
+            for f in state
+                .facts
+                .iter()
+                .filter(|f| f.causes.first() == Some(&format!("site/{id}")))
+            {
+                if f.effect.starts_with("domestic_idle_migration:")
+                    || f.effect.starts_with("domestic_employed_migration:")
+                {
+                    let count: u32 = f.effect.split(':').nth(1).unwrap().parse().unwrap();
+                    outbound += count;
+                    if f.effect.starts_with("domestic_employed") {
+                        recruited += count;
+                        worker_months += count as u64 * (game.month() - f.month) as u64;
+                    }
+                }
+            }
+            assert_eq!(source.cumulative_outbound, outbound);
+            assert_eq!(source.cumulative_employed_recruits, recruited);
+            assert_eq!(
+                source.lost_worker_months, worker_months,
+                "original wages resumed or were deducted twice"
+            );
+        }
+        assert!(source.cumulative_outbound <= source.initial_labor_force / 10);
+        assert_eq!(
+            source.nonmanufacturing_workers + source.cumulative_employed_recruits,
+            source.initial_nonmanufacturing_workers
+        );
+        assert_eq!(
+            source.cumulative_wage_loss,
+            money(source.lost_worker_months as f64 * 0.02).unwrap()
+        );
+        assert_eq!(
+            source.cumulative_payroll_tax_loss,
+            money(source.lost_worker_months as f64 * 0.0002).unwrap()
+        );
+    }
+}
+
+#[test]
+fn labor_trial_explicit_off_replays_default_public_commands_identically() {
+    let mut default = fixture();
+    let mut off =
+        Game::confirmed_game_with_labor_trial(GovernanceCalibration::default(), false).unwrap();
+    for month in 1..=24 {
+        assert_eq!(default.save().unwrap(), off.save().unwrap());
+        default.end_month(month).unwrap();
+        off.end_month(month).unwrap();
+    }
+    assert_eq!(default.save().unwrap(), off.save().unwrap());
 }
