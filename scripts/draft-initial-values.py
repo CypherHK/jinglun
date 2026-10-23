@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Generate an inactive D017/D018/D020/D021 arithmetic proposal. No Game initialization imports this file."""
+"""Reproduce D022-confirmed initial values and their historical arithmetic evidence."""
 import argparse
+import copy
 import hashlib
 import json
 import math
@@ -11,6 +12,17 @@ from pathlib import Path
 STATUS = 'pending_user_confirmation'
 PLAYER = [8, 9, 26, 29, 38, 39, 63, 74, 83, 91]
 DESIGN_FILES = ['DECISIONS.md', 'handoffs/2026-10-23-first-governance-slice.md']
+APPROVAL_HASHES = {
+    'DECISIONS.md': 'de3194c256572273e4eee98868bdd2c840ae2bbfaa8f5249cd7ab01a1b31ef7c',
+    'handoffs/2026-10-23-first-governance-slice.md': 'fbab198b77ad12b9ec45d48db07044f61a8da2799d0274604da8d19a8f60d6e1',
+}
+HISTORICAL_HASHES = {
+    'DECISIONS.md': 'f6441d8397aca40fccd1a4eac8ad2723e1b4661902219926c85ad060a9c5d77f',
+    'handoffs/2026-10-23-first-governance-slice.md': 'f774e6cc009358301d61a3df84c8ed6e0ec360529612c13666f5b5d687589063',
+}
+HISTORICAL_GENERATOR_SHA256 = 'f073efd8d6bf12b7531ccc1cac1a190266538e192598bac39ae5309e2e9266b5'
+APPROVED_COMMIT = '3f8bfb423d6d686da03c25b7fcab706e3ddd6af9'
+APPROVED_DOCUMENT_SHA256 = 'ea19c3f2dca82da57ad9380eb9fc5feee3687895102cdeb8857608195682e815'
 
 
 def value(number, unit, principle, formula, inputs, origin='derived_proposal'):
@@ -31,11 +43,8 @@ def generate(map_path, design_dir):
     cells = {c['id']: c for c in world['cells']}
     assert len(cells) == 100 and all(i in cells for i in PLAYER)
     assert hashlib.sha256(raw).hexdigest() == '4c8714aaca565e0c4b932420aa320cb92a901ef63c29a897e507540db4de37a8', 'Map differs from calibrated evidence'
-    expected_design = {
-        'DECISIONS.md': 'f6441d8397aca40fccd1a4eac8ad2723e1b4661902219926c85ad060a9c5d77f',
-        'handoffs/2026-10-23-first-governance-slice.md': 'f774e6cc009358301d61a3df84c8ed6e0ec360529612c13666f5b5d687589063'}
-    for name, expected in expected_design.items():
-        assert hashlib.sha256((design_dir/name).read_bytes()).hexdigest() == expected, 'Design source changed: '+name
+    for name, expected in APPROVAL_HASHES.items():
+        assert hashlib.sha256((design_dir/name).read_bytes()).hexdigest() == expected, 'Approval source changed: '+name
     parameters = {}
 
     def parameter(name, number, unit, principle, reason):
@@ -150,10 +159,10 @@ def generate(map_path, design_dir):
         assumption='Materials are paid from each future project capital budget, not a free treasury flow. Supplier prices and external accounts remain unbuilt. Two reference projects use the monthly flow exactly. Three projects burn four inventory units per month and exhaust the opening buffer after three months. Inventory is finite; heterogeneous projects require later calibration.')
     draft = group(schema='jinglun.initial-values-draft.v2', scenario='jinglun-040',
         provenance=dict(map_sha256=hashlib.sha256(raw).hexdigest(),generator_version=world['generator_version'],map_config=world['config'],raw_player_cell_ids=PLAYER,raw_capital_cell_id=39,raw_candidate_cell_ids=[8,29],
-            source_hashes={name:hashlib.sha256((design_dir/name).read_bytes()).hexdigest() for name in DESIGN_FILES},
+            source_hashes=HISTORICAL_HASHES.copy(),
             design_input_requirement='External jinglun-design/design directory must contain the relative source_hashes paths. Supply --design-dir when the sibling directory is unavailable. Design files are read only and are not bundled with this product.',
             generator='scripts/draft-initial-values.py',
-            generator_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest()),
+            generator_sha256=HISTORICAL_GENERATOR_SHA256),
         scope='Arithmetic proposal only. No enterprise, pressure, todo behavior or Game activation. All economic values require user confirmation. Month arithmetic is not gameplay replay: no B1-B15 or experience acceptance claimed.',
         parameters=group(**parameters),regions=group(**regions),demand=demand_group,energy=energy,fiscal=fiscal,candidate_capital=group(**capital),food=food,materials=material)
     return d021_calibration(d020_calibration(draft, cells), cells, world['edges'])
@@ -892,6 +901,77 @@ def verify(d):
         assert d[k]['status']==STATUS and d[k]['activation']=='disabled'
 
 
+def confirm(draft):
+    """D022 changes activation metadata only; scenarios remain arithmetic evidence."""
+    draft = json.loads(json.dumps(draft))
+    def activate(node):
+        if isinstance(node, dict):
+            if 'status' in node:
+                assert node['status'] == STATUS and node['activation'] == 'disabled'
+                node['status'] = 'confirmed'
+                node['activation'] = 'enabled'
+            for key, child in node.items():
+                if isinstance(child, str):
+                    child = child.replace('Inactive arithmetic proposal; listed inputs and formulas hold only under the section assumptions. No runtime rule or accepted calibration is implied.', 'D022-confirmed value; listed inputs and formulas retain their original section assumptions. Arithmetic evidence does not imply gameplay replay or experience acceptance.')
+                    child = child.replace('Starting point from v2, not approved.', 'Starting point from v2; confirmed by D022.')
+                    child = child.replace('Pending proposal. All 100', 'D022-confirmed arithmetic assumption. All 100')
+                    child = child.replace('Both the sales tax and payroll tax proposal require user confirmation.', 'Both sales tax and payroll tax values are confirmed by D022.')
+                    node[key] = child
+                activate(child)
+        elif isinstance(node, list):
+            for child in node:
+                activate(child)
+    activate(draft)
+    draft['approval'] = {
+        'decision': 'D022',
+        'status': 'confirmed',
+        'activation': 'enabled',
+        'approved_commit': APPROVED_COMMIT,
+        'approved_document_sha256': APPROVED_DOCUMENT_SHA256,
+        'source_hashes': APPROVAL_HASHES.copy(),
+        'provenance_note': 'provenance.source_hashes and generator_sha256 describe the original approved draft, not this confirmation transform.',
+    }
+    draft['scope'] = ('D022-confirmed initial values, enabled for explicit gameplay initialization. '
+                      'D020/D021 scenarios remain arithmetic evidence, never autoplay commands. '
+                      'No B1-B15 replay or experience acceptance is implied.')
+    return draft
+
+
+def verify_confirmed(document):
+    draft = copy.deepcopy(document)
+    approval = draft.pop('approval')
+    assert approval == dict(decision='D022', status='confirmed', activation='enabled',
+                           approved_commit=APPROVED_COMMIT,
+                           approved_document_sha256=APPROVED_DOCUMENT_SHA256,
+                           source_hashes=APPROVAL_HASHES,
+                           provenance_note='provenance.source_hashes and generator_sha256 describe the original approved draft, not this confirmation transform.')
+    def deactivate(node):
+        if isinstance(node, dict):
+            if 'status' in node:
+                assert node['status'] == 'confirmed' and node['activation'] == 'enabled'
+                node['status'] = STATUS
+                node['activation'] = 'disabled'
+            for child in node.values():
+                deactivate(child)
+        elif isinstance(node, list):
+            for child in node:
+                deactivate(child)
+    deactivate(draft)
+    verify(draft)
+    def numeric_paths(node, pointer=''):
+        if isinstance(node, dict):
+            return {path: value for key, child in node.items()
+                    for path, value in numeric_paths(child, pointer+'/'+key.replace('~', '~0').replace('/', '~1')).items()}
+        if isinstance(node, list):
+            return {path: value for index, child in enumerate(node)
+                    for path, value in numeric_paths(child, pointer+'/'+str(index)).items()}
+        return {pointer: node} if type(node) in (int, float) else {}
+    numbers = numeric_paths(document)
+    assert len(numbers) == 9982, 'D022 numeric paths changed'
+    fingerprint = hashlib.sha256(json.dumps(numbers, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+    assert fingerprint == '4c2eb28b2ccd686ca9e3453f21fa7c6024ea137df8d9051d104f019b3e4c9e8e', 'D022 approved numeric values changed'
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--map',type=Path,required=True,help='Complete exported WorldMap JSON, raw cell IDs.')
@@ -905,16 +985,18 @@ def main():
         parser.error('Design inputs unavailable. Pass --design-dir pointing to jinglun-design/design containing: '+', '.join(DESIGN_FILES))
     draft=generate(args.map, args.design_dir)
     verify(draft)
+    draft=confirm(draft)
+    verify_confirmed(draft)
     text=json.dumps(draft,ensure_ascii=False,indent=2,sort_keys=True)+'\n'
     if args.check:
         actual=json.loads(args.output.read_text())
-        verify(actual)
+        verify_confirmed(actual)
         if args.output.read_text()!=text:
             parser.error('Output differs from deterministic regeneration or source hashes changed.')
     else:
         args.output.parent.mkdir(parents=True,exist_ok=True)
         args.output.write_text(text)
-    print('PASS: D017/D018/D020/D021 arithmetic draft checks only; pending_user_confirmation; activation disabled.')
+    print('PASS: D022-confirmed initial values; D017/D018/D020/D021 arithmetic checks; activation enabled. Not gameplay replay.')
 
 
 if __name__=='__main__':
