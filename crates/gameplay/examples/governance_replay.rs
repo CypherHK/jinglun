@@ -1,6 +1,6 @@
 use jinglun_gameplay::*;
 use serde::Serialize;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::{self, Write};
 
@@ -25,6 +25,7 @@ struct Script {
     project_order: u32,
     commitment_span: u32,
     intent_order: IntentOrder,
+    subsidy_start_month: u32,
 }
 
 impl Script {
@@ -44,10 +45,15 @@ impl Script {
         } else {
             format!("{base}-d{}", self.commitment_span)
         };
-        if self.intent_order == IntentOrder::Subsidy {
+        let order_id = if self.intent_order == IntentOrder::Subsidy {
             deadline_id
         } else {
             format!("{deadline_id}-ia")
+        };
+        if self.subsidy_start_month == self.prepare_month {
+            order_id
+        } else {
+            format!("{order_id}-u{}", self.subsidy_start_month)
         }
     }
 }
@@ -433,6 +439,9 @@ fn replay(base: &Game, script: Script) -> std::result::Result<Replay, String> {
                     },
                 ),
             ] {
+                if id == "subsidy" && month < script.subsidy_start_month {
+                    continue;
+                }
                 if !done.contains(id) && attempt(&mut game, id.into(), command, &mut failed) {
                     done.insert(id.into());
                 }
@@ -612,6 +621,8 @@ fn run() -> std::result::Result<u8, String> {
     let mut export_orders = None;
     let mut commitment_span = 4_u32;
     let mut intent_order = IntentOrder::Subsidy;
+    let mut subsidy_start_month = None;
+    let mut include_delayed_policy = false;
     let mut require_acceptance = false;
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -624,6 +635,15 @@ fn run() -> std::result::Result<u8, String> {
                     args.next()
                         .ok_or("--skilled-idle-share needs a ratio")?
                         .parse::<f64>()
+                        .map_err(|e| e.to_string())?,
+                )
+            }
+            "--include-delayed-policy" => include_delayed_policy = true,
+            "--subsidy-start-month" => {
+                subsidy_start_month = Some(
+                    args.next()
+                        .ok_or("--subsidy-start-month needs a month")?
+                        .parse::<u32>()
                         .map_err(|e| e.to_string())?,
                 )
             }
@@ -663,7 +683,7 @@ fn run() -> std::result::Result<u8, String> {
             }
             _ => {
                 return Err(
-                    "usage: governance_replay [--quick] [--summary-only] [--script ID] [--water-share RATIO] [--require-acceptance] [--skilled-idle-share RATIO] [--export-orders QUANTITY] [--commitment-span MONTHS] [--intent-order subsidy|a-first]".into(),
+                    "usage: governance_replay [--quick] [--summary-only] [--script ID] [--water-share RATIO] [--require-acceptance] [--skilled-idle-share RATIO] [--export-orders QUANTITY] [--commitment-span MONTHS] [--intent-order subsidy|a-first] [--subsidy-start-month MONTH]".into(),
                 );
             }
         }
@@ -705,7 +725,7 @@ fn run() -> std::result::Result<u8, String> {
     }
     let base = Game::confirmed_game_with_calibration(calibration).map_err(|e| e.to_string())?;
     emit(
-        &json!({"kind":"search_domain","require_acceptance":require_acceptance,"selected_script":selected_script,"pending_water_share_override":water_share,"pending_skilled_idle_share_override":skilled_idle_share,"pending_export_orders_override":export_orders,"export_budget_policy":"When export quantity is overridden, foreign buyer monthly budget is exactly quantity times D022 confirmed goods unit price in fixed money units.","preparation_months":preparation,"subsidy_currency":subsidy,"renewal_months":renewal,"project_orders":order,"choices":["W","E","Decline"],"project_sequences":{"r1_o0":["Housing","Road","Power","Water","Clinic"],"r1_o1":["Road","Power","Housing","Clinic","Water","Vocational"],"r2_o0":["Vocational","Housing","Clinic","Road","Power","Water"],"r2_o1":["Housing","Clinic","Vocational","Power","Road","Water"]},"commitment_span":commitment_span,"intent_order":intent_order,"horizon":24,"money_scale":b15::MONEY_SCALE,"tolerances":tolerance,"calibration":base.governance().ok_or("missing governance")?.calibration,"global_optimality_claim":false,"retry_policy":"Every uncompleted prescribed action retries monthly; successful IDs are never repeated. Intents only at selected candidate; deadline min(month+commitment_span,24). Renewal retries only to M12. Execution errors have no metrics and block the whole B15 group.","route1":"housing/road/power/water/clinic; order1 additionally vocational last; subsidy cap, ordinary energy contract from M3","route2":"vocational/housing/clinic/road/power/water, subsidy cap, cooperation from M2","frontiers":"exact Pareto; tolerance pairwise bidirectional coverage","attainment":"Some only when final M24 grade Achieved; raw first sustained window separately reported"}),
+        &json!({"kind":"search_domain","require_acceptance":require_acceptance,"selected_script":selected_script,"pending_water_share_override":water_share,"pending_skilled_idle_share_override":skilled_idle_share,"pending_export_orders_override":export_orders,"export_budget_policy":"When export quantity is overridden, foreign buyer monthly budget is exactly quantity times D022 confirmed goods unit price in fixed money units.","preparation_months":preparation,"subsidy_currency":subsidy,"renewal_months":renewal,"project_orders":order,"choices":["W","E","Decline"],"project_sequences":{"r1_o0":["Housing","Road","Power","Water","Clinic"],"r1_o1":["Road","Power","Housing","Clinic","Water","Vocational"],"r2_o0":["Vocational","Housing","Clinic","Road","Power","Water"],"r2_o1":["Housing","Clinic","Vocational","Power","Road","Water"]},"commitment_span":commitment_span,"intent_order":intent_order,"subsidy_start_month_override":subsidy_start_month,"include_delayed_policy":include_delayed_policy,"additional_policy":"When included, add p1 c40 m9 o1 deadline8 A-first subsidy-start8 for every site/route/choice, alongside unchanged base domain.","subsidy_start_policy":"Initial cap remains zero until max(preparation month, explicit subsidy-start-month); default start equals preparation month.","horizon":24,"money_scale":b15::MONEY_SCALE,"tolerances":tolerance,"calibration":base.governance().ok_or("missing governance")?.calibration,"global_optimality_claim":false,"retry_policy":"Every uncompleted prescribed action retries monthly; successful IDs are never repeated. Intents only at selected candidate; deadline min(month+commitment_span,24). Renewal retries only to M12. Execution errors have no metrics and block the whole B15 group.","route1":"housing/road/power/water/clinic; order1 additionally vocational last; subsidy cap, ordinary energy contract from M3","route2":"vocational/housing/clinic/road/power/water, subsidy cap, cooperation from M2","frontiers":"exact Pareto; tolerance pairwise bidirectional coverage","attainment":"Some only when final M24 grade Achieved; raw first sustained window separately reported"}),
     )?;
     let mut b1_execution_blocked = false;
     let mut capital_outcomes = vec![];
@@ -718,11 +738,12 @@ fn run() -> std::result::Result<u8, String> {
             for choice in [b15::Choice::W, b15::Choice::E, b15::Choice::Decline] {
                 let mut achieved = 0;
                 let mut fatal_count = 0;
+                let mut scripts = vec![];
                 for prepare_month in &preparation {
                     for cap in &subsidy {
                         for renewal_month in &renewal {
                             for project_order in &order {
-                                let script = Script {
+                                scripts.push(Script {
                                     site,
                                     route,
                                     choice,
@@ -732,52 +753,70 @@ fn run() -> std::result::Result<u8, String> {
                                     project_order: *project_order,
                                     commitment_span,
                                     intent_order,
-                                };
-                                if selected_script
-                                    .as_ref()
-                                    .is_some_and(|id| *id != script.id())
-                                {
-                                    continue;
-                                }
-                                replay_count += 1;
-                                let result = match replay(&base, script.clone()) {
-                                    Ok(result) => result,
-                                    Err(error) => {
-                                        fatal_count += 1;
-                                        b1_execution_blocked = true;
-                                        let failure = json!({"kind":"script_execution_error","script":script,"execution_error":error});
-                                        execution_errors.push(failure.clone());
-                                        emit(&failure)?;
-                                        continue;
-                                    }
-                                };
-                                capital_records.push(json!({"script_id":result.script.id(),"choice":choice,"capital":result.government_capital,"trade_audit":result.trade_audit,"execution_error":result.execution_error}));
-                                if result.execution_error.is_some() {
-                                    b1_execution_blocked = true;
-                                    fatal_count += 1;
-                                }
-                                if let Some(outcome) = &result.outcome {
-                                    if let Some(month) = outcome.metrics.attainment_month {
-                                        achieved += 1;
-                                        capital_outcomes.push(CapitalOutcome {
-                                            script_id: outcome.id.clone(),
-                                            choice,
-                                            site,
-                                            route,
-                                            attainment_month: month,
-                                            capital: result.government_capital.clone(),
-                                        });
-                                    }
-                                    outcomes.push(outcome.clone());
-                                } else {
-                                    execution_errors
-                                        .push(json!({"script":result.script,"error":result.execution_error}));
-                                }
-                                if !summary_only || selected_script.is_some() {
-                                    emit(&json!({"kind":"script_replay","replay":result}))?;
-                                }
+                                    subsidy_start_month: subsidy_start_month
+                                        .unwrap_or(*prepare_month),
+                                });
                             }
                         }
+                    }
+                }
+                if include_delayed_policy {
+                    scripts.push(Script {
+                        site,
+                        route,
+                        choice,
+                        prepare_month: 1,
+                        subsidy_currency: 40,
+                        renewal_month: 9,
+                        project_order: 1,
+                        commitment_span: 8,
+                        intent_order: IntentOrder::AFirst,
+                        subsidy_start_month: 8,
+                    });
+                }
+                for script in scripts {
+                    if selected_script
+                        .as_ref()
+                        .is_some_and(|id| *id != script.id())
+                    {
+                        continue;
+                    }
+                    replay_count += 1;
+                    let result = match replay(&base, script.clone()) {
+                        Ok(result) => result,
+                        Err(error) => {
+                            fatal_count += 1;
+                            b1_execution_blocked = true;
+                            let failure = json!({"kind":"script_execution_error","script":script,"execution_error":error});
+                            execution_errors.push(failure.clone());
+                            emit(&failure)?;
+                            continue;
+                        }
+                    };
+                    capital_records.push(json!({"script_id":result.script.id(),"choice":choice,"capital":result.government_capital,"trade_audit":result.trade_audit,"execution_error":result.execution_error}));
+                    if result.execution_error.is_some() {
+                        b1_execution_blocked = true;
+                        fatal_count += 1;
+                    }
+                    if let Some(outcome) = &result.outcome {
+                        if let Some(month) = outcome.metrics.attainment_month {
+                            achieved += 1;
+                            capital_outcomes.push(CapitalOutcome {
+                                script_id: outcome.id.clone(),
+                                choice,
+                                site,
+                                route,
+                                attainment_month: month,
+                                capital: result.government_capital.clone(),
+                            });
+                        }
+                        outcomes.push(outcome.clone());
+                    } else {
+                        execution_errors
+                            .push(json!({"script":result.script,"error":result.execution_error}));
+                    }
+                    if !summary_only || selected_script.is_some() {
+                        emit(&json!({"kind":"script_replay","replay":result}))?;
                     }
                 }
                 counts.insert(
@@ -914,6 +953,7 @@ mod driver_tests {
             project_order: 1,
             commitment_span: 4,
             intent_order: IntentOrder::Subsidy,
+            subsidy_start_month: 1,
         };
         assert_eq!(script.id(), "s8-r1-Decline-p1-c20-m9-o1");
         script.commitment_span = 8;
@@ -943,12 +983,10 @@ mod driver_tests {
         ];
         let (report, pass) = b1_comparison(&outcomes, b15::Choice::Decline, 8);
         assert!(!pass);
-        assert!(
-            report["efficient_fast_expensive_slow_cheap_pairs"]
-                .as_array()
-                .unwrap()
-                .is_empty()
-        );
+        assert!(report["efficient_fast_expensive_slow_cheap_pairs"]
+            .as_array()
+            .unwrap()
+            .is_empty());
         assert_eq!(
             report["route1"]["exact_pareto_frontier"]
                 .as_array()
