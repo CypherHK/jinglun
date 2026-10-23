@@ -7,6 +7,13 @@ use std::io::{self, Write};
 #[path = "../src/b15.rs"]
 mod b15;
 
+#[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+enum IntentOrder {
+    Subsidy,
+    AFirst,
+}
+
 #[derive(Clone, Debug, Serialize)]
 struct Script {
     site: u32,
@@ -17,6 +24,7 @@ struct Script {
     renewal_month: u32,
     project_order: u32,
     commitment_span: u32,
+    intent_order: IntentOrder,
 }
 
 impl Script {
@@ -31,10 +39,15 @@ impl Script {
             self.renewal_month,
             self.project_order
         );
-        if self.commitment_span == 4 {
+        let deadline_id = if self.commitment_span == 4 {
             base
         } else {
             format!("{base}-d{}", self.commitment_span)
+        };
+        if self.intent_order == IntentOrder::Subsidy {
+            deadline_id
+        } else {
+            format!("{deadline_id}-ia")
         }
     }
 }
@@ -491,7 +504,12 @@ fn replay(base: &Game, script: Script) -> std::result::Result<Replay, String> {
                 .filter(|i| i.site == script.site)
                 .cloned()
                 .collect();
-            intents.sort_by_key(|i| (i.subsidy, i.id.clone()));
+            match script.intent_order {
+                IntentOrder::Subsidy => intents.sort_by_key(|i| (i.subsidy, i.id.clone())),
+                IntentOrder::AFirst => {
+                    intents.sort_by_key(|i| (i.group != Group::A, i.subsidy, i.id.clone()))
+                }
+            }
             for intent in intents {
                 let id = format!("accept/{}", intent.id);
                 if done.contains(&id) {
@@ -593,6 +611,7 @@ fn run() -> std::result::Result<u8, String> {
     let mut skilled_idle_share = None;
     let mut export_orders = None;
     let mut commitment_span = 4_u32;
+    let mut intent_order = IntentOrder::Subsidy;
     let mut require_acceptance = false;
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -607,6 +626,17 @@ fn run() -> std::result::Result<u8, String> {
                         .parse::<f64>()
                         .map_err(|e| e.to_string())?,
                 )
+            }
+            "--intent-order" => {
+                intent_order = match args
+                    .next()
+                    .ok_or("--intent-order needs subsidy or a-first")?
+                    .as_str()
+                {
+                    "subsidy" => IntentOrder::Subsidy,
+                    "a-first" | "A-first" => IntentOrder::AFirst,
+                    _ => return Err("--intent-order needs subsidy or a-first".into()),
+                }
             }
             "--commitment-span" => {
                 commitment_span = args
@@ -633,7 +663,7 @@ fn run() -> std::result::Result<u8, String> {
             }
             _ => {
                 return Err(
-                    "usage: governance_replay [--quick] [--summary-only] [--script ID] [--water-share RATIO] [--require-acceptance] [--skilled-idle-share RATIO] [--export-orders QUANTITY] [--commitment-span MONTHS]".into(),
+                    "usage: governance_replay [--quick] [--summary-only] [--script ID] [--water-share RATIO] [--require-acceptance] [--skilled-idle-share RATIO] [--export-orders QUANTITY] [--commitment-span MONTHS] [--intent-order subsidy|a-first]".into(),
                 );
             }
         }
@@ -675,7 +705,7 @@ fn run() -> std::result::Result<u8, String> {
     }
     let base = Game::confirmed_game_with_calibration(calibration).map_err(|e| e.to_string())?;
     emit(
-        &json!({"kind":"search_domain","require_acceptance":require_acceptance,"selected_script":selected_script,"pending_water_share_override":water_share,"pending_skilled_idle_share_override":skilled_idle_share,"pending_export_orders_override":export_orders,"export_budget_policy":"When export quantity is overridden, foreign buyer monthly budget is exactly quantity times D022 confirmed goods unit price in fixed money units.","preparation_months":preparation,"subsidy_currency":subsidy,"renewal_months":renewal,"project_orders":order,"choices":["W","E","Decline"],"project_sequences":{"r1_o0":["Housing","Road","Power","Water","Clinic"],"r1_o1":["Road","Power","Housing","Clinic","Water","Vocational"],"r2_o0":["Vocational","Housing","Clinic","Road","Power","Water"],"r2_o1":["Housing","Clinic","Vocational","Power","Road","Water"]},"commitment_span":commitment_span,"horizon":24,"money_scale":b15::MONEY_SCALE,"tolerances":tolerance,"calibration":base.governance().ok_or("missing governance")?.calibration,"global_optimality_claim":false,"retry_policy":"Every uncompleted prescribed action retries monthly; successful IDs are never repeated. Intents only at selected candidate; deadline min(month+commitment_span,24). Renewal retries only to M12. Execution errors have no metrics and block the whole B15 group.","route1":"housing/road/power/water/clinic; order1 additionally vocational last; subsidy cap, ordinary energy contract from M3","route2":"vocational/housing/clinic/road/power/water, subsidy cap, cooperation from M2","frontiers":"exact Pareto; tolerance pairwise bidirectional coverage","attainment":"Some only when final M24 grade Achieved; raw first sustained window separately reported"}),
+        &json!({"kind":"search_domain","require_acceptance":require_acceptance,"selected_script":selected_script,"pending_water_share_override":water_share,"pending_skilled_idle_share_override":skilled_idle_share,"pending_export_orders_override":export_orders,"export_budget_policy":"When export quantity is overridden, foreign buyer monthly budget is exactly quantity times D022 confirmed goods unit price in fixed money units.","preparation_months":preparation,"subsidy_currency":subsidy,"renewal_months":renewal,"project_orders":order,"choices":["W","E","Decline"],"project_sequences":{"r1_o0":["Housing","Road","Power","Water","Clinic"],"r1_o1":["Road","Power","Housing","Clinic","Water","Vocational"],"r2_o0":["Vocational","Housing","Clinic","Road","Power","Water"],"r2_o1":["Housing","Clinic","Vocational","Power","Road","Water"]},"commitment_span":commitment_span,"intent_order":intent_order,"horizon":24,"money_scale":b15::MONEY_SCALE,"tolerances":tolerance,"calibration":base.governance().ok_or("missing governance")?.calibration,"global_optimality_claim":false,"retry_policy":"Every uncompleted prescribed action retries monthly; successful IDs are never repeated. Intents only at selected candidate; deadline min(month+commitment_span,24). Renewal retries only to M12. Execution errors have no metrics and block the whole B15 group.","route1":"housing/road/power/water/clinic; order1 additionally vocational last; subsidy cap, ordinary energy contract from M3","route2":"vocational/housing/clinic/road/power/water, subsidy cap, cooperation from M2","frontiers":"exact Pareto; tolerance pairwise bidirectional coverage","attainment":"Some only when final M24 grade Achieved; raw first sustained window separately reported"}),
     )?;
     let mut b1_execution_blocked = false;
     let mut capital_outcomes = vec![];
@@ -701,6 +731,7 @@ fn run() -> std::result::Result<u8, String> {
                                     renewal_month: *renewal_month,
                                     project_order: *project_order,
                                     commitment_span,
+                                    intent_order,
                                 };
                                 if selected_script
                                     .as_ref()
@@ -882,10 +913,13 @@ mod driver_tests {
             renewal_month: 9,
             project_order: 1,
             commitment_span: 4,
+            intent_order: IntentOrder::Subsidy,
         };
         assert_eq!(script.id(), "s8-r1-Decline-p1-c20-m9-o1");
         script.commitment_span = 8;
         assert_eq!(script.id(), "s8-r1-Decline-p1-c20-m9-o1-d8");
+        script.intent_order = IntentOrder::AFirst;
+        assert_eq!(script.id(), "s8-r1-Decline-p1-c20-m9-o1-d8-ia");
     }
 
     #[test]
