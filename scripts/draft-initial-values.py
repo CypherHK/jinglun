@@ -9,7 +9,7 @@ from pathlib import Path
 
 STATUS = 'pending_user_confirmation'
 PLAYER = [8, 9, 26, 29, 38, 39, 63, 74, 83, 91]
-DESIGN = Path('/Users/wangyucheng/Projects/jinglun-design/design')
+DESIGN_FILES = ['DECISIONS.md', 'handoffs/2026-10-23-first-governance-slice.md']
 
 
 def value(number, unit, principle, formula, inputs, origin='derived_proposal'):
@@ -21,7 +21,7 @@ def group(**items):
     return dict(status=STATUS, activation='disabled', **items)
 
 
-def generate(map_path):
+def generate(map_path, design_dir):
     raw = map_path.read_bytes()
     world = json.loads(raw)
     assert world['config']['seed'] == 'jinglun-040'
@@ -143,7 +143,9 @@ def generate(map_path):
         assumption='Materials are paid from each future project capital budget, not a free treasury flow. Supplier prices and external accounts remain unbuilt. Two reference projects use the monthly flow exactly. Three projects burn four inventory units per month and exhaust the opening buffer after three months. Inventory is finite; heterogeneous projects require later calibration.')
     return group(schema='jinglun.initial-values-draft.v1', scenario='jinglun-040',
         provenance=dict(map_sha256=hashlib.sha256(raw).hexdigest(),generator_version=world['generator_version'],map_config=world['config'],raw_player_cell_ids=PLAYER,raw_capital_cell_id=39,raw_candidate_cell_ids=[8,29],
-            source_hashes={str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in [DESIGN/'DECISIONS.md',DESIGN/'handoffs/2026-10-23-first-governance-slice.md']},generator='scripts/draft-initial-values.py',
+            source_hashes={name:hashlib.sha256((design_dir/name).read_bytes()).hexdigest() for name in DESIGN_FILES},
+            design_input_requirement='External jinglun-design/design directory must contain the relative source_hashes paths. Supply --design-dir when the sibling directory is unavailable. Design files are read only and are not bundled with this product.',
+            generator='scripts/draft-initial-values.py',
             generator_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest()),
         scope='Arithmetic proposal only. No enterprise, pressure, todo behavior or Game activation. All economic values require user confirmation. No B1-B15 replay or experience acceptance claimed.',
         parameters=group(**parameters),regions=group(**regions),demand=demand_group,energy=energy,fiscal=fiscal,candidate_capital=group(**capital),food=food,materials=material)
@@ -205,9 +207,14 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--map',type=Path,required=True,help='Complete exported WorldMap JSON, raw cell IDs.')
     parser.add_argument('--output',type=Path,required=True)
+    parser.add_argument('--design-dir',type=Path,default=Path(__file__).resolve().parents[2]/'jinglun-design'/'design',
+                        help='Read-only external design directory. Defaults to jinglun-design/design beside the product repository.')
     parser.add_argument('--check',action='store_true',help='Validate and compare output without writing.')
     args=parser.parse_args()
-    draft=generate(args.map)
+    missing=[name for name in DESIGN_FILES if not (args.design_dir/name).is_file()]
+    if missing:
+        parser.error('Design inputs unavailable. Pass --design-dir pointing to jinglun-design/design containing: '+', '.join(DESIGN_FILES))
+    draft=generate(args.map, args.design_dir)
     verify(draft)
     text=json.dumps(draft,ensure_ascii=False,indent=2,sort_keys=True)+'\n'
     if args.check:

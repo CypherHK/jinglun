@@ -921,8 +921,9 @@
     }
   },
   "provenance": {
+    "design_input_requirement": "External jinglun-design/design directory must contain the relative source_hashes paths. Supply --design-dir when the sibling directory is unavailable. Design files are read only and are not bundled with this product.",
     "generator": "scripts/draft-initial-values.py",
-    "generator_sha256": "e66c1849d45eab93fcc26d594a6ff6d2ed3b74b954b7b18b20941679f871e0f5",
+    "generator_sha256": "78215a3060c77928222072e475f5085b4a83123be7fb58fd284a05be407a7e4b",
     "generator_version": "0.6.0",
     "map_config": {
       "cell_count": 100,
@@ -949,8 +950,8 @@
       91
     ],
     "source_hashes": {
-      "/Users/wangyucheng/Projects/jinglun-design/design/DECISIONS.md": "44b820ffbfc00bc8319f4691bd73664c23e65ae4920145d75a85791899af92d7",
-      "/Users/wangyucheng/Projects/jinglun-design/design/handoffs/2026-10-23-first-governance-slice.md": "3f41f8fb0be94f82b90eda69cb734de845e76671f6d958b651bf138209781c8b"
+      "DECISIONS.md": "44b820ffbfc00bc8319f4691bd73664c23e65ae4920145d75a85791899af92d7",
+      "handoffs/2026-10-23-first-governance-slice.md": "3f41f8fb0be94f82b90eda69cb734de845e76671f6d958b651bf138209781c8b"
     }
   },
   "regions": {
