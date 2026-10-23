@@ -1148,3 +1148,145 @@ fn housing_and_factories_share_one_actual_operation_water_priority_order() {
     let bytes = game.save().unwrap();
     assert_eq!(Game::load(&bytes).unwrap().save().unwrap(), bytes);
 }
+
+#[test]
+fn b10_in_construction_factories_finish_but_wait_without_operating_losses() {
+    let calibration = GovernanceCalibration {
+        initial_skilled_idle_share: 1.0,
+        ..Default::default()
+    };
+    let mut game = public_factory_fixture(calibration, RenewalChoice::WaterPriority, 1, 9, 1);
+    let mut accepted = std::collections::BTreeSet::new();
+    for month in 2..=8 {
+        for kind in [PublicWork::Power, PublicWork::Water] {
+            let id = format!("work/{kind:?}");
+            if !game.governance().unwrap().projects.contains_key(&id) {
+                let _ = game.queue_governance(
+                    format!("retry/{kind:?}/{month}"),
+                    GovernanceCommand::BuildPublic {
+                        id,
+                        site: 29,
+                        kind,
+                        road_edge: None,
+                    },
+                );
+            }
+        }
+
+        if month == 2 {
+            game.queue_governance(
+                "pause_road",
+                GovernanceCommand::PauseProject {
+                    id: "work/Road".into(),
+                    paused: true,
+                },
+            )
+            .unwrap();
+        }
+        if month == 4 {
+            game.queue_governance(
+                "finish_clinic",
+                GovernanceCommand::BuildPublic {
+                    id: "work/Clinic".into(),
+                    site: 29,
+                    kind: PublicWork::Clinic,
+                    road_edge: None,
+                },
+            )
+            .unwrap();
+        }
+        if month == 5 {
+            game.queue_governance(
+                "resume_road",
+                GovernanceCommand::PauseProject {
+                    id: "work/Road".into(),
+                    paused: false,
+                },
+            )
+            .unwrap();
+        }
+        let intents: Vec<_> = game
+            .governance()
+            .unwrap()
+            .intents
+            .values()
+            .filter(|i| i.site == 29)
+            .cloned()
+            .collect();
+        for intent in intents {
+            if !accepted.contains(&intent.group)
+                && game
+                    .queue_governance(
+                        format!("accept/{}", intent.id),
+                        GovernanceCommand::AcceptIntent {
+                            id: intent.id,
+                            deadline: month + 4,
+                        },
+                    )
+                    .is_ok()
+            {
+                accepted.insert(intent.group);
+            }
+        }
+        game.end_month(month).unwrap();
+    }
+    let ids: Vec<_> = game
+        .governance()
+        .unwrap()
+        .factories
+        .values()
+        .filter(|f| f.site == 29)
+        .map(|f| f.id.clone())
+        .collect();
+    assert_eq!(ids.len(), 2);
+    let progress: std::collections::BTreeMap<_, _> = ids
+        .iter()
+        .map(|id| {
+            let f = &game.governance().unwrap().factories[id];
+            assert_eq!(f.phase, FactoryPhase::Construction);
+            assert!(f.worked_months > 0 && f.worked_months < f.construction_months);
+            (id.clone(), f.worked_months)
+        })
+        .collect();
+    game.queue_governance(
+        "renew",
+        GovernanceCommand::RenewAid {
+            choice: RenewalChoice::WaterPriority,
+        },
+    )
+    .unwrap();
+    game.end_month(9).unwrap();
+    for id in &ids {
+        let f = &game.governance().unwrap().factories[id];
+        assert_eq!(f.worked_months, progress[id] + 1);
+        assert_eq!(f.first_operated_month, None);
+        assert_eq!(
+            game.reservations()[id].phase,
+            AllocationPhase::WaitingForWater
+        );
+    }
+    for month in 10..=24 {
+        game.end_month(month).unwrap();
+    }
+    for id in &ids {
+        let f = &game.governance().unwrap().factories[id];
+        assert_eq!(f.worked_months, f.construction_months);
+        assert_eq!(game.escrow_remaining(&f.capital_escrow), Some(0));
+        assert_eq!(f.phase, FactoryPhase::Construction);
+        assert!(!f.water_suspended);
+        assert_eq!(f.loss_months, 0);
+        assert_eq!(f.output, 0.0);
+        assert_eq!(f.first_operated_month, None);
+    }
+    let bytes = game.save().unwrap();
+    game = Game::load(&bytes).unwrap();
+    game.end_month(25).unwrap();
+    for id in ids {
+        let f = &game.governance().unwrap().factories[&id];
+        assert_eq!(f.phase, FactoryPhase::Operating);
+        assert_eq!(f.first_operated_month, Some(25));
+        assert!(f.activate_month < 25);
+    }
+    let bytes = game.save().unwrap();
+    assert_eq!(Game::load(&bytes).unwrap().save().unwrap(), bytes);
+}
