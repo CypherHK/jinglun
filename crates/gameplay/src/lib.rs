@@ -1,5 +1,8 @@
 //! Foundation primitives only. No economy, population, tax, AI, or facility rules.
 mod descriptors;
+mod governance;
+pub mod initial_values;
+pub use governance::*;
 mod scenario;
 pub use descriptors::{
     AdmissionLimit, AllocationPhase, PayableView, PaymentObligation, TodoDescriptor,
@@ -44,6 +47,7 @@ impl From<serde_json::Error> for Error {
 pub enum Confirmation {
     Draft,
     Unconfirmed,
+    Confirmed,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
@@ -311,6 +315,8 @@ pub struct Game {
     obligations: BTreeMap<String, ObligationState>,
     admissions: BTreeMap<String, AdmissionState>,
     todos: BTreeMap<String, TodoDescriptor>,
+    governance: Option<GovernanceState>,
+    system_receipts: Vec<SystemReceipt>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -395,6 +401,8 @@ impl Game {
             obligations: BTreeMap::new(),
             admissions: BTreeMap::new(),
             todos: BTreeMap::new(),
+            governance: None,
+            system_receipts: Vec::new(),
         };
         game.validate()?;
         Ok(game)
@@ -423,6 +431,11 @@ impl Game {
         })
     }
     pub fn apply(&mut self, command_id: impl Into<String>, command: Command) -> Result<Receipt> {
+        if self.governance.is_some() {
+            return Err(Error::Invalid(
+                "use governance command plans in formal mode",
+            ));
+        }
         let command_id = command_id.into();
         identifier(&command_id)?;
         if let Some(applied) = self.applied.get(&command_id) {
@@ -433,6 +446,14 @@ impl Game {
             };
         }
         let mut candidate = self.clone();
+        candidate.apply_internal(command_id.clone(), command.clone())?;
+        candidate.validate()?;
+        let receipt = candidate.applied[&command_id].receipt.clone();
+        *self = candidate;
+        Ok(receipt)
+    }
+    fn apply_internal(&mut self, command_id: String, command: Command) -> Result<Receipt> {
+        let candidate = self;
         candidate.execute(&command)?;
         let receipt = Receipt {
             command_id: command_id.clone(),
@@ -452,8 +473,6 @@ impl Game {
                 receipt: receipt.clone(),
             },
         );
-        candidate.validate()?;
-        *self = candidate;
         Ok(receipt)
     }
     fn execute(&mut self, command: &Command) -> Result<()> {
@@ -676,8 +695,25 @@ impl Game {
             return Err(Error::Conflict);
         }
         let mut candidate = self.clone();
+        candidate.advance_month_unchecked()?;
+        candidate.validate()?;
+        let foundation_mode = candidate.governance.is_none();
+        *self = candidate;
+        Ok(MonthReceipt {
+            completed_month: expected_month,
+            stages: STAGES.map(Stage::name).to_vec(),
+            foundation_mode,
+        })
+    }
+    fn advance_month_unchecked(&mut self) -> Result<()> {
+        let candidate = self;
         let next = candidate.month.checked_add(1).ok_or(Error::Overflow)?;
         for stage in STAGES {
+            if let Some(mut state) = candidate.governance.take() {
+                let result = state.stage(candidate, stage);
+                candidate.governance = Some(state);
+                result?;
+            }
             if matches!(stage, Stage::Archive) {
                 for item in &candidate.pending {
                     let value = candidate
@@ -690,13 +726,7 @@ impl Game {
                 candidate.month = next;
             }
         }
-        candidate.validate()?;
-        *self = candidate;
-        Ok(MonthReceipt {
-            completed_month: expected_month,
-            stages: STAGES.map(Stage::name).to_vec(),
-            foundation_mode: true,
-        })
+        Ok(())
     }
     pub fn month(&self) -> u32 {
         self.month
@@ -872,7 +902,7 @@ impl Game {
         let initial = Self::initial_ledger(&self.initial)?;
         if self.month == 0
             || self.ledger.accounts.keys().ne(initial.accounts.keys())
-            || self.ledger.totals()? != initial.totals()?
+            || !self.conserved_with_external(&initial)?
         {
             return Err(Error::Invalid("month, accounts or conserved balances"));
         }
@@ -957,6 +987,7 @@ impl Game {
                 return Err(Error::Invalid("command receipt"));
             }
         }
+        self.validate_governance()?;
         self.validate_command_consistency()?;
         self.validate_effect_receipts()
     }
@@ -1215,6 +1246,15 @@ impl Game {
                     (e.total - e.paid) as i128,
                 )?;
             }
+        }
+        for receipt in &self.system_receipts {
+            receipt.validate(self)?;
+            adjust(
+                &mut expected,
+                &receipt.account,
+                &receipt.asset,
+                receipt.delta,
+            )?;
         }
         for (id, balances) in &self.ledger.accounts {
             let expected_balances = expected

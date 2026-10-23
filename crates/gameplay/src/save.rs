@@ -1,6 +1,6 @@
 use crate::*;
 
-const SCHEMA_VERSION: u32 = 1;
+const SCHEMA_VERSION: u32 = 2;
 
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -29,6 +29,10 @@ struct Snapshot {
     obligations: BTreeMap<String, ObligationState>,
     admissions: BTreeMap<String, AdmissionState>,
     todos: BTreeMap<String, TodoDescriptor>,
+    #[serde(default)]
+    governance: Option<GovernanceState>,
+    #[serde(default)]
+    system_receipts: Vec<SystemReceipt>,
 }
 fn checksum(snapshot: &Snapshot) -> Result<String> {
     // Canonical Value ordering also makes input object key order immaterial.
@@ -55,6 +59,8 @@ impl Game {
             obligations: self.obligations.clone(),
             admissions: self.admissions.clone(),
             todos: self.todos.clone(),
+            governance: self.governance.clone(),
+            system_receipts: self.system_receipts.clone(),
         };
         let save = Save {
             schema_version: SCHEMA_VERSION,
@@ -96,8 +102,11 @@ impl Game {
             obligations: s.obligations,
             admissions: s.admissions,
             todos: s.todos,
+            governance: s.governance,
+            system_receipts: s.system_receipts,
         };
         game.validate()?;
+        game.validate_governance_replay()?;
         Ok(game)
     }
 }
