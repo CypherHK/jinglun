@@ -71,6 +71,7 @@ struct Replay {
     final_scorecards: Vec<Scorecard>,
     government_capital: GovernmentCapital,
     trade_audit: TradeAudit,
+    labor_trial_audit: Value,
 }
 
 #[derive(Clone, Debug, Default, Serialize)]
@@ -710,7 +711,7 @@ fn replay(base: &Game, script: Script) -> std::result::Result<Replay, String> {
         let state = game.governance().ok_or("missing governance state")?;
         let record = state.history.last().ok_or("month produced no history")?;
         let factories: Vec<_> = state.factories.values().map(|f|json!({"id":f.id,"group":f.group,"site":f.site,"phase":f.phase,"start":f.started_month,"activate":f.activate_month,"output":f.output,"domestic_sales":json!(f)["domestic_sales"],"export_sales":json!(f)["export_sales"],"after_tax_profit":f.after_tax_profit,"operating_subsidy":f.operating_subsidy,"water_suspended":f.water_suspended,"first_operated_month":f.first_operated_month})).collect();
-        monthly.push(json!({"record":record,"group_cash":{"A":game.balance(Group::A.account(), &Asset::Money),"B":game.balance(Group::B.account(), &Asset::Money)},"factories":factories,"candidate_site":state.sites.get(&script.site),"unused_energy_bill":state.last_energy_unused_bill,"projects":state.projects.values().collect::<Vec<_>>()}));
+        monthly.push(json!({"record":record,"group_cash":{"A":game.balance(Group::A.account(), &Asset::Money),"B":game.balance(Group::B.account(), &Asset::Money)},"factories":factories,"candidate_site":state.sites.get(&script.site),"all_sites":state.sites,"labor_trial_sources":json!(state)["labor_trial_sources"],"unused_energy_bill":state.last_energy_unused_bill,"projects":state.projects.values().collect::<Vec<_>>()}));
     }
     let state = game.governance().ok_or("missing governance state")?;
     let report = state.report.clone();
@@ -767,7 +768,9 @@ fn replay(base: &Game, script: Script) -> std::result::Result<Replay, String> {
         &trade_audit,
         initial_values::number(&document, "/parameters/goods_price").map_err(|e| e.to_string())?,
     )?;
+    let labor_trial_audit = labor_trial_audit(&game, &monthly, script.site)?;
     Ok(Replay {
+        labor_trial_audit,
         outcome,
         script,
         first_sustained_window: first,
@@ -780,6 +783,98 @@ fn replay(base: &Game, script: Script) -> std::result::Result<Replay, String> {
         government_capital,
         trade_audit,
     })
+}
+
+fn labor_trial_audit(
+    game: &Game,
+    monthly: &[Value],
+    candidate: u32,
+) -> std::result::Result<Value, String> {
+    let snapshot: Value = serde_json::from_slice(&game.save().map_err(|e| e.to_string())?)
+        .map_err(|e| e.to_string())?;
+    let applied = snapshot
+        .pointer("/payload/applied")
+        .and_then(Value::as_object)
+        .ok_or("missing payroll ledger")?;
+    let mut rows = vec![];
+    let mut peaks = BTreeMap::<String, Value>::new();
+    for (index, row) in monthly.iter().enumerate() {
+        let month = index + 1;
+        let mut payroll = BTreeMap::<String, u64>::new();
+        let mut receipts = vec![];
+        for (id, entry) in applied {
+            if entry.pointer("/receipt/month").and_then(Value::as_u64) != Some(month as u64) {
+                continue;
+            }
+            let Some(transfer) = entry.pointer("/command/Transfer") else {
+                continue;
+            };
+            if transfer["asset"] != "money" || transfer["to"] != "households" {
+                continue;
+            }
+            if !(id.starts_with("wage/") || id.starts_with("existing/wages/")) {
+                continue;
+            }
+            let amount = transfer["amount"].as_u64().ok_or("invalid wage receipt")?;
+            *payroll
+                .entry(transfer["from"].as_str().unwrap_or("unknown").into())
+                .or_default() += amount;
+            receipts.push(json!({"id":id,"from":transfer["from"],"amount":amount}));
+        }
+        let incomes: Vec<_> = game
+            .system_receipts()
+            .iter()
+            .filter(|r| {
+                r.month == month as u32 && r.reason == "existing_nonmanufacturing_employer_wages"
+            })
+            .collect();
+        for phase in ["nonclosed", "operating", "building"] {
+            let mut by_site = BTreeMap::<u32, Vec<String>>::new();
+            for f in row["factories"].as_array().ok_or("missing factory trace")? {
+                let site = f["site"].as_u64().ok_or("missing site")? as u32;
+                let p = f["phase"].as_str().unwrap_or("");
+                let present = match phase {
+                    "operating" => {
+                        matches!(p, "Operating" | "Reduced" | "ClosureWarned")
+                            && f["water_suspended"] != true
+                    }
+                    "building" => p == "Construction",
+                    _ => p != "Closed",
+                };
+                if present {
+                    by_site
+                        .entry(site)
+                        .or_default()
+                        .push(f["id"].as_str().unwrap_or("").into());
+                }
+            }
+            let total: usize = by_site.values().map(Vec::len).sum();
+            let pair: usize = [39, candidate]
+                .iter()
+                .map(|site| by_site.get(site).map_or(0, Vec::len))
+                .sum();
+            for (scope, count) in [
+                ("national", total),
+                ("capital_candidate_simultaneous", pair),
+            ] {
+                let key = format!("{scope}/{phase}");
+                if peaks
+                    .get(&key)
+                    .and_then(|v| v["count"].as_u64())
+                    .is_none_or(|old| count as u64 > old)
+                {
+                    peaks.insert(
+                        key,
+                        json!({"count":count,"month":month,"factory_ids_by_site":by_site}),
+                    );
+                }
+            }
+        }
+        rows.push(json!({"month":month,"sources":row["labor_trial_sources"],"all_sites":row["all_sites"],"factory_payroll_by_payer":payroll,"factory_wage_receipts":receipts,"nonmanufacturing_wage_receipts":incomes}));
+    }
+    Ok(
+        json!({"monthly":rows,"simultaneous_factory_peaks":peaks,"scope":"One script only; money in fixed units. Cumulative source deltas give monthly loss; never sum losses across alternative scripts."}),
+    )
 }
 
 fn run() -> std::result::Result<u8, String> {
@@ -795,9 +890,11 @@ fn run() -> std::result::Result<u8, String> {
     let mut subsidy_start_month = None;
     let mut include_delayed_policy = false;
     let mut require_acceptance = false;
+    let mut labor_recruitment_experiment = false;
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--quick" => quick = true,
+            "--labor-recruitment-experiment" => labor_recruitment_experiment = true,
             "--summary-only" => summary_only = true,
             "--require-acceptance" => require_acceptance = true,
             "--script" => selected_script = Some(args.next().ok_or("--script needs an ID")?),
@@ -854,7 +951,7 @@ fn run() -> std::result::Result<u8, String> {
             }
             _ => {
                 return Err(
-                    "usage: governance_replay [--quick] [--summary-only] [--script ID] [--water-share RATIO] [--require-acceptance] [--skilled-idle-share RATIO] [--export-orders QUANTITY] [--commitment-span MONTHS] [--intent-order subsidy|a-first] [--subsidy-start-month MONTH]".into(),
+                    "usage: governance_replay [--labor-recruitment-experiment] [--quick] [--summary-only] [--script ID] [--water-share RATIO] [--require-acceptance] [--skilled-idle-share RATIO] [--export-orders QUANTITY] [--commitment-span MONTHS] [--intent-order subsidy|a-first] [--subsidy-start-month MONTH]".into(),
                 );
             }
         }
@@ -894,9 +991,10 @@ fn run() -> std::result::Result<u8, String> {
             .checked_mul(u64::from(orders))
             .ok_or("export buyer budget overflow")?;
     }
-    let base = Game::confirmed_game_with_calibration(calibration).map_err(|e| e.to_string())?;
+    let base = Game::confirmed_game_with_labor_trial(calibration, labor_recruitment_experiment)
+        .map_err(|e| e.to_string())?;
     emit(
-        &json!({"kind":"search_domain","require_acceptance":require_acceptance,"selected_script":selected_script,"pending_water_share_override":water_share,"pending_skilled_idle_share_override":skilled_idle_share,"pending_export_orders_override":export_orders,"export_budget_policy":"When export quantity is overridden, foreign buyer monthly budget is exactly quantity times D022 confirmed goods unit price in fixed money units.","preparation_months":preparation,"subsidy_currency":subsidy,"renewal_months":renewal,"project_orders":order,"choices":["W","E","Decline"],"project_sequences":{"r1_o0":["Housing","Road","Power","Water","Clinic"],"r1_o1":["Road","Power","Housing","Clinic","Water","Vocational"],"r2_o0":["Vocational","Housing","Clinic","Road","Power","Water"],"r2_o1":["Housing","Clinic","Vocational","Power","Road","Water"]},"commitment_span":commitment_span,"intent_order":intent_order,"subsidy_start_month_override":subsidy_start_month,"include_delayed_policy":include_delayed_policy,"additional_policy":"When included, add p1 c40 m9 o1 deadline8 A-first subsidy-start8 for every site/route/choice, alongside unchanged base domain.","subsidy_start_policy":"Initial cap remains zero until max(preparation month, explicit subsidy-start-month); default start equals preparation month.","horizon":24,"money_scale":b15::MONEY_SCALE,"tolerances":tolerance,"calibration":base.governance().ok_or("missing governance")?.calibration,"global_optimality_claim":false,"retry_policy":"Every uncompleted prescribed action retries monthly; successful IDs are never repeated. Intents only at selected candidate; deadline min(month+commitment_span,24). Renewal retries only to M12. Execution errors have no metrics and block the whole B15 group.","route1":"housing/road/power/water/clinic; order1 additionally vocational last; subsidy cap, ordinary energy contract from M3","route2":"vocational/housing/clinic/road/power/water, subsidy cap, cooperation from M2","frontiers":"exact Pareto; tolerance pairwise bidirectional coverage","attainment":"Some only when final M24 grade Achieved; raw first sustained window separately reported"}),
+        &json!({"kind":"search_domain","labor_recruitment_experiment":labor_recruitment_experiment,"experiment_status":"user-authorized fixed proposal; not a confirmed design decision","require_acceptance":require_acceptance,"selected_script":selected_script,"pending_water_share_override":water_share,"pending_skilled_idle_share_override":skilled_idle_share,"pending_export_orders_override":export_orders,"export_budget_policy":"When export quantity is overridden, foreign buyer monthly budget is exactly quantity times D022 confirmed goods unit price in fixed money units.","preparation_months":preparation,"subsidy_currency":subsidy,"renewal_months":renewal,"project_orders":order,"choices":["W","E","Decline"],"project_sequences":{"r1_o0":["Housing","Road","Power","Water","Clinic"],"r1_o1":["Road","Power","Housing","Clinic","Water","Vocational"],"r2_o0":["Vocational","Housing","Clinic","Road","Power","Water"],"r2_o1":["Housing","Clinic","Vocational","Power","Road","Water"]},"commitment_span":commitment_span,"intent_order":intent_order,"subsidy_start_month_override":subsidy_start_month,"include_delayed_policy":include_delayed_policy,"additional_policy":"When included, add p1 c40 m9 o1 deadline8 A-first subsidy-start8 for every site/route/choice, alongside unchanged base domain.","subsidy_start_policy":"Initial cap remains zero until max(preparation month, explicit subsidy-start-month); default start equals preparation month.","horizon":24,"money_scale":b15::MONEY_SCALE,"tolerances":tolerance,"calibration":base.governance().ok_or("missing governance")?.calibration,"global_optimality_claim":false,"retry_policy":"Every uncompleted prescribed action retries monthly; successful IDs are never repeated. Intents only at selected candidate; deadline min(month+commitment_span,24). Renewal retries only to M12. Execution errors have no metrics and block the whole B15 group.","route1":"housing/road/power/water/clinic; order1 additionally vocational last; subsidy cap, ordinary energy contract from M3","route2":"vocational/housing/clinic/road/power/water, subsidy cap, cooperation from M2","frontiers":"exact Pareto; tolerance pairwise bidirectional coverage","attainment":"Some only when final M24 grade Achieved; raw first sustained window separately reported"}),
     )?;
     let mut b1_execution_blocked = false;
     let mut capital_outcomes = vec![];
@@ -966,7 +1064,7 @@ fn run() -> std::result::Result<u8, String> {
                         }
                     };
                     trade_records.insert(result.script.id(), result.trade_audit.clone());
-                    capital_records.push(json!({"script_id":result.script.id(),"choice":choice,"capital":result.government_capital,"trade_audit":result.trade_audit,"execution_error":result.execution_error}));
+                    capital_records.push(json!({"script_id":result.script.id(),"choice":choice,"capital":result.government_capital,"trade_audit":result.trade_audit,"labor_trial_audit":result.labor_trial_audit,"execution_error":result.execution_error}));
                     if result.execution_error.is_some() {
                         b1_execution_blocked = true;
                         fatal_count += 1;
