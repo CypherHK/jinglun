@@ -122,6 +122,14 @@ struct TradeAudit {
     factories: BTreeMap<String, FactoryTrade>,
     sites: BTreeMap<u32, SalesTotals>,
     capital_autonomous_domestic_by_month: BTreeMap<u32, f64>,
+    national_factory_peaks: FactoryPeaks,
+    site_factory_peaks: BTreeMap<u32, FactoryPeaks>,
+}
+
+#[derive(Clone, Debug, Default, Serialize)]
+struct FactoryPeaks {
+    nonclosed_new_factories: usize,
+    operating_new_factories: usize,
 }
 
 #[derive(Clone, Debug, Default, Serialize)]
@@ -155,6 +163,7 @@ fn financial_audit(
     for (index, record) in monthly.iter().enumerate() {
         let month = u32::try_from(index + 1).map_err(|_| "month overflow")?;
         let mut capital_domestic = 0.0;
+        let mut counts = BTreeMap::<u32, FactoryPeaks>::new();
         for factory in record["factories"].as_array().ok_or("missing factories")? {
             let id = factory["id"].as_str().ok_or("missing factory ID")?;
             let site = factory["site"]
@@ -167,6 +176,17 @@ fn financial_audit(
             let export = factory["export_sales"]
                 .as_f64()
                 .ok_or("missing export sales")?;
+            let count = counts.entry(site).or_default();
+            if factory["phase"] != "Closed" {
+                count.nonclosed_new_factories += 1;
+                if matches!(
+                    factory["phase"].as_str(),
+                    Some("Operating" | "Reduced" | "ClosureWarned")
+                ) && factory["water_suspended"] != true
+                {
+                    count.operating_new_factories += 1;
+                }
+            }
             let row = trade.factories.entry(id.into()).or_default();
             row.site = site;
             row.group = factory["group"].clone();
@@ -185,6 +205,23 @@ fn financial_audit(
         trade
             .capital_autonomous_domestic_by_month
             .insert(month, capital_domestic);
+        trade.national_factory_peaks.nonclosed_new_factories = trade
+            .national_factory_peaks
+            .nonclosed_new_factories
+            .max(counts.values().map(|c| c.nonclosed_new_factories).sum());
+        trade.national_factory_peaks.operating_new_factories = trade
+            .national_factory_peaks
+            .operating_new_factories
+            .max(counts.values().map(|c| c.operating_new_factories).sum());
+        for (site, count) in counts {
+            let peak = trade.site_factory_peaks.entry(site).or_default();
+            peak.nonclosed_new_factories = peak
+                .nonclosed_new_factories
+                .max(count.nonclosed_new_factories);
+            peak.operating_new_factories = peak
+                .operating_new_factories
+                .max(count.operating_new_factories);
+        }
     }
     for (id, escrow) in escrows {
         if escrow["payer"] != "treasury" {
