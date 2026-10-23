@@ -45,6 +45,7 @@ struct Replay {
     monthly: Vec<Value>,
     final_scorecards: Vec<Scorecard>,
     government_capital: GovernmentCapital,
+    trade_audit: TradeAudit,
 }
 
 #[derive(Clone, Debug, Default, Serialize)]
@@ -87,7 +88,14 @@ struct GovernmentCapital {
     total: CapitalAccount,
 }
 
-fn government_capital(game: &Game) -> std::result::Result<GovernmentCapital, String> {
+#[derive(Clone, Debug, Default, Serialize)]
+struct TradeAudit {
+    domestic_sales_actual_payment: u64,
+    export_sales_actual_payment: u64,
+    export_sales_months: BTreeSet<u32>,
+}
+
+fn financial_audit(game: &Game) -> std::result::Result<(GovernmentCapital, TradeAudit), String> {
     let snapshot: Value = serde_json::from_slice(&game.save().map_err(|e| e.to_string())?)
         .map_err(|e| e.to_string())?;
     let escrows = snapshot
@@ -95,6 +103,7 @@ fn government_capital(game: &Game) -> std::result::Result<GovernmentCapital, Str
         .and_then(Value::as_object)
         .ok_or("save lacks escrow audit data")?;
     let mut capital = GovernmentCapital::default();
+    let mut trade = TradeAudit::default();
     for (id, escrow) in escrows {
         if escrow["payer"] != "treasury" {
             continue;
@@ -122,10 +131,30 @@ fn government_capital(game: &Game) -> std::result::Result<GovernmentCapital, Str
         .pointer("/payload/applied")
         .and_then(Value::as_object)
         .ok_or("save lacks command audit data")?;
-    for entry in applied.values() {
+    for (command_id, entry) in applied {
         let Some(transfer) = entry.pointer("/command/Transfer") else {
             continue;
         };
+        if command_id.starts_with("sales/") && transfer["asset"] == "money" {
+            let amount = transfer["amount"].as_u64().ok_or("invalid sales payment")?;
+            if transfer["from"] == "foreign_buyer" {
+                trade.export_sales_actual_payment = trade
+                    .export_sales_actual_payment
+                    .checked_add(amount)
+                    .ok_or("export sales overflow")?;
+                let month = entry
+                    .pointer("/receipt/month")
+                    .and_then(Value::as_u64)
+                    .and_then(|m| u32::try_from(m).ok())
+                    .ok_or("invalid export payment month")?;
+                trade.export_sales_months.insert(month);
+            } else if transfer["from"] == "households" {
+                trade.domestic_sales_actual_payment = trade
+                    .domestic_sales_actual_payment
+                    .checked_add(amount)
+                    .ok_or("domestic sales overflow")?;
+            }
+        }
         if transfer["from"] == "treasury"
             && transfer["to"] == "construction"
             && transfer["asset"] == "money"
@@ -140,7 +169,7 @@ fn government_capital(game: &Game) -> std::result::Result<GovernmentCapital, Str
             capital.total.add(amount, amount, false)?;
         }
     }
-    Ok(capital)
+    Ok((capital, trade))
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -533,6 +562,7 @@ fn replay(base: &Game, script: Script) -> std::result::Result<Replay, String> {
         .map(|g| game.scorecard(g, script.site))
         .collect::<Result<Vec<_>>>()
         .map_err(|e| e.to_string())?;
+    let (government_capital, trade_audit) = financial_audit(&game)?;
     Ok(Replay {
         outcome,
         script,
@@ -543,7 +573,8 @@ fn replay(base: &Game, script: Script) -> std::result::Result<Replay, String> {
         failed_actions: failed,
         monthly,
         final_scorecards,
-        government_capital: government_capital(&game)?,
+        government_capital,
+        trade_audit,
     })
 }
 
@@ -674,7 +705,7 @@ fn run() -> std::result::Result<u8, String> {
                                         continue;
                                     }
                                 };
-                                capital_records.push(json!({"script_id":result.script.id(),"choice":choice,"capital":result.government_capital,"execution_error":result.execution_error}));
+                                capital_records.push(json!({"script_id":result.script.id(),"choice":choice,"capital":result.government_capital,"trade_audit":result.trade_audit,"execution_error":result.execution_error}));
                                 if result.execution_error.is_some() {
                                     b1_execution_blocked = true;
                                     fatal_count += 1;
