@@ -14,6 +14,10 @@
 
 ## 当前实施范围与进度
 
+2026-10-23 D023 输入更新：用户已确认企业自主开工、只开不关的地区准入、三档报告和 B15 比较口径；已重新完整阅读更新规格及 D023。当前 DECISIONS SHA-256 为 `de3194c256572273e4eee98868bdd2c840ae2bbfaa8f5249cd7ab01a1b31ef7c`，规格为 `fbab198b77ad12b9ec45d48db07044f61a8da2799d0274604da8d19a8f60d6e1`。此前提出的三处语义问题已由 D023 解决；内参模板、排序和“严重”阈值仍未定。B15 使用达成月份、全程护栏失守总月数、M24 国库减未付能源长约义务、最近三月经常收支；搜索范围和误差带须公开并标为待用户确认，不能用完全持平冒充有代价的选择。
+
+同日再次 fetch 核对：远端 `origin/Develop` 仍为 `3f8bfb4`；另一地图任务已将原工作区本地 `Develop` 推进到 `6b05785`（其父为 `b37e141`）。这两个地图提交和原工作区均保留，不进入本轮规则层分支。数据启用与规则实现分别在 `governance-confirmed-data`、`governance-rule-engine` 独立 worktree 由 GPT-6.1 Sol 执行，根代理在 `governance-rules` 集成与验收。
+
 2026-10-23 D022 规则层开工：用户确认 `3f8bfb423d6d686da03c25b7fcab706e3ddd6af9` 的初始数值（含 D020、D021 段），授权实现首个治理切片的规则与 B1–B15 自动回放；没有授权 HTTP/UI、PR、部署或依赖安装升级。已重新完整读取规格和 D004–D022，DECISIONS SHA-256 为 `5b7a374affd195297c48bb93eefc3c1de76f5b3ad9e74ae51ba676a9b3a8a0db`，规格为 `b8fae9dfe0715e15af94076c48322bb2260e739a74801269a8493507ef13ddbf`。确认前原 JSON SHA-256 为 `ea19c3f2dca82da57ad9380eb9fc5feee3687895102cdeb8857608195682e815`；启用只能改确认状态与来源记录，原有数值不得调整。
 
 开工 Git 核对：远端 `origin/Develop` 为 `3f8bfb4`，原工作区本地 `Develop` 为 `b37e141`，工作区干净。另一地图任务的 `b37e141` 保留在原工作区及 `docs/natural-map-09-conflict-resolution` 分支，不挑入本轮交付。规则层工作区为 `/Users/wangyucheng/Projects/jinglun-worktrees/governance-rules`，分支 `gameplay/governance-rules`，从远端 `3f8bfb4` 建立；最终仅将本轮分支以快进方式推到 fork 的 `Develop`。原工作区和地图提交不改写。
