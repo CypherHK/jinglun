@@ -156,6 +156,9 @@ fn passive_enterprise_self_funds_capital_without_intent_or_government_subsidy() 
         .unwrap();
     assert_eq!(f.phase, FactoryPhase::Operating);
     assert_eq!(f.output, 100.0);
+    assert_eq!(f.domestic_sales, 100.0);
+    assert_eq!(f.export_sales, 0.0);
+    println!("D028 passive capital first domestic sales: M12 site39 domestic=100 export=0");
     assert_eq!(f.operating_subsidy, 0);
 }
 
