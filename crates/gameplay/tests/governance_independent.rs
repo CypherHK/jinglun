@@ -62,9 +62,10 @@ fn monthly_plan_preserves_live_ledger_and_failed_dependency_withdrawal_is_atomic
     }
     assert!(game.withdraw_governance("clinic").is_err());
     assert_eq!(game.save().unwrap(), planned);
-    assert!(game
-        .queue_governance("clinic", GovernanceCommand::OpenRegion { site: 29 })
-        .is_err());
+    assert!(
+        game.queue_governance("clinic", GovernanceCommand::OpenRegion { site: 29 })
+            .is_err()
+    );
     assert_eq!(game.save().unwrap(), planned);
     game.withdraw_governance("pause").unwrap();
     game.withdraw_governance("clinic").unwrap();
@@ -239,10 +240,12 @@ fn report_keeps_historical_guard_failures_but_fiscal_recovery_is_separate() {
             .take(3)
             .all(|r| r.recurring_balance >= 0)
     );
-    assert!(!report
-        .failures
-        .iter()
-        .any(|r| r == "last_three_month_livelihood_or_security_guardrail_failed"));
+    assert!(
+        !report
+            .failures
+            .iter()
+            .any(|r| r == "last_three_month_livelihood_or_security_guardrail_failed")
+    );
 }
 
 fn loss_warning_game(restore_in_warning_month: bool) -> Game {
@@ -402,15 +405,16 @@ fn institution_announcement_waits_one_month_and_cooldown_rejections_are_atomic()
     assert!(!game.governance().unwrap().labor_protection);
     for month in [2, 3] {
         let before = game.save().unwrap();
-        assert!(game
-            .queue_governance(
+        assert!(
+            game.queue_governance(
                 format!("too-early-{month}"),
                 GovernanceCommand::SetInstitution {
                     kind: Institution::LaborProtection,
                     enabled: false,
                 }
             )
-            .is_err());
+            .is_err()
+        );
         assert_eq!(game.save().unwrap(), before);
         game.end_month(month).unwrap();
         assert!(game.governance().unwrap().labor_protection);
@@ -479,10 +483,11 @@ fn early_subsidy_alone_changes_cash_gap_into_next_month_investment_intent() {
     let mut waiting = early_public_conditions(8);
     let card = waiting.scorecard(Group::B, 8).unwrap();
     assert!(card.gaps["cash"] > 0.0);
-    assert!(card
-        .gaps
-        .iter()
-        .all(|(name, gap)| name == "cash" || *gap == 0.0));
+    assert!(
+        card.gaps
+            .iter()
+            .all(|(name, gap)| name == "cash" || *gap == 0.0)
+    );
     let mut subsidized = waiting.clone();
     subsidized
         .queue_governance(
@@ -496,18 +501,22 @@ fn early_subsidy_alone_changes_cash_gap_into_next_month_investment_intent() {
     assert!(subsidized.scorecard(Group::B, 8).unwrap().conditional_ready);
     waiting.end_month(4).unwrap();
     subsidized.end_month(4).unwrap();
-    assert!(!waiting
-        .governance()
-        .unwrap()
-        .intents
-        .values()
-        .any(|i| i.site == 8 && i.group == Group::B));
-    assert!(subsidized
-        .governance()
-        .unwrap()
-        .intents
-        .values()
-        .any(|i| i.site == 8 && i.group == Group::B && i.created_month == 4));
+    assert!(
+        !waiting
+            .governance()
+            .unwrap()
+            .intents
+            .values()
+            .any(|i| i.site == 8 && i.group == Group::B)
+    );
+    assert!(
+        subsidized
+            .governance()
+            .unwrap()
+            .intents
+            .values()
+            .any(|i| i.site == 8 && i.group == Group::B && i.created_month == 4)
+    );
 }
 
 #[test]
@@ -547,14 +556,15 @@ fn investment_intent_expires_at_original_deadline_and_renewal_expires_at_twelve(
     assert!(game.governance().unwrap().todos["aid/renewal"].resolved);
     assert_eq!(game.governance().unwrap().renewal, None);
     let before = game.save().unwrap();
-    assert!(game
-        .queue_governance(
+    assert!(
+        game.queue_governance(
             "too-late",
             GovernanceCommand::RenewAid {
                 choice: RenewalChoice::WaterPriority
             }
         )
-        .is_err());
+        .is_err()
+    );
     assert_eq!(game.save().unwrap(), before);
     game.end_month(13).unwrap();
     assert_eq!(game.governance().unwrap().last_aid, 0);
@@ -614,9 +624,11 @@ fn breached_promise_ignores_new_work_for_six_months_but_recognizes_completed_cap
     let recognized = game.scorecard(Group::A, 8).unwrap();
     assert!(ignored.promised_projects.is_empty());
     assert!(ignored.gaps["power"] > 0.0);
-    assert!(recognized
-        .promised_projects
-        .contains(&"independent-8-power".into()));
+    assert!(
+        recognized
+            .promised_projects
+            .contains(&"independent-8-power".into())
+    );
     assert_eq!(recognized.gaps["power"], 0.0);
     advance(&mut game, 9);
     assert!(game.governance().unwrap().projects["independent-8-power"].active);
@@ -624,23 +636,28 @@ fn breached_promise_ignores_new_work_for_six_months_but_recognizes_completed_cap
     advance(&mut game, 12);
     public_project(&mut game, 26, "deadline-water", PublicWork::Water);
     assert_eq!(game.month(), 13);
-    assert!(game
-        .scorecard(Group::B, 26)
-        .unwrap()
-        .promised_projects
-        .is_empty());
-    assert!(!game
-        .scorecard(Group::A, 26)
-        .unwrap()
-        .promised_projects
-        .is_empty());
+    assert!(
+        game.scorecard(Group::B, 26)
+            .unwrap()
+            .promised_projects
+            .is_empty()
+    );
+    assert!(
+        !game
+            .scorecard(Group::A, 26)
+            .unwrap()
+            .promised_projects
+            .is_empty()
+    );
     game.end_month(13).unwrap();
     assert_eq!(game.month(), 14);
-    assert!(!game
-        .scorecard(Group::B, 26)
-        .unwrap()
-        .promised_projects
-        .is_empty());
+    assert!(
+        !game
+            .scorecard(Group::B, 26)
+            .unwrap()
+            .promised_projects
+            .is_empty()
+    );
 }
 
 #[test]
