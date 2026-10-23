@@ -1678,7 +1678,11 @@ impl GovernanceState {
         self.assess_excluding_commitment(game, group, site, None)
     }
     fn assess_excluding_commitment(
-        &self, game: &Game, group: Group, site: u32, own_commitment: Option<&str>,
+        &self,
+        game: &Game,
+        group: Group,
+        site: u32,
+        own_commitment: Option<&str>,
     ) -> Result<Scorecard> {
         let doc = document()?;
         let natural = game
@@ -1717,13 +1721,23 @@ impl GovernanceState {
             .factories
             .values()
             .filter(|f| f.phase != FactoryPhase::Closed)
-            .map(|f| output * if f.retrofitted {
-                1.0 + self.calibration.retrofit_output_increase
-            } else { 1.0 })
+            .map(|f| {
+                output
+                    * if f.retrofitted {
+                        1.0 + self.calibration.retrofit_output_increase
+                    } else {
+                        1.0
+                    }
+            })
             .sum::<f64>()
-            + self.commitments.values().filter(|c| {
-                c.status == CommitmentStatus::Pending && Some(c.id.as_str()) != own_commitment
-            }).count() as f64 * output;
+            + self
+                .commitments
+                .values()
+                .filter(|c| {
+                    c.status == CommitmentStatus::Pending && Some(c.id.as_str()) != own_commitment
+                })
+                .count() as f64
+                * output;
         let import_cap = number(doc, "/demand/initial_imports/value")?;
         let remaining_domestic = import_cap - domestic_new.min(import_cap);
         let export_committed = (domestic_new - import_cap).max(0.0);
@@ -2824,6 +2838,10 @@ impl GovernanceState {
         let doc = document()?;
         let month = game.month;
         self.pending_taxes.clear();
+        for factory in self.factories.values_mut() {
+            factory.domestic_sales = 0.0;
+            factory.export_sales = 0.0;
+        }
         let mut pending = vec![];
         for (due, group, quantity) in std::mem::take(&mut self.ordinary_energy_deliveries) {
             if due == month {
@@ -3296,8 +3314,7 @@ impl GovernanceState {
             f.phase = FactoryPhase::Closed;
             f.water_suspended = false;
             f.output = 0.0;
-            f.domestic_sales = 0.0;
-            f.export_sales = 0.0;
+            // Keep the final operating month's actual sales even when closing at month end.
             let site = self.sites.get_mut(&f.site).unwrap();
             site.idle_workers += f.workers;
             site.skilled_workers += f.skilled_workers;
@@ -3770,7 +3787,8 @@ impl GovernanceState {
                 || !f.export_sales.is_finite()
                 || f.domestic_sales < 0.0
                 || f.export_sales < 0.0
-                || (f.output - f.domestic_sales - f.export_sales).abs() > 1e-8
+                || (f.phase != FactoryPhase::Closed
+                    && (f.output - f.domestic_sales - f.export_sales).abs() > 1e-8)
                 || f.operating_subsidy != 0
                 || f.worked_months > f.construction_months
                 || f.started_month == 0

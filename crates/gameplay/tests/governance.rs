@@ -736,6 +736,17 @@ fn b8_closure_retires_land_but_stops_water_use_and_replays() {
         game.governance().unwrap().factories[&id].phase,
         FactoryPhase::Closed
     );
+    let closed = &game.governance().unwrap().factories[&id];
+    assert_eq!(closed.output, 0.0);
+    assert_eq!(closed.domestic_sales, 50.0);
+    assert_eq!(closed.export_sales, 0.0);
+    let save: serde_json::Value = serde_json::from_slice(&game.save().unwrap()).unwrap();
+    let sale = &save["payload"]["applied"][format!("sales/{id}/domestic/19")];
+    assert_eq!(sale["receipt"]["month"], 19);
+    assert_eq!(
+        sale["command"]["Transfer"]["amount"],
+        money(closed.domestic_sales * 0.1).unwrap()
+    );
     let retired = &game.reservations()[&id];
     assert_eq!(retired.phase, AllocationPhase::Retired);
     assert_eq!(retired.land, before.land);
@@ -761,6 +772,12 @@ fn b8_closure_retires_land_but_stops_water_use_and_replays() {
     );
     let bytes = game.save().unwrap();
     assert_eq!(Game::load(&bytes).unwrap().save().unwrap(), bytes);
+    game.end_month(20).unwrap();
+    assert_eq!(
+        game.governance().unwrap().factories[&id].domestic_sales,
+        0.0
+    );
+    assert_eq!(game.governance().unwrap().factories[&id].export_sales, 0.0);
 }
 
 #[test]
@@ -984,6 +1001,13 @@ fn b10_late_water_signature_protects_only_initial_and_suspends_newest_operations
     let closed = &game.governance().unwrap().factories[&operations[1].1];
     assert_eq!(closed.phase, FactoryPhase::Closed);
     assert_eq!(closed.first_operated_month, Some(operations[1].0));
+    assert_eq!(closed.domestic_sales, 0.0);
+    assert_eq!(closed.export_sales, 0.0);
+    assert_eq!(
+        game.scorecard(Group::A, 8).unwrap().gaps["demand"],
+        0.0,
+        "closed plant releases the domestic market for later investment"
+    );
     assert_eq!(
         game.reservations()[&operations[1].1].phase,
         AllocationPhase::Retired
@@ -1090,7 +1114,11 @@ fn d026_rule_parameters_convert_only_existing_idle_workers_and_fund_fixed_export
             .unwrap()
             .remove("initial_skilled_idle_share");
         // Reject the old rule identity before decoding the new sales fields.
-        for factory in payload["governance"]["factories"].as_object_mut().unwrap().values_mut() {
+        for factory in payload["governance"]["factories"]
+            .as_object_mut()
+            .unwrap()
+            .values_mut()
+        {
             factory.as_object_mut().unwrap().remove("domestic_sales");
             factory.as_object_mut().unwrap().remove("export_sales");
         }
@@ -1295,4 +1323,104 @@ fn b10_in_construction_factories_finish_but_wait_without_operating_losses() {
     }
     let bytes = game.save().unwrap();
     assert_eq!(Game::load(&bytes).unwrap().save().unwrap(), bytes);
+}
+
+#[test]
+fn d028_pending_commitment_reserves_market_and_can_fulfil_without_counting_itself() {
+    let mut game = public_factory_fixture(
+        GovernanceCalibration {
+            initial_skilled_idle_share: 1.0,
+            ..Default::default()
+        },
+        RenewalChoice::Decline,
+        5,
+        9,
+        1,
+    );
+    let state = game.governance().unwrap();
+    assert_eq!(state.factories.len(), 1);
+    assert!(
+        state
+            .factories
+            .values()
+            .all(|f| f.phase == FactoryPhase::Construction)
+    );
+    let pending = state
+        .commitments
+        .values()
+        .find(|c| c.status == CommitmentStatus::Pending)
+        .expect("second plant is committed while the first is under construction")
+        .id
+        .clone();
+    assert_eq!(game.scorecard(Group::A, 8).unwrap().gaps["demand"], 100.0);
+    let snapshot = game.save().unwrap();
+    assert_eq!(Game::load(&snapshot).unwrap().save().unwrap(), snapshot);
+    game.end_month(6).unwrap();
+    let state = game.governance().unwrap();
+    assert_eq!(
+        state.commitments[&pending].status,
+        CommitmentStatus::Fulfilled
+    );
+    assert_eq!(
+        state.factories.len(),
+        2,
+        "the accepted plant must not block itself from starting"
+    );
+    assert_eq!(game.scorecard(Group::A, 8).unwrap().gaps["demand"], 100.0);
+}
+
+#[test]
+fn d028_breached_commitment_releases_reserved_market() {
+    let mut game = public_factory_fixture(
+        GovernanceCalibration {
+            initial_skilled_idle_share: 1.0,
+            ..Default::default()
+        },
+        RenewalChoice::Decline,
+        4,
+        9,
+        1,
+    );
+    let intent = game
+        .governance()
+        .unwrap()
+        .intents
+        .values()
+        .find(|i| i.group == Group::A && i.site == 29)
+        .unwrap()
+        .id
+        .clone();
+    assert_eq!(game.scorecard(Group::B, 8).unwrap().gaps["demand"], 0.0);
+    let other = game
+        .governance()
+        .unwrap()
+        .intents
+        .values()
+        .find(|i| i.group == Group::B && i.site == 29)
+        .unwrap()
+        .id
+        .clone();
+    game.queue_governance(
+        "other-promise",
+        GovernanceCommand::AcceptIntent {
+            id: other.clone(),
+            deadline: 5,
+        },
+    )
+    .unwrap();
+    game.queue_governance(
+        "short-promise",
+        GovernanceCommand::AcceptIntent {
+            id: intent.clone(),
+            deadline: 9,
+        },
+    )
+    .unwrap();
+    assert_eq!(game.scorecard(Group::B, 8).unwrap().gaps["demand"], 100.0);
+    game.end_month(5).unwrap();
+    assert_eq!(
+        game.governance().unwrap().commitments[&other].status,
+        CommitmentStatus::Breached
+    );
+    assert_eq!(game.scorecard(Group::B, 8).unwrap().gaps["demand"], 0.0);
 }
