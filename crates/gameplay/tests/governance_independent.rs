@@ -1170,9 +1170,8 @@ fn historical_skill_share_two_operating_factories_before_late_water(fraction: f6
 
 #[test]
 fn historical_skill_fixture_late_water_suspends_new_factories_but_protects_initial_industry() {
-    let mut game = historical_skill_share_two_operating_factories_before_late_water(
-        GovernanceCalibration::default().water_priority_fraction,
-    );
+    // Explicit .94 pressure fixture; the pending default may retain one factory.
+    let mut game = historical_skill_share_two_operating_factories_before_late_water(0.94);
     let ids: Vec<_> = game
         .governance()
         .unwrap()
