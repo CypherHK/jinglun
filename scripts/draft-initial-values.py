@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Generate an inactive D017/D018/D020 arithmetic proposal. No Game initialization imports this file."""
+"""Generate an inactive D017/D018/D020/D021 arithmetic proposal. No Game initialization imports this file."""
 import argparse
 import hashlib
 import json
 import math
+from itertools import combinations_with_replacement, product
 from fractions import Fraction
 from pathlib import Path
 
@@ -31,8 +32,8 @@ def generate(map_path, design_dir):
     assert len(cells) == 100 and all(i in cells for i in PLAYER)
     assert hashlib.sha256(raw).hexdigest() == '4c8714aaca565e0c4b932420aa320cb92a901ef63c29a897e507540db4de37a8', 'Map differs from calibrated evidence'
     expected_design = {
-        'DECISIONS.md': 'fb7ae18e12f99b6fe653d4b056f9d175d8994dc3420f39e3fe915e89ddeffa66',
-        'handoffs/2026-10-23-first-governance-slice.md': '120a5638035b90cd31101ae312611d92cfca23c2b38056540167db2bab66e5f1'}
+        'DECISIONS.md': 'f6441d8397aca40fccd1a4eac8ad2723e1b4661902219926c85ad060a9c5d77f',
+        'handoffs/2026-10-23-first-governance-slice.md': 'f774e6cc009358301d61a3df84c8ed6e0ec360529612c13666f5b5d687589063'}
     for name, expected in expected_design.items():
         assert hashlib.sha256((design_dir/name).read_bytes()).hexdigest() == expected, 'Design source changed: '+name
     parameters = {}
@@ -155,7 +156,7 @@ def generate(map_path, design_dir):
             generator_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest()),
         scope='Arithmetic proposal only. No enterprise, pressure, todo behavior or Game activation. All economic values require user confirmation. Month arithmetic is not gameplay replay: no B1-B15 or experience acceptance claimed.',
         parameters=group(**parameters),regions=group(**regions),demand=demand_group,energy=energy,fiscal=fiscal,candidate_capital=group(**capital),food=food,materials=material)
-    return d020_calibration(draft, cells)
+    return d021_calibration(d020_calibration(draft, cells), cells, world['edges'])
 
 
 def d020_calibration(d, cells):
@@ -342,6 +343,283 @@ def d020_calibration(d, cells):
     return d
 
 
+def d021_path(capital, opening, retained, new_retained, public_works, starts, owners,
+              treasury, aid, base_taxes, spending, factory_tax, duration=3):
+    """Exact rational cash walk, with full project funding locked before work starts.
+
+    A start uses opening cash only. Settled income is available next month.
+    Builders receive the locked capital evenly over the construction months.
+    Minimal subsidy at each start is sufficient: extra subsidy can only displace
+    an equal amount of own capital at a later start, never reduce total subsidy.
+    """
+    cash = list(opening)
+    free = treasury
+    factory_escrow = [Fraction(0), Fraction(0)]
+    public_escrow = Fraction(0)
+    subsidy_escrow = Fraction(0)
+    plants, monthly = [], []
+    subsidy_total = Fraction(0)
+    public_total = sum(w['cost'] for w in public_works)
+    for month in range(1, 25):
+        row = dict(month=month, opening_treasury_available=free,
+                   opening_treasury_locked=public_escrow+subsidy_escrow,
+                   groups=[dict(opening_cash=cash[g], opening_capital_escrow=factory_escrow[g]) for g in range(2)])
+        public_lock = public_total if month == 1 else Fraction(0)
+        free -= public_lock
+        public_escrow += public_lock
+        own_locked = [Fraction(0), Fraction(0)]
+        subsidy_locked = Fraction(0)
+        for index, (start, owner) in enumerate(zip(starts, owners)):
+            if month != start:
+                continue
+            own = min(capital, cash[owner]-10)
+            if own < 0:
+                return None
+            subsidy = capital-own
+            cash[owner] -= own
+            factory_escrow[owner] += own
+            own_locked[owner] += own
+            free -= subsidy
+            subsidy_escrow += subsidy
+            subsidy_locked += subsidy
+            subsidy_total += subsidy
+            plants.append(dict(index=index+1, owner=owner, start_month=start,
+                               complete_month=start+duration-1, operation_month=start+duration,
+                               own_capital=own, subsidy=subsidy, capital=capital))
+        # Locked money is unavailable even when its builder has not been paid.
+        if free < 0:
+            return None
+        public_payment = sum(w['cost']/w['duration'] for w in public_works if month <= w['duration'])
+        public_escrow -= public_payment
+        own_payments = [sum(p['own_capital']/duration for p in plants
+                            if p['owner'] == g and p['start_month'] <= month <= p['complete_month']) for g in range(2)]
+        subsidy_payment = sum(p['subsidy']/duration for p in plants
+                              if p['start_month'] <= month <= p['complete_month'])
+        subsidy_escrow -= subsidy_payment
+        active = sum(p['operation_month'] <= month for p in plants)
+        month_aid = aid if month <= 12 else Fraction(0)
+        increment = active*factory_tax
+        free += base_taxes+month_aid+increment-spending
+        if free < 0:
+            return None
+        for g in range(2):
+            newly_retained = sum(new_retained for p in plants if p['owner'] == g and p['operation_month'] <= month)
+            cash[g] += retained[g]+newly_retained
+            factory_escrow[g] -= own_payments[g]
+            row['groups'][g].update(existing_retained_income=retained[g], new_factory_retained_income=newly_retained,
+                capital_locked=own_locked[g], capital_paid=own_payments[g], closing_cash=cash[g],
+                closing_capital_escrow=factory_escrow[g], closing_spendable_cash=cash[g]-10)
+        row.update(public_works_locked=public_lock, subsidy_locked=subsidy_locked,
+            public_works_paid=public_payment, subsidy_paid=subsidy_payment, existing_tax=base_taxes,
+            incremental_factory_tax=increment, aid=month_aid, recurring_spending=spending,
+            active_factory_count=active, closing_treasury_available=free,
+            closing_public_works_escrow=public_escrow, closing_subsidy_escrow=subsidy_escrow,
+            closing_treasury_total=free+public_escrow+subsidy_escrow,
+            starts=[p['index'] for p in plants if p['start_month'] == month],
+            completions=[p['index'] for p in plants if p['complete_month'] == month],
+            operations=[p['index'] for p in plants if p['operation_month'] == month])
+        monthly.append(row)
+    return dict(plants=plants, monthly=monthly, total_subsidy=subsidy_total,
+                total_public_works=public_total, government_capital_cost=subsidy_total+public_total)
+
+
+def d021_search(capital, opening, retained, new_retained, works, deadline, treasury, aid, taxes, spending, factory_tax):
+    """Finite exhaustive search: both firms may own either or both factories."""
+    duration = 3
+    earliest = max(w['duration']+1 for w in works)
+    latest = deadline-duration
+    count = feasible = zero_subsidy = ties = 0
+    best = best_key = None
+    for owners in product(range(2), repeat=2):
+        for starts in combinations_with_replacement(range(earliest, latest+1), 2):
+            count += 1
+            path = d021_path(capital, opening, retained, new_retained, works, starts, owners,
+                             treasury, aid, taxes, spending, factory_tax, duration)
+            if path is None:
+                continue
+            feasible += 1
+            zero_subsidy += path['total_subsidy'] == 0
+            # Exact fractions: no floating rounding can change the chosen minimum.
+            objective = path['government_capital_cost']
+            if best_key is None or objective < best_key[0]:
+                ties = 1
+            elif objective == best_key[0]:
+                ties += 1
+            key = (objective, starts[1]+duration, starts[0]+duration, starts, owners)
+            if best_key is None or key < best_key:
+                best_key, best = key, path
+    assert best is not None, 'No cash-feasible path within the proposed deadline'
+    return best, dict(enumerated=count, feasible=feasible, zero_subsidy=zero_subsidy,
+                      objective_ties=ties, earliest_start=earliest, latest_start=latest)
+
+
+def d021_calibration(d, cells, edges):
+    """D021 proposal only. Preserve all D020 independent comparison scenarios."""
+    q = lambda n: Fraction(str(n))
+    v = lambda x: x['value']
+    p = d['parameters']
+    def m(n, unit, formula, **inputs):
+        return value(float(n), unit, 'D021.1;D021.2;D021.3', formula, inputs)
+    def param(name, n, unit, reason):
+        p[name] = value(n, unit, 'D021.2', 'proposed free parameter', {'reason': reason}, 'proposed_free_parameter')
+        return q(n)
+    retention = param('group_profit_retention_share', .5, 'ratio',
+        'Existing and new-factory after-sales-tax operating surplus: half retained, half paid to outside shareholders; no reinjection.')
+    duration = int(param('d021_factory_construction_months', 3, 'month',
+        'Same pending construction duration for both sites and both routes; completion at start+2, first operation at start+3.'))
+    housing_base = param('d021_housing_base_capital', 4, 'currency', 'Pending illustrative public housing capital, includes construction inputs, not ongoing services.')
+    housing_duration = int(param('d021_housing_construction_months', 2, 'month', 'Pending illustrative public housing duration.'))
+    road_base = param('d021_road_base_capital', 1.5, 'currency', 'Pending domestic access-segment price before candidate natural and actual edge corridor multipliers.')
+    road_duration = int(param('d021_road_construction_months', 3, 'month', 'Pending illustrative domestic access-segment duration.'))
+    school_base = param('d021_vocational_school_base_capital', 3.5, 'currency', 'Pending illustrative school capital before natural multiplier.')
+    school_duration = int(param('d021_vocational_school_construction_months', 4, 'month', 'Pending illustrative school duration. Not a factory or the D017 reference material project.'))
+    # Re-evaluate the unchanged D020 formula rationally (e.g. 1.85, not the
+    # floating representation 1.8500000000000003) for exact search comparisons.
+    surplus = lambda mode: (q(v(p['new_factory_output']))*q(v(p['goods_price']))*(1-q(v(p['manufacturing_sales_tax_rate'])))
+        -q(v(p['new_factory_workers']))*q(v(p['monthly_wage']))-q(v(p['factory_other_fixed_monthly_cost']))
+        -q(v(p['new_factory_energy']))*q(v(p[mode+'_energy_price'])))
+    ordinary, maritime = surplus('ordinary'), surplus('maritime')
+    # The pre-existing output/taxes already include these exact 4.25 factory units.
+    ownership = [dict(group='group_a', capital_39_units=q(2), coastal_74_units=q(0)),
+                 dict(group='group_b', capital_39_units=q(1), coastal_74_units=q(1.25))]
+    retained = [(o['capital_39_units']+o['coastal_74_units'])*ordinary*retention for o in ownership]
+    opening = [q(v(p['group_a_starting_cash'])), q(v(p['group_b_starting_cash']))]
+    treasury, aid = q(v(p['opening_treasury'])), q(v(d['fiscal']['aid']))
+    taxes, spending = q(v(d['fiscal']['existing_tax_revenue'])), q(v(d['fiscal']['recurring_spending']))
+    factory_tax = q(v(d['fiscal']['reference_factory_tax']))
+    ownership_records = {}
+    for g, o in enumerate(ownership):
+        units = o['capital_39_units']+o['coastal_74_units']
+        ownership_records[o['group']] = group(
+            capital_39_factory_units=m(o['capital_39_units'], 'factory-equivalent', 'proposed existing ownership allocation; no new output'),
+            coastal_74_factory_units=m(o['coastal_74_units'], 'factory-equivalent', 'proposed existing ownership allocation; 1.25 is equivalent output, not a fractional new project'),
+            existing_output=m(units*q(v(p['new_factory_output'])), 'goods/month', 'owned_existing_factory_units*new_factory_output'),
+            monthly_existing_operating_surplus=m(units*ordinary, 'currency/month', 'owned_existing_factory_units*ordinary_full_output_after_sales_tax_surplus'),
+            monthly_existing_retained_income=m(retained[g], 'currency/month', 'owned_existing_factory_units*ordinary_surplus*group_profit_retention_share'),
+            monthly_existing_shareholder_distribution=m(units*ordinary-retained[g], 'currency/month', 'existing_operating_surplus-existing_retained_income; external shareholder recipient, never reinjected'),
+            initial_cash=m(opening[g], 'currency', 'unchanged D017 opening equity endowment; not new money'),
+            opening_operating_buffer=m(10, 'currency', 'unchanged group-wide protected buffer; unavailable for any capital commitment'))
+
+    money_formulas = {
+        'opening_treasury_available': 'previous closing_treasury_available; M1 opening_treasury',
+        'opening_treasury_locked': 'previous closing_public_works_escrow+closing_subsidy_escrow; M1 zero',
+        'public_works_locked': 'M1 full housing+route-specific project cost; otherwise zero',
+        'subsidy_locked': 'sum(starting factory capital-min(capital, group opening_cash-buffer)); never uses this month income',
+        'public_works_paid': 'sum(public project cost/duration during construction); paid from public escrow, not free cash again',
+        'subsidy_paid': 'sum(factory subsidy/duration during construction); direct escrow payment to builder, never operating income',
+        'existing_tax': 'unchanged D020 existing_tax_revenue; ownership is not a second tax base',
+        'incremental_factory_tax': 'operating new factories*reference_factory_tax; only from first operation month',
+        'aid': 'D020 monthly_transition_aid in M1-12; zero M13-24, no renewal',
+        'recurring_spending': 'unchanged D020 base recurring spending; additional public service costs explicitly excluded',
+        'closing_treasury_available': 'opening_available-public_works_locked-subsidy_locked+existing_tax+incremental_factory_tax+aid-recurring_spending',
+        'closing_public_works_escrow': 'previous public escrow+public_works_locked-public_works_paid',
+        'closing_subsidy_escrow': 'previous subsidy escrow+subsidy_locked-subsidy_paid',
+        'closing_treasury_total': 'closing_treasury_available+closing_public_works_escrow+closing_subsidy_escrow',
+        'opening_cash': 'previous group closing_cash; M1 unchanged group_starting_cash',
+        'opening_capital_escrow': 'previous group closing_capital_escrow; M1 zero',
+        'existing_retained_income': 'owned existing factory units*ordinary after-sales-tax operating surplus*retention share; paid at month end',
+        'new_factory_retained_income': 'owned operating new factories*maritime after-sales-tax operating surplus*retention share; paid at month end',
+        'capital_locked': 'sum(min(factory capital, current group cash-buffer)) for this month starts; remove before income',
+        'capital_paid': 'sum(own project capital/duration) for this month construction; from group capital escrow',
+        'closing_cash': 'opening_cash-capital_locked+existing_retained_income+new_factory_retained_income',
+        'closing_capital_escrow': 'opening_capital_escrow+capital_locked-capital_paid',
+        'closing_spendable_cash': 'closing_cash-protected operating_cash_buffer; excludes all locked project money',
+    }
+    def monetary_row(row):
+        result = group(month=row['month'])
+        for k, n in row.items():
+            if k in ('groups', 'month', 'starts', 'completions', 'operations', 'active_factory_count'):
+                continue
+            result[k] = m(n, 'currency', money_formulas[k], month=row['month'])
+        result['active_factory_count'] = row['active_factory_count']
+        result['factory_events'] = group(starts=row['starts'], completions=row['completions'], first_operations=row['operations'])
+        result['groups'] = group(**{name: group(**{k: m(n, 'currency', money_formulas[k], month=row['month'], group=name)
+                                            for k, n in row['groups'][g].items()}) for g, name in enumerate(('group_a', 'group_b'))})
+        return result
+
+    edge_by_id = {e['id']: e for e in edges}
+    routes = {}
+    for site, route in product((8, 29), (1, 2)):
+        natural = q(cells[site]['construction']['cost_multiplier'])
+        edge = edge_by_id[140 if site == 8 else 182]
+        assert {edge['a'], edge['b']} == ({8, 26} if site == 8 else {29, 83})
+        assert edge['a'] in PLAYER and edge['b'] in PLAYER and edge['passage']['cost_multiplier'] is not None
+        corridor = q(edge['passage']['cost_multiplier'])
+        works = [dict(name='housing', cost=housing_base*natural, base=housing_base, duration=housing_duration)]
+        works.append(dict(name='domestic_access_road', cost=road_base*natural*corridor, base=road_base, duration=road_duration)
+                     if route == 1 else dict(name='vocational_school', cost=school_base*natural, base=school_base, duration=school_duration))
+        deadline = 17 if (site, route) in ((8, 1), (29, 2)) else 23
+        capital = q(v(d['candidate_capital'][str(site)]['factory_capital']))
+        best, search = d021_search(capital, opening, retained, maritime*retention, works, deadline,
+                                  treasury, aid, taxes, spending, factory_tax)
+        projects = [group(name=w['name'], start_month=1, complete_month=w['duration'], first_usable_month=w['duration']+1,
+                          duration_months=w['duration'], base_cost=m(w['base'], 'currency', 'proposed D021 project base price'),
+                          natural_multiplier=m(natural, 'ratio', 'map candidate construction.cost_multiplier'),
+                          corridor_multiplier=m(corridor if w['name'] == 'domestic_access_road' else 1, 'ratio', 'actual domestic edge passage multiplier for road; 1 for other projects'),
+                          cost=m(w['cost'], 'currency', 'base_cost*natural_multiplier*corridor_multiplier'),
+                          funding='Full government project cost locked at M1 start, paid evenly over construction months') for w in works]
+        plants = [group(index=f['index'], group=('group_a', 'group_b')[f['owner']], raw_cell_id=site,
+                        start_month=f['start_month'], complete_month=f['complete_month'], first_operation_month=f['operation_month'],
+                        capital=m(f['capital'], 'currency', 'unchanged factory_base_capital*candidate_natural_cost'),
+                        own_capital=m(f['own_capital'], 'currency', 'min(capital, group pre-start cash-operating buffer)'),
+                        construction_subsidy=m(f['subsidy'], 'currency', 'capital-own_capital; fully locked by government at start; paid during construction only')) for f in best['plants']]
+        routes[f'{site}_route_{route}'] = group(raw_cell_id=site, route=route, strict_latest_first_operation_month=deadline,
+            public_projects=projects, factories=plants,
+            domestic_road_evidence=(group(raw_edge_id=edge['id'], endpoints=[edge['a'], edge['b']], passage_kind=edge['passage']['kind'],
+                actual_passage_multiplier=m(corridor, 'ratio', 'map.edges[id].passage.cost_multiplier; actual domestic land segment'),
+                limitation='Domestic access illustration only, not a proven complete logistics chain or cross-border right of way. No direct 8-97, 2-8 or 29-39 road is assumed.') if route == 1 else None),
+            search=group(**search,
+                owner_sequences=['AA', 'AB', 'BA', 'BB'], chronological_starts='all earliest_start <= first_start <= second_start <= latest_start; same-month owner permutations counted',
+                objective='minimum total government capital cash expenditure = construction subsidies + required public works; no discounting; not treasury end balance or whole-game optimality',
+                tie_break='lowest exact rational objective; then earliest second operation, earliest first operation, chronological start tuple, owner tuple A before B',
+                lower_bound=m(best['government_capital_cost'], 'currency', 'minimum over every enumerated cash-feasible schedule in this finite domain; equals attained best cost'),
+                public_works_only_bound=m(best['total_public_works'], 'currency', 'required public cost; subsidy cannot be negative'),
+                bound_limitation='Full M1 public funding is feasible. Moving these prerequisite works earlier has identical capital cost, no modeled maintenance and weakly enlarges available starts; fixing them at M1 loses no cheaper plan in this domain. Subsidies at each start equal the current shortfall: excess earlier subsidy only preserves equal private cash, never creates profit or lowers aggregate subsidy.'),
+            minimum_government_capital_cost=m(best['government_capital_cost'], 'currency', 'total_construction_subsidy+total_required_public_works'),
+            total_construction_subsidy=m(best['total_subsidy'], 'currency', 'sum(factory construction_subsidy)'),
+            total_required_public_works=m(best['total_public_works'], 'currency', 'sum(public project cost)'),
+            monthly=[monetary_row(r) for r in best['monthly']],
+            m24_treasury_available=m(best['monthly'][-1]['closing_treasury_available'], 'currency', 'M24 closing_treasury_available'),
+            minimum_monthly_treasury_available=m(min(r['closing_treasury_available'] for r in best['monthly']), 'currency', 'min(M1-24 closing_treasury_available); start-of-month commitments checked separately'),
+            assumption='Investment plans are locked to this target site by assumption, not an enterprise choice. Both factories are at this same candidate. Route 1 substitutes up to 200 existing imports; route 2 assumes cooperation and 100 export orders per factory are already available at operation, without implementing the cooperation rule. Each new factory has 100 previously idle domestic workers, working utilities, adequate housing/services, skills, land/water slots and demand on operation. Capital timing alone is checked; these physical and demand assumptions are unverified. No operational subsidy. Existing ordinary energy contracts continue; all new factories buy additional maritime energy privately. Both renewal offers are refused; aid stops at M13. No W water exemption, E long-contract purchase, enterprise AI, migration, pressure or todo implementation.')
+
+    month_one = {}
+    for site in (8, 29):
+        need = q(v(d['candidate_capital'][str(site)]['factory_capital']))+10
+        month_one[str(site)] = group(**{name: group(
+            capital_and_buffer=m(need, 'currency', 'factory_capital+operating_cash_buffer'),
+            opening_shortfall=m(need-opening[g], 'currency', 'capital_and_buffer-starting_cash'),
+            closing_m1_cash_without_investment=m(opening[g]+retained[g], 'currency', 'starting_cash+M1 existing retained income'),
+            closing_m1_shortfall=m(need-opening[g]-retained[g], 'currency', 'capital_and_buffer-closing_m1_cash_without_investment; still positive even after M1 profits'))
+            for g, name in enumerate(('group_a', 'group_b'))})
+    capital_cost = q(v(p['factory_base_capital']))*q(cells[39]['construction']['cost_multiplier'])
+    capital_counterfactual = {}
+    for g, name in enumerate(('group_a', 'group_b')):
+        wait = max(0, math.ceil((capital_cost+10-opening[g])/retained[g]))
+        capital_counterfactual[name] = group(
+            factory_capital=m(capital_cost, 'currency', 'factory_base_capital*map.cells[39].construction.cost_multiplier'),
+            completed_income_months_needed=wait, earliest_financeable_start_month=wait+1,
+            construction_complete_month=wait+duration, first_operation_month=wait+duration+1,
+            pre_start_cash=m(opening[g]+wait*retained[g], 'currency', 'starting_cash+completed_income_months_needed*existing_retained_income'),
+            previous_month_opening_cash=m(opening[g]+max(0, wait-1)*retained[g], 'currency', 'cash available one month before earliest financeable start'),
+            assumption='Separate one-factory counterfactual for this group, with no other capital investment or subsidies. Capital has 122 initial idle workers, enough for this one factory; the A/B results cannot be combined into two factories without additional labor migration. Existing capital utilities, slots, housing, skills and 100 orders are assumed available, not verified. Earliest financing is not enterprise intent or a gameplay start guarantee; actual start could be later.')
+
+    d['d021_existing_ownership_and_retention'] = group(groups=group(**ownership_records),
+        retention_share=p['group_profit_retention_share'],
+        monthly_new_factory_retained_income=m(maritime*retention, 'currency/factory/month', 'maritime full-output after-sales-tax operating surplus*retention_share'),
+        existing_ordinary_surplus_per_factory=m(ordinary, 'currency/factory/month', 'unchanged D020 ordinary after_tax_profit'),
+        new_maritime_surplus_per_factory=m(maritime, 'currency/factory/month', 'unchanged D020 maritime after_tax_profit'),
+        conservation='Exactly 3 existing factory units at 39 and 1.25 at 74, total 425 existing goods/month, reassigned to owners only. Their sales tax and wages were already included in D020 fiscal/demand totals. Existing retained income comes out of that same operating surplus, never new treasury aid, equity, output, orders or a second tax stream. Unretained surplus goes to outside shareholder accounts and is never reinjected or added to household demand. This is operating-surplus cash arithmetic, not complete accounting net income.')
+    d['d021_month_1_financing_checks'] = group(candidates=group(**month_one))
+    d['d021_target_investment_arithmetic'] = group(routes=group(**routes),
+        assumption='Four independent runs, each resetting treasury 55 and group cash 50/55. These runs must not be appended to, or combined with, D020 no-investment renewal tables. Every project is fully financed at start; builder payments are equal progress installments during construction; new ability begins the following month. Profits/taxes settle at month end and cannot fund that month starts. Group cash includes an untouched group-wide operating buffer 10, not one new buffer payment per plant. All comparisons remain pending; no gameplay acceptance.',
+        excluded_costs_and_constraints='Public packages are minimum illustrative costs, not a proven complete playable route. Additional power, water, medical/service expansion, full road/port/transport chain, maintenance, land/water quotas, migration speed, skill/training capacity, order acquisition, material quantities, administrative slots and enterprise response are not priced or simulated. The D017 three-month reference material project is an independent generic throughput example, not these heterogeneous public projects or a construction schedule guarantee. Existing recurring envelope is held fixed; no new free public services are claimed.',
+        b1_limitation='Deadline financing only: all second factories operate by M17/M23 as applicable. Some least-government-cost paths wait with zero subsidy. This does not establish D004 three-month output/profit/guardrail success or B1 matched routes being two months faster: the cheaper 29 route 1 path can operate as early as route 2. Enterprise preference and capital competition need future authorized rule replay.')
+    d['d021_capital_no_subsidy_counterfactual'] = group(groups=group(**capital_counterfactual),
+        assumption='Independent alternatives to the target runs and each other; unchanged existing ordinary-energy retained profits accumulate at month ends. No government subsidy, new equity or future-income advance. New construction duration is the same pending three months.')
+    return d
+
+
 def verify_d020(d):
     v = lambda x: x['value']
     p = d['parameters']
@@ -416,6 +694,145 @@ def verify_d020(d):
     assert v(routes['E']['m24_treasury']) < v(e[-1]['government_energy_purchase'])
 
 
+def verify_d021(d):
+    """Check the delivered money/events rather than accepting the solver summary."""
+    v = lambda x: x['value']
+    close = lambda a, b: math.isclose(a, b, abs_tol=1e-8, rel_tol=1e-10)
+    p = d['parameters']
+    own = d['d021_existing_ownership_and_retention']['groups']
+    names = ('group_a', 'group_b')
+    assert v(p['opening_treasury']) == 55
+    assert [v(p[f'{g}_starting_cash']) for g in names] == [50, 55]
+    assert v(p['operating_cash_buffer']) == 10
+    assert v(p['d021_factory_construction_months']) == 3
+    retention = v(p['group_profit_retention_share'])
+    assert retention == .5
+    assert sum(v(own[g]['capital_39_factory_units']) for g in names) == 3
+    assert sum(v(own[g]['coastal_74_factory_units']) for g in names) == 1.25
+    assert sum(v(own[g]['existing_output']) for g in names) == sum(v(d['regions'][str(i)]['manufacturing_output']) for i in PLAYER)
+    assert close(v(own['group_a']['monthly_existing_retained_income']), 2.2)
+    assert close(v(own['group_b']['monthly_existing_retained_income']), 2.475)
+    for g in names:
+        assert close(v(own[g]['monthly_existing_operating_surplus']),
+                     v(own[g]['monthly_existing_retained_income'])+v(own[g]['monthly_existing_shareholder_distribution']))
+    for site in (8, 29):
+        checks = d['d021_month_1_financing_checks']['candidates'][str(site)]
+        for g in names:
+            assert v(checks[g]['opening_shortfall']) > v(checks[g]['closing_m1_shortfall']) > 0
+            assert close(v(checks[g]['closing_m1_cash_without_investment']),
+                         v(own[g]['initial_cash'])+v(own[g]['monthly_existing_retained_income']))
+
+    routes = d['d021_target_investment_arithmetic']['routes']
+    for site, route in product((8, 29), (1, 2)):
+        case = routes[f'{site}_route_{route}']
+        factories, projects = case['factories'], case['public_projects']
+        search = case['search']
+        assert len(factories) == len(projects) == 2
+        assert {x['name'] for x in projects} == ({'housing', 'domestic_access_road'} if route == 1 else {'housing', 'vocational_school'})
+        assert all(x['raw_cell_id'] == site for x in factories)
+        assert case['strict_latest_first_operation_month'] == (17 if (site, route) in ((8, 1), (29, 2)) else 23)
+        earliest = max(x['first_usable_month'] for x in projects)
+        latest = case['strict_latest_first_operation_month']-3
+        assert search['earliest_start'] == earliest and search['latest_start'] == latest
+        n = latest-earliest+1
+        assert search['enumerated'] == 4*n*(n+1)//2
+        assert 0 < search['feasible'] <= search['enumerated']
+        assert 0 < search['objective_ties'] <= search['feasible']
+        assert 0 <= search['zero_subsidy'] <= search['feasible']
+        assert close(v(search['lower_bound']), v(case['minimum_government_capital_cost']))
+        assert close(v(case['minimum_government_capital_cost']), v(case['total_construction_subsidy'])+v(case['total_required_public_works']))
+        assert close(sum(v(f['construction_subsidy']) for f in factories), v(case['total_construction_subsidy']))
+        assert close(sum(v(w['cost']) for w in projects), v(case['total_required_public_works']))
+        assert (v(case['total_construction_subsidy']) == 0) == (search['zero_subsidy'] > 0)
+        for w in projects:
+            assert w['start_month'] == 1 and w['first_usable_month'] == w['complete_month']+1
+            assert w['complete_month'] == w['duration_months']
+            assert close(v(w['cost']), v(w['base_cost'])*v(w['natural_multiplier'])*v(w['corridor_multiplier']))
+        for f in factories:
+            assert earliest <= f['start_month'] <= latest
+            assert f['complete_month'] == f['start_month']+2
+            assert f['first_operation_month'] == f['complete_month']+1
+            assert f['first_operation_month'] <= case['strict_latest_first_operation_month']
+            assert close(v(f['capital']), v(d['candidate_capital'][str(site)]['factory_capital']))
+            assert close(v(f['capital']), v(f['own_capital'])+v(f['construction_subsidy']))
+        if route == 1:
+            e = case['domestic_road_evidence']
+            assert (e['raw_edge_id'], e['endpoints']) == ((140, [8, 26]) if site == 8 else (182, [29, 83]))
+            road = next(x for x in projects if x['name'] == 'domestic_access_road')
+            assert close(v(road['corridor_multiplier']), v(e['actual_passage_multiplier']))
+
+        last_free, last_public, last_subsidy = 55., 0., 0.
+        last_cash, last_capital = [50., 55.], [0., 0.]
+        rows = case['monthly']
+        assert [r['month'] for r in rows] == list(range(1, 25))
+        for row in rows:
+            month = row['month']
+            active = [f for f in factories if f['first_operation_month'] <= month]
+            starts = [f for f in factories if f['start_month'] == month]
+            building = [f for f in factories if f['start_month'] <= month <= f['complete_month']]
+            assert row['active_factory_count'] == len(active)
+            assert row['factory_events']['starts'] == [f['index'] for f in starts]
+            assert row['factory_events']['completions'] == [f['index'] for f in factories if f['complete_month'] == month]
+            assert row['factory_events']['first_operations'] == [f['index'] for f in factories if f['first_operation_month'] == month]
+            assert close(v(row['opening_treasury_available']), last_free)
+            assert close(v(row['opening_treasury_locked']), last_public+last_subsidy)
+            public_lock = v(case['total_required_public_works']) if month == 1 else 0
+            sub_lock = sum(v(f['construction_subsidy']) for f in starts)
+            public_payment = sum(v(w['cost'])/w['duration_months'] for w in projects if month <= w['complete_month'])
+            sub_payment = sum(v(f['construction_subsidy'])/3 for f in building)
+            assert close(v(row['public_works_locked']), public_lock)
+            assert close(v(row['subsidy_locked']), sub_lock)
+            assert close(v(row['public_works_paid']), public_payment)
+            assert close(v(row['subsidy_paid']), sub_payment)
+            # Check solvency before this month's tax/aid/income, not just at close.
+            assert last_free-public_lock-sub_lock >= -1e-8
+            assert close(v(row['existing_tax']), v(d['fiscal']['existing_tax_revenue']))
+            assert close(v(row['incremental_factory_tax']), len(active)*v(d['fiscal']['reference_factory_tax']))
+            assert close(v(row['aid']), v(d['fiscal']['aid']) if month <= 12 else 0)
+            assert close(v(row['recurring_spending']), v(d['fiscal']['recurring_spending']))
+            free = last_free-public_lock-sub_lock+v(row['existing_tax'])+v(row['incremental_factory_tax'])+v(row['aid'])-v(row['recurring_spending'])
+            assert close(v(row['closing_treasury_available']), free) and free >= -1e-8
+            public = last_public+public_lock-public_payment
+            subsidy = last_subsidy+sub_lock-sub_payment
+            assert close(v(row['closing_public_works_escrow']), public) and public >= -1e-8
+            assert close(v(row['closing_subsidy_escrow']), subsidy) and subsidy >= -1e-8
+            assert close(v(row['closing_treasury_total']), free+public+subsidy)
+            for g, name in enumerate(names):
+                r = row['groups'][name]
+                own_lock = sum(v(f['own_capital']) for f in starts if f['group'] == name)
+                own_payment = sum(v(f['own_capital'])/3 for f in building if f['group'] == name)
+                old_income = v(own[name]['monthly_existing_retained_income'])
+                new_income = sum(v(d['d021_existing_ownership_and_retention']['monthly_new_factory_retained_income']) for f in active if f['group'] == name)
+                assert close(v(r['opening_cash']), last_cash[g])
+                assert close(v(r['opening_capital_escrow']), last_capital[g])
+                assert close(v(r['existing_retained_income']), old_income)
+                assert close(v(r['new_factory_retained_income']), new_income)
+                assert close(v(r['capital_locked']), own_lock)
+                assert close(v(r['capital_paid']), own_payment)
+                assert last_cash[g]-own_lock >= 10-1e-8
+                cash = last_cash[g]-own_lock+old_income+new_income
+                capital = last_capital[g]+own_lock-own_payment
+                assert close(v(r['closing_cash']), cash) and cash >= 10
+                assert close(v(r['closing_capital_escrow']), capital) and capital >= -1e-8
+                assert close(v(r['closing_spendable_cash']), cash-10)
+                last_cash[g], last_capital[g] = cash, capital
+            last_free, last_public, last_subsidy = free, public, subsidy
+        assert close(last_public, 0) and close(last_subsidy, 0) and all(close(x, 0) for x in last_capital)
+        assert close(v(case['m24_treasury_available']), last_free)
+        assert close(sum(v(r['subsidy_paid']) for r in rows), v(case['total_construction_subsidy']))
+        assert close(sum(v(r['public_works_paid']) for r in rows), v(case['total_required_public_works']))
+        assert close(v(case['minimum_monthly_treasury_available']), min(v(r['closing_treasury_available']) for r in rows))
+
+    counter = d['d021_capital_no_subsidy_counterfactual']['groups']
+    assert [counter[g]['earliest_financeable_start_month'] for g in names] == [13, 9]
+    assert [counter[g]['first_operation_month'] for g in names] == [16, 12]
+    for g in names:
+        c = counter[g]
+        assert v(c['previous_month_opening_cash']) < v(c['factory_capital'])+10 <= v(c['pre_start_cash'])
+        assert c['earliest_financeable_start_month'] == c['completed_income_months_needed']+1
+        assert c['first_operation_month'] == c['construction_complete_month']+1 == c['earliest_financeable_start_month']+3
+
+
 def verify(d):
     v = lambda x: x['value']
     rs = [d['regions'][str(i)] for i in PLAYER]
@@ -462,13 +879,14 @@ def verify(d):
             if 'value' in x:
                 assert isinstance(x['value'], (int,float)) and math.isfinite(x['value'])
                 assert x['status']==STATUS and x['activation']=='disabled'
-                assert x['principle'].startswith(('D017.', 'D018.', 'D020.')) and x['unit'] and x['formula']
+                assert x['principle'].startswith(('D017.', 'D018.', 'D020.', 'D021.')) and x['unit'] and x['formula']
                 assert x['assumption']
                 assert 'inputs' in x and 'origin' in x
             for y in x.values(): walk(y)
         elif isinstance(x,list):
             for y in x: walk(y)
     verify_d020(d)
+    verify_d021(d)
     walk(d)
     for k in ['parameters','regions','demand','energy','fiscal','candidate_capital','food','materials']:
         assert d[k]['status']==STATUS and d[k]['activation']=='disabled'
@@ -496,7 +914,7 @@ def main():
     else:
         args.output.parent.mkdir(parents=True,exist_ok=True)
         args.output.write_text(text)
-    print('PASS: D017/D018/D020 arithmetic draft checks only; pending_user_confirmation; activation disabled.')
+    print('PASS: D017/D018/D020/D021 arithmetic draft checks only; pending_user_confirmation; activation disabled.')
 
 
 if __name__=='__main__':
