@@ -1,6 +1,6 @@
 use jinglun_gameplay::*;
 use serde::Serialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::{self, Write};
 
@@ -980,10 +980,12 @@ mod driver_tests {
         let delayed = replay(&base, script.clone()).unwrap();
         assert!(delayed.execution_error.is_none());
         assert_eq!(delayed.monthly[0]["candidate_site"]["admitted"], true);
-        assert!(!delayed.monthly[0]["projects"]
-            .as_array()
-            .unwrap()
-            .is_empty());
+        assert!(
+            !delayed.monthly[0]["projects"]
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
         for month in &delayed.monthly[..7] {
             assert_eq!(month["candidate_site"]["subsidy_cap"], 0);
         }
@@ -1024,10 +1026,12 @@ mod driver_tests {
         ];
         let (report, pass) = b1_comparison(&outcomes, b15::Choice::Decline, 8);
         assert!(!pass);
-        assert!(report["efficient_fast_expensive_slow_cheap_pairs"]
-            .as_array()
-            .unwrap()
-            .is_empty());
+        assert!(
+            report["efficient_fast_expensive_slow_cheap_pairs"]
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
         assert_eq!(
             report["route1"]["exact_pareto_frontier"]
                 .as_array()
