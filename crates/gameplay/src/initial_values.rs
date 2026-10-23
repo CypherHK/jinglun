@@ -35,7 +35,7 @@ fn validate(document: &Value) -> Result<()> {
         ("/approval/decision", "D022"),
         (
             "/current_design_inputs/source_hashes/DECISIONS.md",
-            "2479680c014e234b86d443ef786943a2eb7f57b64081e1b8c23db587a3ef908c",
+            "068fbbb0adf17378be291a1005455683b5131a9aacdc0b1d054994fe23980c0c",
         ),
         (
             "/current_design_inputs/source_hashes/handoffs~12026-10-23-first-governance-slice.md",
@@ -43,7 +43,7 @@ fn validate(document: &Value) -> Result<()> {
         ),
         (
             "/current_design_inputs/scope",
-            "D024/D025/D026/D027/D028 current rule inputs only; D022 initial-value approval is unchanged.",
+            "D024/D025/D026/D027/D028/D029 current confirmed rule inputs only; D022 initial-value approval is unchanged. Labor recruitment is a user-authorized experiment, not a confirmed design decision.",
         ),
         ("/approval/approved_commit", APPROVED_COMMIT),
         (
