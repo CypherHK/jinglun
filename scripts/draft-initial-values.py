@@ -97,13 +97,18 @@ def generate(map_path):
                    renewal_quantity=m(2*factory_energy, 'energy/month', 'D017.4;D018', '2*new_factory_energy; draft only, no contract execution', new_factory_energy=factory_energy))
     tax_rate = parameter('manufacturing_sales_tax_rate', 0.1, 'ratio', 'D017.6', 'Proposed gross sales tax, not profit tax.')
     payroll_rate = parameter('payroll_tax_rate', 0.1, 'ratio', 'D017.6', 'Existing wage tax base.')
-    factory_tax = factory_output*price*tax_rate
+    factory_sales_tax = factory_output*price*tax_rate
+    factory_payroll_tax = labor_need*wage*payroll_rate
+    factory_tax = factory_sales_tax+factory_payroll_tax
     taxes = domestic_output*price*tax_rate + income*payroll_rate
     gap = 1.3*factory_tax
     spending = taxes+gap
     aid = parameter('monthly_transition_aid', 4, 'currency/month', 'D017.6', 'External resource-country transfer proposal, expiry handled elsewhere.')
     fiscal = group(
-        reference_factory_tax=m(factory_tax, 'currency/month', 'D017.6', 'new_factory_output*goods_price*manufacturing_sales_tax_rate', new_factory_output=factory_output, goods_price=price, manufacturing_sales_tax_rate=tax_rate),
+        reference_factory_sales_tax=m(factory_sales_tax, 'currency/month', 'D017.6', 'new_factory_output*goods_price*manufacturing_sales_tax_rate', new_factory_output=factory_output, goods_price=price, manufacturing_sales_tax_rate=tax_rate),
+        reference_factory_incremental_payroll_tax=m(factory_payroll_tax, 'currency/month', 'D017.6', 'new_factory_workers*monthly_wage*payroll_tax_rate; all reference wages assumed net new taxable income', new_factory_workers=labor_need, monthly_wage=wage, payroll_tax_rate=payroll_rate),
+        reference_factory_tax=m(factory_tax, 'currency/month', 'D017.6', 'reference_factory_sales_tax+reference_factory_incremental_payroll_tax', reference_factory_sales_tax=factory_sales_tax, reference_factory_incremental_payroll_tax=factory_payroll_tax),
+        reference_factory_tax_assumption='Pending proposal. All 100 reference factory workers previously had no taxable wages, so their wages are entirely net new taxable income. Migration and employment displacement are not simulated. This does not claim that any single region has enough idle workers. Both the sales tax and payroll tax proposal require user confirmation.',
         existing_tax_revenue=m(taxes, 'currency/month', 'D017.6', 'existing_output*goods_price*manufacturing_sales_tax_rate+wage_income*payroll_tax_rate', existing_output=domestic_output, goods_price=price, manufacturing_sales_tax_rate=tax_rate, wage_income=income, payroll_tax_rate=payroll_rate),
         recurring_spending=m(spending, 'currency/month', 'D017.6', 'existing_tax_revenue+1.3*reference_factory_tax', existing_tax_revenue=taxes, reference_factory_tax=factory_tax),
         post_aid_gap=m(gap, 'currency/month', 'D017.6', 'recurring_spending-existing_tax_revenue', recurring_spending=spending, existing_tax_revenue=taxes),
@@ -162,7 +167,15 @@ def verify(d):
     assert v(d['demand']['initial_domestic_orders']) <= v(d['demand']['payable_demand_ceiling'])
     assert v(d['energy']['ordinary_price']) < v(d['energy']['maritime_price']) < v(d['energy']['long_price'])
     assert v(d['energy']['existing_supply']) == v(d['energy']['existing_demand'])
-    assert math.isclose(v(d['fiscal']['post_aid_gap'])/v(d['fiscal']['reference_factory_tax']),1.3)
+    fiscal=d['fiscal']
+    params=d['parameters']
+    assert math.isclose(v(fiscal['reference_factory_sales_tax']),v(params['new_factory_output'])*v(params['goods_price'])*v(params['manufacturing_sales_tax_rate']))
+    assert math.isclose(v(fiscal['reference_factory_incremental_payroll_tax']),v(params['new_factory_workers'])*v(params['monthly_wage'])*v(params['payroll_tax_rate']))
+    assert v(fiscal['reference_factory_incremental_payroll_tax']) > 0
+    assert math.isclose(v(fiscal['reference_factory_tax']),v(fiscal['reference_factory_sales_tax'])+v(fiscal['reference_factory_incremental_payroll_tax']))
+    assert math.isclose(v(fiscal['post_aid_gap'])/v(fiscal['reference_factory_tax']),1.3)
+    assert math.isclose(v(fiscal['recurring_spending'])-v(fiscal['existing_tax_revenue']),v(fiscal['post_aid_gap']))
+    assert math.isclose(v(fiscal['aid_period_balance']),v(fiscal['aid'])-v(fiscal['post_aid_gap']))
     assert math.isclose(sum(v(x) for x in d['fiscal']['spending_breakdown'].values() if isinstance(x,dict)),v(d['fiscal']['recurring_spending']))
     for i in (8,29):
         assert all(v(x)>0 for x in d['candidate_capital'][str(i)]['cash_gaps'].values() if isinstance(x,dict))

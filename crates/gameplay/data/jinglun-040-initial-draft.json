@@ -315,13 +315,13 @@
       "formula": "monthly_transition_aid-post_aid_gap",
       "inputs": {
         "monthly_transition_aid": 4,
-        "post_aid_gap": 1.3
+        "post_aid_gap": 1.56
       },
       "origin": "derived_proposal",
       "principle": "D017.6",
       "status": "pending_user_confirmation",
       "unit": "currency/month",
-      "value": 2.7
+      "value": 2.44
     },
     "existing_tax_revenue": {
       "activation": "disabled",
@@ -344,28 +344,42 @@
       "formula": "recurring_spending-existing_tax_revenue",
       "inputs": {
         "existing_tax_revenue": 15.838000000000001,
-        "recurring_spending": 17.138
+        "recurring_spending": 17.398
       },
       "origin": "derived_proposal",
       "principle": "D017.6",
       "status": "pending_user_confirmation",
       "unit": "currency/month",
-      "value": 1.3
+      "value": 1.56
     },
     "recurring_spending": {
       "activation": "disabled",
       "formula": "existing_tax_revenue+1.3*reference_factory_tax",
       "inputs": {
         "existing_tax_revenue": 15.838000000000001,
-        "reference_factory_tax": 1.0
+        "reference_factory_tax": 1.2
       },
       "origin": "derived_proposal",
       "principle": "D017.6",
       "status": "pending_user_confirmation",
       "unit": "currency/month",
-      "value": 17.138
+      "value": 17.398
     },
-    "reference_factory_tax": {
+    "reference_factory_incremental_payroll_tax": {
+      "activation": "disabled",
+      "formula": "new_factory_workers*monthly_wage*payroll_tax_rate; all reference wages assumed net new taxable income",
+      "inputs": {
+        "monthly_wage": 0.02,
+        "new_factory_workers": 100,
+        "payroll_tax_rate": 0.1
+      },
+      "origin": "derived_proposal",
+      "principle": "D017.6",
+      "status": "pending_user_confirmation",
+      "unit": "currency/month",
+      "value": 0.2
+    },
+    "reference_factory_sales_tax": {
       "activation": "disabled",
       "formula": "new_factory_output*goods_price*manufacturing_sales_tax_rate",
       "inputs": {
@@ -379,6 +393,20 @@
       "unit": "currency/month",
       "value": 1.0
     },
+    "reference_factory_tax": {
+      "activation": "disabled",
+      "formula": "reference_factory_sales_tax+reference_factory_incremental_payroll_tax",
+      "inputs": {
+        "reference_factory_incremental_payroll_tax": 0.2,
+        "reference_factory_sales_tax": 1.0
+      },
+      "origin": "derived_proposal",
+      "principle": "D017.6",
+      "status": "pending_user_confirmation",
+      "unit": "currency/month",
+      "value": 1.2
+    },
+    "reference_factory_tax_assumption": "Pending proposal. All 100 reference factory workers previously had no taxable wages, so their wages are entirely net new taxable income. Migration and employment displacement are not simulated. This does not claim that any single region has enough idle workers. Both the sales tax and payroll tax proposal require user confirmation.",
     "spending_breakdown": {
       "activation": "disabled",
       "education": {
@@ -386,52 +414,52 @@
         "formula": "recurring_spending*proposed_share",
         "inputs": {
           "proposed_share": 0.25,
-          "recurring_spending": 17.138
+          "recurring_spending": 17.398
         },
         "origin": "derived_proposal",
         "principle": "D017.6",
         "status": "pending_user_confirmation",
         "unit": "currency/month",
-        "value": 4.2845
+        "value": 4.3495
       },
       "health": {
         "activation": "disabled",
         "formula": "recurring_spending*proposed_share",
         "inputs": {
           "proposed_share": 0.3,
-          "recurring_spending": 17.138
+          "recurring_spending": 17.398
         },
         "origin": "derived_proposal",
         "principle": "D017.6",
         "status": "pending_user_confirmation",
         "unit": "currency/month",
-        "value": 5.1414
+        "value": 5.219399999999999
       },
       "maintenance": {
         "activation": "disabled",
         "formula": "recurring_spending*proposed_share",
         "inputs": {
           "proposed_share": 0.2,
-          "recurring_spending": 17.138
+          "recurring_spending": 17.398
         },
         "origin": "derived_proposal",
         "principle": "D017.6",
         "status": "pending_user_confirmation",
         "unit": "currency/month",
-        "value": 3.4276000000000004
+        "value": 3.4796
       },
       "safety": {
         "activation": "disabled",
         "formula": "recurring_spending*proposed_share",
         "inputs": {
           "proposed_share": 0.25,
-          "recurring_spending": 17.138
+          "recurring_spending": 17.398
         },
         "origin": "derived_proposal",
         "principle": "D017.6",
         "status": "pending_user_confirmation",
         "unit": "currency/month",
-        "value": 4.2845
+        "value": 4.3495
       },
       "status": "pending_user_confirmation"
     },
@@ -894,7 +922,7 @@
   },
   "provenance": {
     "generator": "scripts/draft-initial-values.py",
-    "generator_sha256": "0249c816240de43feaf75ed61b1ca211190debfa0b55096c4509815e808f1bba",
+    "generator_sha256": "e66c1849d45eab93fcc26d594a6ff6d2ed3b74b954b7b18b20941679f871e0f5",
     "generator_version": "0.6.0",
     "map_config": {
       "cell_count": 100,
