@@ -131,7 +131,14 @@ cargo run -p jinglun-gameplay --example governance_replay --release --offline --
 
 耐久证据在 `docs/gameplay/acceptance/2026-10-24/`：`d026-acceptance-summary.json` 保存完整各选择前沿和见证指标；`root-evidence.tar.gz` 保存最终444全部结果/反例、配对全轨迹、最终测试日志及逐文件SHA manifest；`d026-calibration-evidence.tar.gz` 保存参数筛查、截止/意向顺序/延后补贴试验及子代理444原始证据（SHA-256 `276519787c18e6da3698da57cfcc61b518ad088a1bf867026764f66152d25597`）。根包中的 `legacy-rules3-2026-10-23/` 是删除旧工作目录前保存的独有历史证据，不计为本轮结果。上述是本地规则验收，不能与此前Cloud地区对比验收混称。
 
-2026-10-24产物：D024—D026规则更新、回放与校准证据保存在产品仓库 `crates/gameplay/`、`scripts/draft-initial-values.py` 及上述acceptance目录；实现状态只写本HANDOFF。提交/推送和临时目录清理回执在本节末追加，之后以主目录Develop为日常入口。
+2026-10-24产物：D024—D026规则更新、回放与校准证据保存在产品仓库 `crates/gameplay/`、`scripts/draft-initial-values.py` 及上述acceptance目录；实现状态只写本HANDOFF。主目录Develop为日常入口，交付回执如下。
+
+
+**交付与清理回执（2026-10-24）。** 已在最终集成前重新fetch，远端仍为 `987f45b9ce6139c3e28731028b36aa088282e6d4`；主目录干净，随后快进到实现/证据提交 **`7caceb511940ef2cbf63c258866cbd4b05894675`** 并非强制推送 `origin/Develop` 成功。此段收尾记录再单独提交到同一Develop；没有创建PR、合并PR或部署。
+
+本轮4个临时目录 `governance-rules`、`governance-d025-core`、`governance-d025-inputs`、`governance-d025-tests` 已用普通 `git worktree remove` 删除。删除前均tracked干净、untracked为0，lsof从目录外检查无占用；ignored仅target，可重建编译缓存以外的独有原始证据已逐字保存并校验。根证据包SHA-256为 `d3f8c7df8caeb292688599097abf77417d2d7f54f5ec5c6b685f072df5e2c4be`，摘要JSON为 `0555550c877ba84c3099e6e2f1a2ee68eee20687bab492570259a624677cb86d`。4条临时本地任务分支同步退役，3条cherry-pick分支先用 `git cherry Develop <分支>` 核对全部为补丁等价，没有删除远端分支。
+
+当前只保留主目录 `/Users/wangyucheng/Projects/jinglun`（Develop）与仍有地图预览/PR用途的 `natural-map-upstream-develop`（`feat/natural-map-upstream-ready`，`f628c96`，本轮未触碰）。`archive/local-develop-map-20261024` 仍为 `6b05785dade1c8a8305e02f60991e1075a468e23`，包含原 `b37e141`；`archive/governance-prototype-20261024` 也保留。地图任务未混入本轮治理改动。下一步由用户与Claude复核B1/B8/B15缺口及待确认参数；Codex不继续自行调参或写设计决策。
 
 ## 2026-10-24 仓库与工作目录归位
 
@@ -145,7 +152,7 @@ GitHub已核实fork默认分支为 `Develop`；本仓库 `origin/HEAD` 也已指
 
 旧 `governance-rule-engine` 中有独有未跟踪原型 `crates/gameplay/examples/governance_replay.rs`；已先逐字保存到本地 `archive/governance-prototype-20261024`，提交 `3c807d16b1b7ec666b04c189a78a1b2865a5f2d9`（文件SHA-256 `e2cd5e180e427ddd75de03d269915cbc59f41ad12d43ae0168825198bd9a68d1`），确认归档后才删除目录。两条归档分支均只保存历史／原型，不是当前开发入口，不把其内容接入正式初始化。所有删除均使用普通 `git worktree remove`，未强制清理未保存文件。
 
-目前保留主目录和5个辅助worktree。下列任务仍在使用，不能由另一任务顺带清理；完成集成、预览停止且耐久记录齐备后，应及时删除目录，不继续积累：
+归位时保留主目录和5个辅助worktree（本轮交付后的清单见顶部回执）。下列任务在当时仍在使用，不能由另一任务顺带清理；完成集成、预览停止且耐久记录齐备后，应及时删除目录，不继续积累：
 
 | 目录（均在 `/Users/wangyucheng/Projects/jinglun-worktrees/`） | 分支 | 保留理由 |
 | --- | --- | --- |
