@@ -1778,28 +1778,26 @@ impl GovernanceState {
             .housing_capacity
             .saturating_sub(s.population)
             .min(s.clinic_capacity.saturating_sub(s.population));
-        let (potential_workers, migrant_skills) = if self.labor_trial_enabled {
+        let (potential_workers, available_skills) = if self.labor_trial_enabled {
             // Use the execution allocator itself: earlier ordinary origins and other destinations
             // consume monthly room before later skilled origins can be reached.
             let mut projected = self.clone();
             projected.sites.insert(site, s.clone());
             projected.migrate(game);
             let destination = &projected.sites[&site];
-            (
-                destination.idle_workers,
-                destination
-                    .skilled_workers
-                    .saturating_sub(actual.skilled_workers),
-            )
+            (destination.idle_workers, destination.skilled_workers)
         } else {
             (
                 local_idle
                     .saturating_add(migration_space.min(domestic_idle.saturating_sub(local_idle))),
-                self.sites
-                    .iter()
-                    .filter(|(id, _)| **id != site)
-                    .map(|(_, source)| source.skilled_workers)
-                    .sum::<u32>(),
+                actual.skilled_workers
+                    + migration_space.min(
+                        self.sites
+                            .iter()
+                            .filter(|(id, _)| **id != site)
+                            .map(|(_, source)| source.skilled_workers)
+                            .sum::<u32>(),
+                    ),
             )
         };
         let domestic_new: f64 = self
@@ -1838,8 +1836,7 @@ impl GovernanceState {
             "labor".into(),
             workers.saturating_sub(potential_workers) as f64,
         );
-        let potential_skills = actual.skilled_workers
-            + migration_space.min(migrant_skills)
+        let potential_skills = available_skills
             + if s.vocational_schools > 0 {
                 self.calibration.trained_workers_per_quarter
             } else {
@@ -4496,5 +4493,44 @@ mod order_priority_tests {
             priority.gaps["skills"],
             state.calibration.factory_skill_workers as f64
         );
+    }
+    #[test]
+    fn labor_trial_scorecard_removes_skills_exported_to_the_prior_destination() {
+        let (game, mut state) = labor_trial_fixture(true);
+        state.selected_candidate = Some(29);
+        for source in state.labor_trial_sources.values_mut() {
+            source.cumulative_outbound = source.outbound_cap();
+        }
+        for origin in [8, 9] {
+            state
+                .labor_trial_sources
+                .get_mut(&origin)
+                .unwrap()
+                .cumulative_outbound = 0;
+        }
+        let selected = state.sites.get_mut(&29).unwrap();
+        selected.idle_workers = 0;
+        selected.housing_capacity = selected.population + 6;
+        let competing = state.sites.get_mut(&8).unwrap();
+        competing.admitted = true;
+        competing.road_capacity = 1000;
+        competing.power_capacity = 1000;
+        competing.water_access = true;
+        competing.housing_capacity += 1000;
+        competing.clinic_capacity += 1000;
+        competing.idle_workers = 20;
+        competing.skilled_workers = 20;
+        state.sites.get_mut(&9).unwrap().skilled_workers = 0;
+        let card = state
+            .assess_excluding_commitment(&game, Group::A, 8, None)
+            .unwrap();
+        let mut executed = state.clone();
+        executed.migrate(&game);
+        assert_eq!(executed.sites[&29].skilled_workers, 6);
+        assert_eq!(executed.sites[&8].skilled_workers, 14);
+        assert_eq!(executed.sites[&8].idle_workers, 20); // six ordinary arrivals replace six skilled departures.
+        assert_eq!(card.gaps["skills"], 6.0);
+        assert_eq!(card.gaps["labor"], 80.0);
+        assert_eq!(executed.labor_trial_sources[&9].cumulative_outbound, 6);
     }
 }
