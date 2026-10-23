@@ -323,16 +323,18 @@ fn replay(base: &Game, script: Script) -> std::result::Result<Replay, String> {
     })
 }
 
-fn run() -> std::result::Result<(), String> {
+fn run() -> std::result::Result<u8, String> {
     let mut args = std::env::args().skip(1);
     let mut quick = false;
     let mut summary_only = false;
     let mut selected_script = None;
     let mut water_share = None;
+    let mut require_acceptance = false;
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--quick" => quick = true,
             "--summary-only" => summary_only = true,
+            "--require-acceptance" => require_acceptance = true,
             "--script" => selected_script = Some(args.next().ok_or("--script needs an ID")?),
             "--water-share" => {
                 water_share = Some(
@@ -344,12 +346,21 @@ fn run() -> std::result::Result<(), String> {
             }
             _ => {
                 return Err(
-                    "usage: governance_replay [--quick] [--summary-only] [--script ID] [--water-share RATIO]".into(),
+                    "usage: governance_replay [--quick] [--summary-only] [--script ID] [--water-share RATIO] [--require-acceptance]".into(),
                 );
             }
         }
     }
+    if require_acceptance && selected_script.is_some() {
+        emit(
+            &json!({"kind":"acceptance_result","status":"not_evaluated","reason":"single-script mode cannot evaluate aggregate B1/B15 acceptance","exit_code":2}),
+        )?;
+        return Ok(2);
+    }
     let mut replay_count = 0;
+    let mut all_b15_pass = true;
+    let mut b15_aggregation_pending = false;
+    let mut b15_execution_blocked = false;
     let preparation: Vec<u32> = if quick { vec![1] } else { vec![1, 6, 13] };
     let subsidy: Vec<u64> = if quick { vec![40] } else { vec![0, 20, 40] };
     let renewal: Vec<u32> = if quick { vec![9] } else { vec![9, 12] };
@@ -367,7 +378,7 @@ fn run() -> std::result::Result<(), String> {
     }
     .map_err(|e| e.to_string())?;
     emit(
-        &json!({"kind":"search_domain","selected_script":selected_script,"pending_water_share_override":water_share,"preparation_months":preparation,"subsidy_currency":subsidy,"renewal_months":renewal,"project_orders":order,"choices":["W","E","Decline"],"project_sequences":{"r1_o0":["Housing","Road","Power","Water","Clinic"],"r1_o1":["Road","Power","Housing","Clinic","Water","Vocational"],"r2_o0":["Vocational","Housing","Clinic","Road","Power","Water"],"r2_o1":["Housing","Clinic","Vocational","Power","Road","Water"]},"horizon":24,"money_scale":b15::MONEY_SCALE,"tolerances":tolerance,"calibration":base.governance().ok_or("missing governance")?.calibration,"global_optimality_claim":false,"retry_policy":"Every uncompleted prescribed action retries monthly; successful IDs are never repeated. Intents only at selected candidate; deadline min(month+4,24). Renewal retries only to M12. Execution errors have no metrics and block the whole B15 group.","route1":"housing/road/power/water/clinic; order1 additionally vocational last; subsidy cap, ordinary energy contract from M3","route2":"vocational/housing/clinic/road/power/water, subsidy cap, cooperation from M2","frontiers":"exact Pareto; tolerance pairwise bidirectional coverage","attainment":"Some only when final M24 grade Achieved; raw first sustained window separately reported"}),
+        &json!({"kind":"search_domain","require_acceptance":require_acceptance,"selected_script":selected_script,"pending_water_share_override":water_share,"preparation_months":preparation,"subsidy_currency":subsidy,"renewal_months":renewal,"project_orders":order,"choices":["W","E","Decline"],"project_sequences":{"r1_o0":["Housing","Road","Power","Water","Clinic"],"r1_o1":["Road","Power","Housing","Clinic","Water","Vocational"],"r2_o0":["Vocational","Housing","Clinic","Road","Power","Water"],"r2_o1":["Housing","Clinic","Vocational","Power","Road","Water"]},"horizon":24,"money_scale":b15::MONEY_SCALE,"tolerances":tolerance,"calibration":base.governance().ok_or("missing governance")?.calibration,"global_optimality_claim":false,"retry_policy":"Every uncompleted prescribed action retries monthly; successful IDs are never repeated. Intents only at selected candidate; deadline min(month+4,24). Renewal retries only to M12. Execution errors have no metrics and block the whole B15 group.","route1":"housing/road/power/water/clinic; order1 additionally vocational last; subsidy cap, ordinary energy contract from M3","route2":"vocational/housing/clinic/road/power/water, subsidy cap, cooperation from M2","frontiers":"exact Pareto; tolerance pairwise bidirectional coverage","attainment":"Some only when final M24 grade Achieved; raw first sustained window separately reported"}),
     )?;
     let mut b1_execution_blocked = false;
     let mut best_decline: BTreeMap<(u32, u32), Option<(u32, String)>> = BTreeMap::new();
@@ -446,6 +457,8 @@ fn run() -> std::result::Result<(), String> {
                 continue;
             }
             if !execution_errors.is_empty() {
+                all_b15_pass = false;
+                b15_execution_blocked = true;
                 emit(
                     &json!({"kind":"bounded_b15","site":site,"route":route,"status":"blocked_not_evaluated","counts":counts,"execution_errors":execution_errors,"completed_outcomes":outcomes}),
                 )?;
@@ -463,8 +476,14 @@ fn run() -> std::result::Result<(), String> {
                 b15::GuardrailAggregation::UnionOfMonths,
             )
             .map_err(|e| format!("B15 union {e:?}"))?;
+            let aggregation_sensitive = sum.pass != union.pass
+                || sum.witnesses != union.witnesses
+                || sum.frontiers != union.frontiers
+                || sum.all_equivalent != union.all_equivalent;
+            all_b15_pass &= sum.pass && union.pass;
+            b15_aggregation_pending |= aggregation_sensitive;
             emit(
-                &json!({"kind":"bounded_b15","site":site,"route":route,"scripts":outcomes.len(),"counts":counts,"sum":sum,"union":union,"aggregation_sensitive":sum.pass!=union.pass || sum.witnesses!=union.witnesses || sum.frontiers!=union.frontiers || sum.all_equivalent!=union.all_equivalent,"outcomes":outcomes}),
+                &json!({"kind":"bounded_b15","site":site,"route":route,"scripts":outcomes.len(),"counts":counts,"sum":sum,"union":union,"aggregation_sensitive":aggregation_sensitive,"outcomes":outcomes}),
             )?;
         }
     }
@@ -472,9 +491,10 @@ fn run() -> std::result::Result<(), String> {
         if replay_count == 0 {
             return Err("script ID outside disclosed search domain".into());
         }
-        return emit(
+        emit(
             &json!({"kind":"single_script_complete","count":replay_count,"b15":"not_evaluated_for_single_script"}),
-        );
+        )?;
+        return Ok(0);
     }
     let mut b1 = vec![];
     let mut all_reached = true;
@@ -492,12 +512,31 @@ fn run() -> std::result::Result<(), String> {
     }
     emit(
         &json!({"kind":"bounded_b1","choice":"Decline","same_disclosed_search_domain":true,"status":if b1_execution_blocked {"blocked_not_evaluated"} else {"evaluated"},"results":b1,"pass":if b1_execution_blocked {None} else {Some(all_reached)},"not_experience_acceptance":true}),
-    )
+    )?;
+    let passed = all_reached && !b1_execution_blocked && all_b15_pass && !b15_aggregation_pending;
+    let status = if b1_execution_blocked || b15_execution_blocked {
+        "blocked_not_evaluated"
+    } else if b15_aggregation_pending {
+        "pending_guardrail_aggregation"
+    } else if passed {
+        "passed"
+    } else {
+        "failed"
+    };
+    let exit_code = if require_acceptance && !passed { 2 } else { 0 };
+    emit(
+        &json!({"kind":"acceptance_result","status":status,"b1_pass":all_reached && !b1_execution_blocked,"all_b15_pass":all_b15_pass,"aggregation_pending":b15_aggregation_pending,"exit_code":exit_code,"not_experience_acceptance":true}),
+    )?;
+    Ok(exit_code)
 }
 
 fn main() {
-    if let Err(error) = run() {
-        let _ = emit(&json!({"kind":"driver_error","error":error}));
-        std::process::exit(1);
+    match run() {
+        Ok(0) => {}
+        Ok(code) => std::process::exit(i32::from(code)),
+        Err(error) => {
+            let _ = emit(&json!({"kind":"driver_error","error":error}));
+            std::process::exit(1);
+        }
     }
 }
