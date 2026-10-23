@@ -8,7 +8,24 @@
 
 本次 Codex 曾在 design/ 追加接手状态与 D005。随后 Claude 接续编辑，将该条改为 D008 并加入后续说明；检查撤回时发现这些并发改动，补丁未应用。Codex 已停止写入 design/，没有覆盖 Claude 当前内容，该目录的整理归 Claude。LOCAL-PROMPT 恢复为原交接提交的历史文本，当前实现进度以本文件为准；本次生成的并行项目地图已移除。
 
-## 本地接手当前状态
+## 当前实施范围与进度
+
+2026-10-23：用户在本地接手后的消息中提供底层开工授权截图，并指定 GPT-6.1 Sol 子代理负责具体开发，根代理负责整体把控与验收。授权仅覆盖 `jinglun-040` 100 地块及规格边界的剧本绑定、账本与托管、名额计算、月结骨架和版本化完整存档。完整可玩切片、企业决策、待办、外交续期、内参和 UI 不在本次实施范围。
+
+开工核实：本地与远端 `Develop` 均为 `69f86cdc1014233c623663a36bc3801ba88cc218`，工作区干净；最新上游 `main` 为 `20a276e5620c26436f47120fdb4f5dcb754745d6`，产品源码一致，仅交接资料有差异。最终代码集成并推送 Develop；子代理只在独立 worktree 或不重叠模块工作，不修改原功能评审分支。
+
+只读规格为 `/Users/wangyucheng/Projects/jinglun-design/design/handoffs/2026-10-23-first-governance-slice.md`，读取时 SHA-256 为 `79f8a2dd13b0a9c05e76e1ab3b1ab41b2c09ad24e3fc35a6b2c91db84b4b1bfd`。规格的旧“未授权”标记未改写，本轮消息仅解除上述底层范围的开工限制。第 8 节第 1–4 项产品问题仍不自行决定；初始数据如需起草及名额校准参数均标记待用户确认，不能宣称已获批准或完整玩法验收通过。
+
+当前阶段为源码核对与技术结构比较，尚未写入治理代码。按 Pstack Feature 执行：先明确类型和模块责任，再委派实现，最后由根代理独立运行行为验收。
+
+- 前置核对：固定上游、规格与 raw cell ID 口径，保留原地图与 4096 字节生成接口边界。
+- 独立工作：技术方案比较只读并行；代码交给单一实现负责人，再按不重叠模块拆分。
+- 共享状态：月度状态、账本、名额各有单一写入边界；根代理独占本文件，设计目录只读。
+- 最小拆分：一个独立 Rust 玩法域；先验证底层事务、存读档和空月推进，不提前接入未确认的产品规则或 HTTP/UI。
+
+本地已验证 Cargo 离线 metadata，尚未宣称本轮测试通过；不安装或升级依赖。原有 Cloud 验收只证明地区对比，不继承为本次治理底层通过项。
+
+## 本地接手记录
 
 2026-10-23：已在 `/Users/wangyucheng/Projects/jinglun` 从交接提交 `381bffaf9b257b96cdc94b5f676f60390a0507be` 接手 `Develop`。已创建正式[上游 PR #1](https://github.com/CircuitMurderer/jinglun/pull/1)，与 [fork 评审 PR #1](https://github.com/CypherHK/jinglun/pull/1) 互链，两者均已附加到当前本地 Codex 任务。接手记录保存在本文件，创建页面见 [upstream-pr-created.png](upstream-pr-created.png)。治理继续暂停，等待用户确认版规则。
 
@@ -16,9 +33,9 @@
 
 本地 `origin` 指向 CypherHK fork，`upstream` 指向 CircuitMurderer 上游。原设计工作区 `/Users/wangyucheng/Projects/jinglun-design` 及其中的只读 `reference/` 保留；其 `reference/main` 仍在 `c2dc9f0`，未 fetch、切分支或改写。设计工作区没有 Git，本次没有初始化外层仓库。
 
-## 当前停止点
+## 完整玩法的停止点
 
-**治理玩法域暂停，尚未开工。** 地区对比已完成正式上游提交。后续治理仍等待用户提供完整确认版规则及明确实施授权，不按 archive/ 中的旧 v2 直接开工。
+**完整玩法仍未开工。** 本轮仅实施上方已授权的底层；未确认部分继续等待用户提供规则与授权，不按 archive/ 中的旧 v2 扩展范围。
 
 设计讨论正在由 Claude 继续更新。接手时的地块口径描述是历史状态，不能替代当前 [设计决策](../../../jinglun-design/design/DECISIONS.md) 与 [设计上下文](../../../jinglun-design/design/CONTEXT.md)。这两个链接指向同级本地设计工作区；远端阅读时以用户提供的 design/ 确认版为准。Codex 不在此重写设计决策，也不从设计文件的存在推断实施授权。
 
@@ -67,11 +84,11 @@ Git 默认 osxkeychain 仍返回 `failed to get: -25293`。本次用 `git -c cre
 
 上游正文链接原 fork 评审；原 fork PR 正文和[回链评论](https://github.com/CypherHK/jinglun/pull/1#issuecomment-6360384922)链接正式上游 PR。创建时的 open 状态与随后作者合并分开记录。agent 未关闭原 fork PR、执行合并或部署。
 
-地区对比提交任务已完成。治理实施继续等待用户确认与授权，不自动开工。
+地区对比提交任务已完成。本轮底层范围与未确认玩法的区别见本文件“当前实施范围与进度”。
 
 ## 实现状态
 
-接手时及本次交接时，治理相关类型、代码、测试：**没有**。检索范围为功能提交的 `crates/`、`frontend/`、`tests/` 及完整文件树。现有 `crates/world/src/lakes.rs::step` 属于水文计算，不能当作治理月结。
+原接手基线 `69f86cd` 中，治理相关类型、代码、测试：**没有**。检索范围为功能提交的 `crates/`、`frontend/`、`tests/` 及完整文件树。现有 `crates/world/src/lakes.rs::step` 属于水文计算，不能当作治理月结。本轮新增实现与验证在当前进度处记录。
 
 地区对比已实现：按加入顺序保留 2—4 个候选、按月/全年比较、共享水源 ID 去重、生成成功清空、失败保留，以及键盘和窄屏支持。相关源码和测试都在 `05a5fd3`：
 
