@@ -243,7 +243,7 @@ def d020_calibration(d, cells):
             contribution_per_order=m(contribution,'currency/goods','D020.2','goods_price*(1-sales_tax_rate)-energy_per_output*energy_price',goods_price=price,sales_tax_rate=sales_rate,energy_per_output=energy_per_factory/output,energy_price=ep),
             break_even_orders=m(threshold,'goods/month','D020.2','(gross_wages+other_fixed_cost)/contribution_per_order; losses strictly below threshold',gross_wages=wage_bill,other_fixed_cost=other_fixed,contribution_per_order=contribution),
             break_even_output_share=m(threshold/output,'ratio','D020.2','break_even_orders/new_factory_output',break_even_orders=threshold,new_factory_output=output),
-            order_drop_to_break_even=m(1-threshold/output,'ratio','D020.2','1-break_even_orders/new_factory_output',break_even_orders=threshold,new_factory_output=output),
+            break_even_order_decline_share=m(1-threshold/output,'ratio','D020.2','1-break_even_orders/new_factory_output; losses when order decline is strictly greater',break_even_orders=threshold,new_factory_output=output),
             maximum_whole_orders_still_loss=m(math.ceil(threshold)-1,'goods/month','D020.2','ceil(break_even_orders)-1',break_even_orders=threshold))
     d['factory_profit_arithmetic'] = group(cases=group(**profits),
         assumption='Unimplemented arithmetic only. Orders equal actual production and sales, between 0 and nameplate output; no inventory, dynamic pricing or automatic order guarantee. Energy and gross-sales tax vary linearly with actual orders. Gross wages and other operating cost stay fixed for this monthly comparison; reduced staffing/closure is not simulated. Payroll tax is withheld from gross wages and is not another firm expense. No operating subsidy or corporate profit tax. Profit means operating surplus after proposed sales tax, excluding depreciation, capital amortization, financing and capital expenditure; it is not complete accounting net income. Energy passed through by government is charged only for energy the new factory actually uses; unused take-or-pay energy belongs to the government cost ledger.')
@@ -319,22 +319,22 @@ def d020_calibration(d, cells):
         capital_immediate_factory_labor_share=m(v(d['regions']['39']['idle'])/workers,'ratio','D020.4','capital_idle/new_factory_workers',capital_idle=v(d['regions']['39']['idle']),new_factory_workers=workers),
         assumption='D020 overrides D017.5 old every-region-below-one-factory wording: only inland candidates must remain below 100; capital has at least 100. Any migrant is removed from idle labor in another owned cell and added to destination labor/population once; foreign arrivals zero, total domestic population conserved. Nationwide idle labor is 295: enough for two 100-worker factories, fewer than three. This checks aggregate availability only; housing, service capacity, skilled labor, migration speed and enterprise selection remain unimplemented.')
 
-    ratio = lambda n, f, **ins: m(n,'ratio','D020.1;D017',f,**ins)
+    ratio = lambda principle, n, f, **ins: m(n,'ratio',principle,f,**ins)
     d['calibration_actual_ratios'] = group(
-        capital_population_share=ratio(v(d['regions']['39']['population'])/v(p['total_population']),'capital_population/total_population',capital_population=v(d['regions']['39']['population']),total_population=v(p['total_population'])),
-        coastal_74_output_in_factory_units=ratio(v(d['regions']['74']['manufacturing_output'])/output,'coastal_74_output/new_factory_output',coastal_74_output=v(d['regions']['74']['manufacturing_output']),new_factory_output=output),
-        import_output_in_factory_units=ratio(v(d['demand']['initial_imports'])/output,'initial_imports/new_factory_output',initial_imports=v(d['demand']['initial_imports']),new_factory_output=output),
-        gap_to_recurring_spending=ratio(gap/spending,'post_aid_gap/recurring_spending',post_aid_gap=gap,recurring_spending=spending),
-        gap_in_factory_tax_units=ratio(gap/factory_tax,'post_aid_gap/reference_factory_tax',post_aid_gap=gap,reference_factory_tax=factory_tax),
-        aid_to_gap=ratio(aid/gap,'monthly_aid/post_aid_gap',monthly_aid=aid,post_aid_gap=gap),
-        aid_period_balance_to_spending=ratio((aid-gap)/spending,'aid_period_balance/recurring_spending',aid_period_balance=aid-gap,recurring_spending=spending),
-        maximum_package_to_treasury=ratio((maximum_subsidy+works_reserve)/treasury,'one_factory_plus_works_reserve/opening_treasury',one_factory_plus_works_reserve=maximum_subsidy+works_reserve,opening_treasury=treasury),
-        minimum_pair_subsidy_to_treasury=ratio(minimum_pair/treasury,'minimum_two_candidate_subsidy/opening_treasury',minimum_two_candidate_subsidy=minimum_pair,opening_treasury=treasury),
+        capital_population_share=ratio('D017.1',v(d['regions']['39']['population'])/v(p['total_population']),'capital_population/total_population',capital_population=v(d['regions']['39']['population']),total_population=v(p['total_population'])),
+        coastal_74_output_in_factory_units=ratio('D017.2',v(d['regions']['74']['manufacturing_output'])/output,'coastal_74_output/new_factory_output',coastal_74_output=v(d['regions']['74']['manufacturing_output']),new_factory_output=output),
+        import_output_in_factory_units=ratio('D017.3',v(d['demand']['initial_imports'])/output,'initial_imports/new_factory_output',initial_imports=v(d['demand']['initial_imports']),new_factory_output=output),
+        gap_to_recurring_spending=ratio('D020.1;D017.6',gap/spending,'post_aid_gap/recurring_spending',post_aid_gap=gap,recurring_spending=spending),
+        gap_in_factory_tax_units=ratio('D017.6;D020.1',gap/factory_tax,'post_aid_gap/reference_factory_tax',post_aid_gap=gap,reference_factory_tax=factory_tax),
+        aid_to_gap=ratio('D020.1',aid/gap,'monthly_aid/post_aid_gap',monthly_aid=aid,post_aid_gap=gap),
+        aid_period_balance_to_spending=ratio('D020.1',(aid-gap)/spending,'aid_period_balance/recurring_spending',aid_period_balance=aid-gap,recurring_spending=spending),
+        maximum_package_to_treasury=ratio('D020.1;D017.7',(maximum_subsidy+works_reserve)/treasury,'one_factory_plus_works_reserve/opening_treasury',one_factory_plus_works_reserve=maximum_subsidy+works_reserve,opening_treasury=treasury),
+        minimum_pair_subsidy_to_treasury=ratio('D020.1;D017.7',minimum_pair/treasury,'minimum_two_candidate_subsidy/opening_treasury',minimum_two_candidate_subsidy=minimum_pair,opening_treasury=treasury),
         long_full_output_margin=profits['long']['after_tax_margin'],
         ordinary_full_output_margin=profits['ordinary']['after_tax_margin'],
         maritime_full_output_margin=profits['maritime']['after_tax_margin'],
         actual_idle_share=m(idle_total/sum(v(d['regions'][str(i)]['labor_force']) for i in PLAYER),'ratio','D020.4','sum(floor(region_labor*5%))/sum(region_labor); rounding lowers aggregate slightly',total_idle=idle_total,total_labor=sum(v(d['regions'][str(i)]['labor_force']) for i in PLAYER)),
-        food_monthly_import_to_consumption=ratio(v(d['food']['background_imports'])/v(d['food']['monthly_consumption']),'background_imports/monthly_food_consumption',background_imports=v(d['food']['background_imports']),monthly_food_consumption=v(d['food']['monthly_consumption'])),
+        food_monthly_import_to_consumption=ratio('D017.8',v(d['food']['background_imports'])/v(d['food']['monthly_consumption']),'background_imports/monthly_food_consumption',background_imports=v(d['food']['background_imports']),monthly_food_consumption=v(d['food']['monthly_consumption'])),
         materials_flow_in_project_units=d['materials']['sustainable_parallel_projects'])
     d['calibration_review'] = dict(owner='user', status=STATUS, activation='disabled',
         review_date=None, scheduling='User has not specified a review date; unapproved and unscheduled.',
@@ -372,6 +372,7 @@ def verify_d020(d):
         fixed = v(row['gross_wages'])+v(row['other_fixed_cost'])
         contribution = v(row['contribution_per_order'])
         assert 0 < threshold < v(p['new_factory_output'])
+        assert math.isclose(v(row['break_even_order_decline_share']),1-threshold/v(p['new_factory_output']))
         assert (threshold-1)*contribution-fixed < 0 < (threshold+1)*contribution-fixed
         assert v(row['maximum_whole_orders_still_loss'])*contribution-fixed < 0
         assert (v(row['maximum_whole_orders_still_loss'])+1)*contribution-fixed >= 0

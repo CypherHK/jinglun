@@ -25,7 +25,7 @@
         "recurring_spending": 7.8262
       },
       "origin": "derived_proposal",
-      "principle": "D020.1;D017",
+      "principle": "D020.1",
       "status": "pending_user_confirmation",
       "unit": "ratio",
       "value": 0.0
@@ -39,7 +39,7 @@
         "post_aid_gap": 1.586
       },
       "origin": "derived_proposal",
-      "principle": "D020.1;D017",
+      "principle": "D020.1",
       "status": "pending_user_confirmation",
       "unit": "ratio",
       "value": 1.0
@@ -53,7 +53,7 @@
         "total_population": 10000
       },
       "origin": "derived_proposal",
-      "principle": "D020.1;D017",
+      "principle": "D017.1",
       "status": "pending_user_confirmation",
       "unit": "ratio",
       "value": 0.4087
@@ -67,7 +67,7 @@
         "new_factory_output": 100
       },
       "origin": "derived_proposal",
-      "principle": "D020.1;D017",
+      "principle": "D017.2",
       "status": "pending_user_confirmation",
       "unit": "ratio",
       "value": 1.25
@@ -81,7 +81,7 @@
         "monthly_food_consumption": 10.0
       },
       "origin": "derived_proposal",
-      "principle": "D020.1;D017",
+      "principle": "D017.8",
       "status": "pending_user_confirmation",
       "unit": "ratio",
       "value": 1.0
@@ -95,7 +95,7 @@
         "reference_factory_tax": 1.22
       },
       "origin": "derived_proposal",
-      "principle": "D020.1;D017",
+      "principle": "D017.6;D020.1",
       "status": "pending_user_confirmation",
       "unit": "ratio",
       "value": 1.3
@@ -109,7 +109,7 @@
         "recurring_spending": 7.8262
       },
       "origin": "derived_proposal",
-      "principle": "D020.1;D017",
+      "principle": "D020.1;D017.6",
       "status": "pending_user_confirmation",
       "unit": "ratio",
       "value": 0.20265262835092382
@@ -123,7 +123,7 @@
         "new_factory_output": 100
       },
       "origin": "derived_proposal",
-      "principle": "D020.1;D017",
+      "principle": "D017.3",
       "status": "pending_user_confirmation",
       "unit": "ratio",
       "value": 2.0
@@ -180,7 +180,7 @@
         "opening_treasury": 55
       },
       "origin": "derived_proposal",
-      "principle": "D020.1;D017",
+      "principle": "D020.1;D017.7",
       "status": "pending_user_confirmation",
       "unit": "ratio",
       "value": 0.9681449082536163
@@ -194,7 +194,7 @@
         "opening_treasury": 55
       },
       "origin": "derived_proposal",
-      "principle": "D020.1;D017",
+      "principle": "D020.1;D017.7",
       "status": "pending_user_confirmation",
       "unit": "ratio",
       "value": 1.107691629146923
@@ -1085,6 +1085,20 @@
           "unit": "currency/month",
           "value": 2.7
         },
+        "break_even_order_decline_share": {
+          "activation": "disabled",
+          "assumption": "Inactive arithmetic proposal; listed inputs and formulas hold only under the section assumptions. No runtime rule or accepted calibration is implied.",
+          "formula": "1-break_even_orders/new_factory_output; losses when order decline is strictly greater",
+          "inputs": {
+            "break_even_orders": 78.8732394366197,
+            "new_factory_output": 100
+          },
+          "origin": "derived_proposal",
+          "principle": "D020.2",
+          "status": "pending_user_confirmation",
+          "unit": "ratio",
+          "value": 0.21126760563380298
+        },
         "break_even_orders": {
           "activation": "disabled",
           "assumption": "Inactive arithmetic proposal; listed inputs and formulas hold only under the section assumptions. No runtime rule or accepted calibration is implied.",
@@ -1187,20 +1201,6 @@
           "unit": "goods/month",
           "value": 78
         },
-        "order_drop_to_break_even": {
-          "activation": "disabled",
-          "assumption": "Inactive arithmetic proposal; listed inputs and formulas hold only under the section assumptions. No runtime rule or accepted calibration is implied.",
-          "formula": "1-break_even_orders/new_factory_output",
-          "inputs": {
-            "break_even_orders": 78.8732394366197,
-            "new_factory_output": 100
-          },
-          "origin": "derived_proposal",
-          "principle": "D020.2",
-          "status": "pending_user_confirmation",
-          "unit": "ratio",
-          "value": 0.21126760563380298
-        },
         "other_fixed_cost": {
           "activation": "disabled",
           "assumption": "Inactive arithmetic proposal; listed inputs and formulas hold only under the section assumptions. No runtime rule or accepted calibration is implied.",
@@ -1289,6 +1289,20 @@
           "status": "pending_user_confirmation",
           "unit": "currency/month",
           "value": 3.0500000000000003
+        },
+        "break_even_order_decline_share": {
+          "activation": "disabled",
+          "assumption": "Inactive arithmetic proposal; listed inputs and formulas hold only under the section assumptions. No runtime rule or accepted calibration is implied.",
+          "formula": "1-break_even_orders/new_factory_output; losses when order decline is strictly greater",
+          "inputs": {
+            "break_even_orders": 75.16778523489931,
+            "new_factory_output": 100
+          },
+          "origin": "derived_proposal",
+          "principle": "D020.2",
+          "status": "pending_user_confirmation",
+          "unit": "ratio",
+          "value": 0.2483221476510069
         },
         "break_even_orders": {
           "activation": "disabled",
@@ -1392,20 +1406,6 @@
           "unit": "goods/month",
           "value": 75
         },
-        "order_drop_to_break_even": {
-          "activation": "disabled",
-          "assumption": "Inactive arithmetic proposal; listed inputs and formulas hold only under the section assumptions. No runtime rule or accepted calibration is implied.",
-          "formula": "1-break_even_orders/new_factory_output",
-          "inputs": {
-            "break_even_orders": 75.16778523489931,
-            "new_factory_output": 100
-          },
-          "origin": "derived_proposal",
-          "principle": "D020.2",
-          "status": "pending_user_confirmation",
-          "unit": "ratio",
-          "value": 0.2483221476510069
-        },
         "other_fixed_cost": {
           "activation": "disabled",
           "assumption": "Inactive arithmetic proposal; listed inputs and formulas hold only under the section assumptions. No runtime rule or accepted calibration is implied.",
@@ -1494,6 +1494,20 @@
           "status": "pending_user_confirmation",
           "unit": "currency/month",
           "value": 3.4000000000000004
+        },
+        "break_even_order_decline_share": {
+          "activation": "disabled",
+          "assumption": "Inactive arithmetic proposal; listed inputs and formulas hold only under the section assumptions. No runtime rule or accepted calibration is implied.",
+          "formula": "1-break_even_orders/new_factory_output; losses when order decline is strictly greater",
+          "inputs": {
+            "break_even_orders": 71.79487179487178,
+            "new_factory_output": 100
+          },
+          "origin": "derived_proposal",
+          "principle": "D020.2",
+          "status": "pending_user_confirmation",
+          "unit": "ratio",
+          "value": 0.28205128205128216
         },
         "break_even_orders": {
           "activation": "disabled",
@@ -1596,20 +1610,6 @@
           "status": "pending_user_confirmation",
           "unit": "goods/month",
           "value": 71
-        },
-        "order_drop_to_break_even": {
-          "activation": "disabled",
-          "assumption": "Inactive arithmetic proposal; listed inputs and formulas hold only under the section assumptions. No runtime rule or accepted calibration is implied.",
-          "formula": "1-break_even_orders/new_factory_output",
-          "inputs": {
-            "break_even_orders": 71.79487179487178,
-            "new_factory_output": 100
-          },
-          "origin": "derived_proposal",
-          "principle": "D020.2",
-          "status": "pending_user_confirmation",
-          "unit": "ratio",
-          "value": 0.28205128205128216
         },
         "other_fixed_cost": {
           "activation": "disabled",
@@ -12534,7 +12534,7 @@
   "provenance": {
     "design_input_requirement": "External jinglun-design/design directory must contain the relative source_hashes paths. Supply --design-dir when the sibling directory is unavailable. Design files are read only and are not bundled with this product.",
     "generator": "scripts/draft-initial-values.py",
-    "generator_sha256": "7b90bfbcbda85f32c332885928716f5ab2525f3a5a512361d624c4db49b97b48",
+    "generator_sha256": "0382d1781731dc69bf76b4cf8052a0972a7330f0ed82cabcb6fb95d36ec641f4",
     "generator_version": "0.6.0",
     "map_config": {
       "cell_count": 100,
