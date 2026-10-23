@@ -753,3 +753,112 @@ fn long_term_supply_does_not_consume_or_erase_prepaid_ordinary_inventory() {
     let bytes = game.save().unwrap();
     assert_eq!(Game::load(&bytes).unwrap().save().unwrap(), bytes);
 }
+
+#[test]
+fn security_follows_budget_tiers_and_recovery_cap() {
+    let mut game = fixture();
+    let baseline = game.governance().unwrap().budgets[&Service::Safety];
+    assert_eq!(game.governance().unwrap().security, 60.0);
+    let schedule = [
+        (baseline, 60.0),
+        (baseline * 3 / 2, 61.0),
+        (baseline / 2, 60.0),
+        (baseline / 4, 57.0),
+        (baseline, 57.0),
+    ];
+    for (index, (monthly, expected)) in schedule.into_iter().enumerate() {
+        game.queue_governance(
+            format!("safety/{index}"),
+            GovernanceCommand::SetSecurity { monthly },
+        )
+        .unwrap();
+        game.end_month(index as u32 + 1).unwrap();
+        assert_eq!(game.governance().unwrap().security, expected);
+    }
+    game.queue_governance(
+        "recover",
+        GovernanceCommand::SetSecurity {
+            monthly: baseline * 3 / 2,
+        },
+    )
+    .unwrap();
+    for month in 6..=20 {
+        game.end_month(month).unwrap();
+        assert_eq!(
+            game.governance().unwrap().security,
+            (57.0 + (month - 5) as f64).min(70.0)
+        );
+    }
+    let bytes = game.save().unwrap();
+    assert_eq!(Game::load(&bytes).unwrap().save().unwrap(), bytes);
+}
+
+#[test]
+fn autonomous_location_matches_shortest_public_payback_then_site() {
+    let mut game = fixture();
+    let mut observed = 0;
+    for month in 1..=12 {
+        let mut expected = std::collections::BTreeMap::new();
+        for group in [Group::A, Group::B] {
+            let mut cards: Vec<_> = game
+                .governance()
+                .unwrap()
+                .sites
+                .keys()
+                .map(|site| game.scorecard(group, *site).unwrap())
+                .filter(|c| c.autonomous_ready)
+                .collect();
+            cards.sort_by(|a, b| {
+                a.static_payback_months
+                    .unwrap()
+                    .total_cmp(&b.static_payback_months.unwrap())
+                    .then_with(|| a.site.cmp(&b.site))
+            });
+            if let Some(card) = cards.first() {
+                expected.insert(group, card.site);
+            }
+        }
+        game.end_month(month).unwrap();
+        for f in game
+            .governance()
+            .unwrap()
+            .factories
+            .values()
+            .filter(|f| f.started_month == month)
+        {
+            assert_eq!(expected.get(&f.group), Some(&f.site));
+            observed += 1;
+        }
+    }
+    assert!(observed > 0);
+}
+
+#[test]
+fn undefined_clinical_population_rejects_switch_atomically_and_old_true_flags() {
+    let mut game = fixture();
+    let before = game.save().unwrap();
+    for enabled in [true, false] {
+        assert!(matches!(
+            game.queue_governance(
+                "unsupported",
+                GovernanceCommand::SetInstitution {
+                    kind: Institution::ClinicalCoverage,
+                    enabled
+                }
+            ),
+            Err(Error::Invalid(
+                "clinical coverage requires a confirmed disadvantaged population definition"
+            ))
+        ));
+        assert_eq!(game.save().unwrap(), before);
+    }
+    let forged = rewrite_checked_save(&game, |payload| {
+        payload["governance"]["clinical_coverage_institution"] = true.into();
+    });
+    assert!(Game::load(&forged).is_err());
+    let old = rewrite_checked_save(&game, |payload| {
+        payload["governance"]["clinical_coverage_institution"] = true.into();
+        payload["governance"]["rules_version"] = "governance-rules-2".into();
+    });
+    assert!(Game::load(&old).is_err());
+}

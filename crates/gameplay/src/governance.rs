@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 /// One currency unit is 100,000,000 ledger units. Each conversion rounds to the
 /// nearest unit, with an absolute error of at most 5e-9 currency units.
-pub const GOVERNANCE_RULES_VERSION: &str = "governance-rules-2";
+pub const GOVERNANCE_RULES_VERSION: &str = "governance-rules-3";
 pub const MONEY_SCALE: u64 = 100_000_000;
 pub fn money(value: f64) -> Result<u64> {
     scenario::finite_nonnegative(value)?;
@@ -206,6 +206,8 @@ pub struct GovernanceCalibration {
     pub cooperation_monthly_fee: u64,
     pub foreign_buyer_monthly_budget: u64,
     pub public_work_monthly_maintenance: u64,
+    pub security_recovery_budget_ratio: f64,
+    pub security_decline_budget_ratio: f64,
     pub ordinary_energy_import_limit: f64,
     pub water_priority_fraction: f64,
     pub water_m3_per_slot: f64,
@@ -242,6 +244,8 @@ impl Default for GovernanceCalibration {
             cooperation_monthly_fee: MONEY_SCALE,
             foreign_buyer_monthly_budget: 2 * MONEY_SCALE,
             public_work_monthly_maintenance: MONEY_SCALE / 20,
+            security_recovery_budget_ratio: 1.5,
+            security_decline_budget_ratio: 0.5,
             ordinary_energy_import_limit: 6.0,
             water_priority_fraction: 0.94,
             water_m3_per_slot: 50_000_000.0,
@@ -260,7 +264,11 @@ impl Default for GovernanceCalibration {
 }
 impl GovernanceCalibration {
     fn validate(&self) -> Result<()> {
-        if !self.ordinary_energy_import_limit.is_finite()
+        if !self.security_recovery_budget_ratio.is_finite()
+            || self.security_recovery_budget_ratio <= 1.0
+            || !self.security_decline_budget_ratio.is_finite()
+            || !(0.0..1.0).contains(&self.security_decline_budget_ratio)
+            || !self.ordinary_energy_import_limit.is_finite()
             || self.ordinary_energy_import_limit < 0.0
             || !self.water_m3_per_slot.is_finite()
             || self.water_m3_per_slot <= 0.0
@@ -1252,6 +1260,11 @@ impl GovernanceState {
                 self.budgets.insert(*kind, *monthly);
             }
             GovernanceCommand::SetInstitution { kind, enabled } => {
+                if *kind == Institution::ClinicalCoverage {
+                    return Err(Error::Invalid(
+                        "clinical coverage requires a confirmed disadvantaged population definition",
+                    ));
+                }
                 if self.institution_changes.contains_key(kind)
                     || self
                         .institution_last_change
@@ -2239,8 +2252,7 @@ impl GovernanceState {
             for site in self.sites.keys().copied() {
                 cards.push(self.assess(game, group, site)?);
             }
-            // Capital requirements and operating access decide autonomous siting.
-            cards.sort_by_key(|c| (c.factory_capital, c.site));
+            cards.sort_by(investment_preference);
             if let Some(card) = cards.iter().find(|c| c.autonomous_ready) {
                 match self.start_factory(
                     game,
@@ -3248,13 +3260,16 @@ impl GovernanceState {
         }
         let safety_baseline = money(number(doc, "/fiscal/spending_breakdown/safety/value")?)?;
         let safety_paid = paid_service[&Service::Safety];
-        self.security = (self.security
-            + if safety_paid >= safety_baseline {
-                2.0
-            } else {
-                -6.0 * (1.0 - safety_paid as f64 / safety_baseline as f64)
-            })
-        .clamp(0.0, 100.0);
+        let safety_ratio = safety_paid as f64 / safety_baseline as f64;
+        self.security = if safety_ratio >= self.calibration.security_recovery_budget_ratio {
+            (self.security + 1.0).min(70.0)
+        } else if safety_paid >= safety_baseline {
+            self.security
+        } else if safety_ratio >= self.calibration.security_decline_budget_ratio {
+            (self.security - 1.0).max(0.0)
+        } else {
+            (self.security - 3.0).max(0.0)
+        };
         let health_baseline = money(number(doc, "/fiscal/spending_breakdown/health/value")?)?;
         self.health_funding_ratio =
             (paid_service[&Service::Health] as f64 / health_baseline as f64).min(1.0);
@@ -3487,6 +3502,18 @@ impl GovernanceState {
     }
     fn validate(&self, game: &Game) -> Result<()> {
         self.calibration.validate()?;
+        if self.rules_version != GOVERNANCE_RULES_VERSION {
+            return Err(Error::Invalid("unsupported governance rules version"));
+        }
+        if self.clinical_coverage_institution
+            || self
+                .institution_changes
+                .contains_key(&Institution::ClinicalCoverage)
+        {
+            return Err(Error::Invalid(
+                "clinical coverage requires a confirmed disadvantaged population definition",
+            ));
+        }
         if self
             .sites
             .keys()
@@ -3504,7 +3531,7 @@ impl GovernanceState {
             || self.history.len() != game.month.saturating_sub(1) as usize
             || self.completed_plans.len() != self.history.len()
             || !self.security.is_finite()
-            || !(0.0..=100.0).contains(&self.security)
+            || !(0.0..=70.0).contains(&self.security)
             || !self.health_funding_ratio.is_finite()
             || !(0.0..=1.0).contains(&self.health_funding_ratio)
             || !self.export_orders.is_finite()
@@ -3581,6 +3608,16 @@ impl GovernanceState {
         }
         Ok(())
     }
+}
+
+fn investment_preference(a: &Scorecard, b: &Scorecard) -> std::cmp::Ordering {
+    match (a.static_payback_months, b.static_payback_months) {
+        (Some(a), Some(b)) => a.total_cmp(&b),
+        (Some(_), None) => std::cmp::Ordering::Less,
+        (None, Some(_)) => std::cmp::Ordering::Greater,
+        (None, None) => std::cmp::Ordering::Equal,
+    }
+    .then_with(|| a.site.cmp(&b.site))
 }
 
 fn external_party(reason: &str) -> &'static str {
