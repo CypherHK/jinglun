@@ -2,19 +2,25 @@
 
 交接日期：2026-10-23，新加坡时间。本文件优先于同目录 `archive/` 中的历史草案和旧交接。
 
+## 记录职责
+
+用户 2026-10-23 明确：设计决策只写在 `/Users/wangyucheng/Projects/jinglun-design/design/`，由 Claude 与用户讨论后写，Codex 只读该目录。实现进度只由 Codex 写入本文件，不另写 LOCAL-PROMPT 或项目地图等并行状态记录。设计规则与确认依据以 design/ 为准，本文件只记录实施状态与约束。
+
+本次 Codex 曾在 design/ 追加接手状态与 D005。随后 Claude 接续编辑，将该条改为 D008 并加入后续说明；检查撤回时发现这些并发改动，补丁未应用。Codex 已停止写入 design/，没有覆盖 Claude 当前内容，该目录的整理归 Claude。LOCAL-PROMPT 恢复为原交接提交的历史文本，当前实现进度以本文件为准；本次生成的并行项目地图已移除。
+
 ## 本地接手当前状态
 
 2026-10-23：已在 `/Users/wangyucheng/Projects/jinglun` 从交接提交 `381bffaf9b257b96cdc94b5f676f60390a0507be` 接手 `Develop`。已创建正式[上游 PR #1](https://github.com/CircuitMurderer/jinglun/pull/1)，与 [fork 评审 PR #1](https://github.com/CypherHK/jinglun/pull/1) 互链，两者均已附加到当前本地 Codex 任务。接手记录保存在本文件，创建页面见 [upstream-pr-created.png](upstream-pr-created.png)。治理继续暂停，等待用户确认版规则。
+
+最终核实时，作者 CircuitMurderer 已于 2026-10-23 16:08 新加坡时间自行合并上游 PR，提交为 `20a276e5620c26436f47120fdb4f5dcb754745d6`。GitHub API 的 `merged_by`、`merged_at` 与上游 main 均已核实，页面见 [upstream-pr-merged.png](upstream-pr-merged.png)。agent 没有调用合并操作。原 fork 评审 PR 仍开放。
 
 本地 `origin` 指向 CypherHK fork，`upstream` 指向 CircuitMurderer 上游。原设计工作区 `/Users/wangyucheng/Projects/jinglun-design` 及其中的只读 `reference/` 保留；其 `reference/main` 仍在 `c2dc9f0`，未 fetch、切分支或改写。设计工作区没有 Git，本次没有初始化外层仓库。
 
 ## 当前停止点
 
-**治理玩法域暂停，尚未开工。** 用户最新截图明确要求：
+**治理玩法域暂停，尚未开工。** 地区对比已完成正式上游提交。后续治理仍等待用户提供完整确认版规则及明确实施授权，不按 archive/ 中的旧 v2 直接开工。
 
-> v2 草案收到，谢谢。地区对比 PR 照常推进。治理玩法域（v2 的“下一实施单元”）请先不要开工：本地已确认新的切片目标（内陆第二产业中心，玩家从 2–3 个内陆候选中选址），与 v2 第 1 节的目标和“固定管理 10 块”不一致；地块口径也还在讨论。对齐后我会发确认版规则。v2 中账本守恒、托管、拒绝原因、次月生效和水源包络这些约束方向不受影响。
-
-因此，不能把 v2 的三国配置、固定管理 10 块、第 24 月评价指标、具体资金和阈值，或架构草图视为当前实施授权。用户还未发来新的完整规则。先完成地区对比 PR，等待规则对齐后再做治理代码。原先提出的 24 月首局、预告压力、企业自主投资是历史方向；遇到与新切片冲突的内容，以新确认版为准。地块数量和管理口径现在未定，不再默认沿用“100 块中固定经营 10 块”。
+设计讨论正在由 Claude 继续更新。接手时的地块口径描述是历史状态，不能替代当前 [设计决策](../../../jinglun-design/design/DECISIONS.md) 与 [设计上下文](../../../jinglun-design/design/CONTEXT.md)。这两个链接指向同级本地设计工作区；远端阅读时以用户提供的 design/ 确认版为准。Codex 不在此重写设计决策，也不从设计文件的存在推断实施授权。
 
 ## 仓库、分支与提交
 
@@ -23,10 +29,11 @@
 | 用户 fork | https://github.com/CypherHK/jinglun |
 | 上游 | https://github.com/CircuitMurderer/jinglun |
 | 已有 fork 评审 PR | https://github.com/CypherHK/jinglun/pull/1 |
-| 正式上游 PR | https://github.com/CircuitMurderer/jinglun/pull/1；open、非 draft、未合并 |
+| 正式上游 PR | https://github.com/CircuitMurderer/jinglun/pull/1；由 CircuitMurderer 于 16:08 合并 |
 | 地区对比功能分支 | `gameplay/0.6.1-candidate-comparison` |
 | 功能提交 | `05a5fd3bbbbabab98d4aaa02a14daf5bbae232da` |
-| 上游 `main`，本地接手已 fetch 核实 | `c2dc9f0d9ab404214952264c9313970750c423a5` |
+| 上游接手时基线 | `c2dc9f0d9ab404214952264c9313970750c423a5` |
+| 上游当前 `main`，作者合并后已 fetch | `20a276e5620c26436f47120fdb4f5dcb754745d6` |
 | fork PR 目标分支 | `gameplay/0.6.1-review-base`，固定在 `c2dc9f0` |
 | fork `main` | `fb92387f308810239b36174cb27b5778e572bb6b`，没有推进 |
 | 后续工作分支 | `Develop`，大小写精确如此；从地区对比功能提交建立，随后只加入交接、证据和本地接手记录 |
@@ -54,11 +61,13 @@ Cloud 阶段网络已恢复，但连接器 REST 和 CLI GraphQL 创建上游 PR 
 
 随后 HTTPS push 的凭据读取失败，SSH 返回 `Permission denied (publickey)`。用户修复本机 gh 认证后，再次执行 `gh auth status` 和 `gh api user` 已确认 CypherHK 登录有效，具备 `repo` scope。这项修复由用户完成；agent 没有更改认证配置。后续可直接使用 gh，连接器此前的 403 作为历史记录保留。
 
+Git 默认 osxkeychain 仍返回 `failed to get: -25293`。本次用 `git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push origin Develop` 成功推送文档，覆盖只对该命令生效，没有更改 Git 配置。后续若遇同一钥匙串问题，可沿用该命令。
+
 创建后用 GitHub API 复核：目标 `CircuitMurderer/jinglun:main`，base SHA `c2dc9f0d9ab404214952264c9313970750c423a5`；head 为 `CypherHK/jinglun:gameplay/0.6.1-candidate-comparison`，SHA `05a5fd3bbbbabab98d4aaa02a14daf5bbae232da`；1 个提交、10 个文件、274 行新增、4 行删除。PR 为 open、非 draft、未合并。正文与 [`upstream-pr-body.md`](upstream-pr-body.md) 一致，保留 `@CircuitMurderer`，没有夹带 Develop 文档。
 
-上游正文链接原 fork 评审；原 fork PR 正文和[回链评论](https://github.com/CypherHK/jinglun/pull/1#issuecomment-6360384922)链接正式上游 PR。原批准只属于 fork 评审，不表示作者已重新批准上游 PR。保留两份 PR，未关闭、合并或部署。
+上游正文链接原 fork 评审；原 fork PR 正文和[回链评论](https://github.com/CypherHK/jinglun/pull/1#issuecomment-6360384922)链接正式上游 PR。创建时的 open 状态与随后作者合并分开记录。agent 未关闭原 fork PR、执行合并或部署。
 
-地区对比提交任务已完成。后续设计确认由用户负责，复核日期为 2026-10-24；该日期仅用于交接复核，不表示届时自动开工。收到确认前继续暂停治理。
+地区对比提交任务已完成。治理实施继续等待用户确认与授权，不自动开工。
 
 ## 实现状态
 
