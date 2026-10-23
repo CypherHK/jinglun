@@ -33,6 +33,18 @@ fn validate(document: &Value) -> Result<()> {
         ("/approval/status", "confirmed"),
         ("/approval/activation", "enabled"),
         ("/approval/decision", "D022"),
+        (
+            "/current_design_inputs/source_hashes/DECISIONS.md",
+            "072b63da802ca184c3fbacc3fc45ed6fcaffe0282466434183568a147950811e",
+        ),
+        (
+            "/current_design_inputs/source_hashes/handoffs~12026-10-23-first-governance-slice.md",
+            "112c59d56f21d55fb0874390e472c729432ad899afabcf5d9289e43c3336cc52",
+        ),
+        (
+            "/current_design_inputs/scope",
+            "D024/D025/D026 current rule inputs only; D022 initial-value approval is unchanged.",
+        ),
         ("/approval/approved_commit", APPROVED_COMMIT),
         (
             "/approval/approved_document_sha256",
@@ -144,6 +156,10 @@ mod tests {
     fn rejects_unapproved_or_inactive_initialization() {
         for (pointer, replacement) in [
             ("/approval/approved_commit", Value::from("other")),
+            (
+                "/current_design_inputs/source_hashes/DECISIONS.md",
+                Value::from("stale"),
+            ),
             ("/parameters/opening_treasury/value", Value::from(56)),
             (
                 "/regions/8/status",

@@ -654,6 +654,13 @@
     },
     "status": "confirmed"
   },
+  "current_design_inputs": {
+    "scope": "D024/D025/D026 current rule inputs only; D022 initial-value approval is unchanged.",
+    "source_hashes": {
+      "DECISIONS.md": "072b63da802ca184c3fbacc3fc45ed6fcaffe0282466434183568a147950811e",
+      "handoffs/2026-10-23-first-governance-slice.md": "112c59d56f21d55fb0874390e472c729432ad899afabcf5d9289e43c3336cc52"
+    }
+  },
   "d021_capital_no_subsidy_counterfactual": {
     "activation": "enabled",
     "assumption": "Independent alternatives to the target runs and each other; unchanged existing ordinary-energy retained profits accumulate at month ends. No government subsidy, new equity or future-income advance. New construction duration is the same pending three months.",

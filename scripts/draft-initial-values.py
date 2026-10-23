@@ -16,6 +16,11 @@ APPROVAL_HASHES = {
     'DECISIONS.md': 'de3194c256572273e4eee98868bdd2c840ae2bbfaa8f5249cd7ab01a1b31ef7c',
     'handoffs/2026-10-23-first-governance-slice.md': 'fbab198b77ad12b9ec45d48db07044f61a8da2799d0274604da8d19a8f60d6e1',
 }
+CURRENT_DESIGN_HASHES = {
+    'DECISIONS.md': '072b63da802ca184c3fbacc3fc45ed6fcaffe0282466434183568a147950811e',
+    'handoffs/2026-10-23-first-governance-slice.md': '112c59d56f21d55fb0874390e472c729432ad899afabcf5d9289e43c3336cc52',
+}
+CURRENT_DESIGN_SCOPE = 'D024/D025/D026 current rule inputs only; D022 initial-value approval is unchanged.'
 HISTORICAL_HASHES = {
     'DECISIONS.md': 'f6441d8397aca40fccd1a4eac8ad2723e1b4661902219926c85ad060a9c5d77f',
     'handoffs/2026-10-23-first-governance-slice.md': 'f774e6cc009358301d61a3df84c8ed6e0ec360529612c13666f5b5d687589063',
@@ -43,8 +48,8 @@ def generate(map_path, design_dir):
     cells = {c['id']: c for c in world['cells']}
     assert len(cells) == 100 and all(i in cells for i in PLAYER)
     assert hashlib.sha256(raw).hexdigest() == '4c8714aaca565e0c4b932420aa320cb92a901ef63c29a897e507540db4de37a8', 'Map differs from calibrated evidence'
-    for name, expected in APPROVAL_HASHES.items():
-        assert hashlib.sha256((design_dir/name).read_bytes()).hexdigest() == expected, 'Approval source changed: '+name
+    for name, expected in CURRENT_DESIGN_HASHES.items():
+        assert hashlib.sha256((design_dir/name).read_bytes()).hexdigest() == expected, 'Current design source changed: '+name
     parameters = {}
 
     def parameter(name, number, unit, principle, reason):
@@ -931,6 +936,7 @@ def confirm(draft):
         'source_hashes': APPROVAL_HASHES.copy(),
         'provenance_note': 'provenance.source_hashes and generator_sha256 describe the original approved draft, not this confirmation transform.',
     }
+    draft['current_design_inputs'] = dict(source_hashes=CURRENT_DESIGN_HASHES.copy(), scope=CURRENT_DESIGN_SCOPE)
     draft['scope'] = ('D022-confirmed initial values, enabled for explicit gameplay initialization. '
                       'D020/D021 scenarios remain arithmetic evidence, never autoplay commands. '
                       'No B1-B15 replay or experience acceptance is implied.')
@@ -939,6 +945,8 @@ def confirm(draft):
 
 def verify_confirmed(document):
     draft = copy.deepcopy(document)
+    current_inputs = draft.pop('current_design_inputs')
+    assert current_inputs == dict(source_hashes=CURRENT_DESIGN_HASHES, scope=CURRENT_DESIGN_SCOPE)
     approval = draft.pop('approval')
     assert approval == dict(decision='D022', status='confirmed', activation='enabled',
                            approved_commit=APPROVED_COMMIT,
