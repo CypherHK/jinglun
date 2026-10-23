@@ -35,15 +35,15 @@ fn validate(document: &Value) -> Result<()> {
         ("/approval/decision", "D022"),
         (
             "/current_design_inputs/source_hashes/DECISIONS.md",
-            "072b63da802ca184c3fbacc3fc45ed6fcaffe0282466434183568a147950811e",
+            "2479680c014e234b86d443ef786943a2eb7f57b64081e1b8c23db587a3ef908c",
         ),
         (
             "/current_design_inputs/source_hashes/handoffs~12026-10-23-first-governance-slice.md",
-            "112c59d56f21d55fb0874390e472c729432ad899afabcf5d9289e43c3336cc52",
+            "717c85f499f7183e59591b1d9e12703faf8dd629b23652b864d30b7029b73872",
         ),
         (
             "/current_design_inputs/scope",
-            "D024/D025/D026 current rule inputs only; D022 initial-value approval is unchanged.",
+            "D024/D025/D026/D027/D028 current rule inputs only; D022 initial-value approval is unchanged.",
         ),
         ("/approval/approved_commit", APPROVED_COMMIT),
         (

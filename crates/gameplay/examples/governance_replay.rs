@@ -118,9 +118,32 @@ struct TradeAudit {
     domestic_sales_actual_payment: u64,
     export_sales_actual_payment: u64,
     export_sales_months: BTreeSet<u32>,
+    // New factories only: existing industry sales use a separate ledger namespace.
+    factories: BTreeMap<String, FactoryTrade>,
+    sites: BTreeMap<u32, SalesTotals>,
+    capital_autonomous_domestic_by_month: BTreeMap<u32, f64>,
 }
 
-fn financial_audit(game: &Game) -> std::result::Result<(GovernmentCapital, TradeAudit), String> {
+#[derive(Clone, Debug, Default, Serialize)]
+struct SalesTotals {
+    domestic_quantity: f64,
+    export_quantity: f64,
+    domestic_receipt_income: u64,
+    export_receipt_income: u64,
+}
+
+#[derive(Clone, Debug, Default, Serialize)]
+struct FactoryTrade {
+    site: u32,
+    group: Value,
+    totals: SalesTotals,
+    monthly: BTreeMap<u32, SalesTotals>,
+}
+
+fn financial_audit(
+    game: &Game,
+    monthly: &[Value],
+) -> std::result::Result<(GovernmentCapital, TradeAudit), String> {
     let snapshot: Value = serde_json::from_slice(&game.save().map_err(|e| e.to_string())?)
         .map_err(|e| e.to_string())?;
     let escrows = snapshot
@@ -129,6 +152,40 @@ fn financial_audit(game: &Game) -> std::result::Result<(GovernmentCapital, Trade
         .ok_or("save lacks escrow audit data")?;
     let mut capital = GovernmentCapital::default();
     let mut trade = TradeAudit::default();
+    for (index, record) in monthly.iter().enumerate() {
+        let month = u32::try_from(index + 1).map_err(|_| "month overflow")?;
+        let mut capital_domestic = 0.0;
+        for factory in record["factories"].as_array().ok_or("missing factories")? {
+            let id = factory["id"].as_str().ok_or("missing factory ID")?;
+            let site = factory["site"]
+                .as_u64()
+                .and_then(|v| u32::try_from(v).ok())
+                .ok_or("invalid factory site")?;
+            let domestic = factory["domestic_sales"]
+                .as_f64()
+                .ok_or("missing domestic sales")?;
+            let export = factory["export_sales"]
+                .as_f64()
+                .ok_or("missing export sales")?;
+            let row = trade.factories.entry(id.into()).or_default();
+            row.site = site;
+            row.group = factory["group"].clone();
+            let current = row.monthly.entry(month).or_default();
+            current.domestic_quantity = domestic;
+            current.export_quantity = export;
+            row.totals.domestic_quantity += domestic;
+            row.totals.export_quantity += export;
+            let site_row = trade.sites.entry(site).or_default();
+            site_row.domestic_quantity += domestic;
+            site_row.export_quantity += export;
+            if site == 39 {
+                capital_domestic += domestic;
+            }
+        }
+        trade
+            .capital_autonomous_domestic_by_month
+            .insert(month, capital_domestic);
+    }
     for (id, escrow) in escrows {
         if escrow["payer"] != "treasury" {
             continue;
@@ -162,6 +219,48 @@ fn financial_audit(game: &Game) -> std::result::Result<(GovernmentCapital, Trade
         };
         if command_id.starts_with("sales/") && transfer["asset"] == "money" {
             let amount = transfer["amount"].as_u64().ok_or("invalid sales payment")?;
+            let (factory_part, suffix) = command_id
+                .strip_prefix("sales/")
+                .ok_or("invalid sales ID")?
+                .rsplit_once('/')
+                .ok_or("missing sales month")?;
+            let (factory_id, part) = factory_part
+                .rsplit_once('/')
+                .ok_or("missing sales channel")?;
+            let month: u32 = suffix.parse().map_err(|_| "invalid sales month")?;
+            let receipt_month = entry
+                .pointer("/receipt/month")
+                .and_then(Value::as_u64)
+                .ok_or("missing receipt month")?;
+            if receipt_month != u64::from(month) {
+                return Err("sales receipt month mismatch".into());
+            }
+            let row = trade
+                .factories
+                .get_mut(factory_id)
+                .ok_or("sales receipt for unknown factory")?;
+            let current = row
+                .monthly
+                .get_mut(&month)
+                .ok_or("sales receipt missing factory month")?;
+            let site_row = trade.sites.get_mut(&row.site).ok_or("missing sales site")?;
+            let fields = match part {
+                "domestic" if transfer["from"] == "households" => [
+                    &mut row.totals.domestic_receipt_income,
+                    &mut current.domestic_receipt_income,
+                    &mut site_row.domestic_receipt_income,
+                ],
+                "export" if transfer["from"] == "foreign_buyer" => [
+                    &mut row.totals.export_receipt_income,
+                    &mut current.export_receipt_income,
+                    &mut site_row.export_receipt_income,
+                ],
+                _ => return Err("sales channel/payer mismatch".into()),
+            };
+            for field in fields {
+                *field = field.checked_add(amount).ok_or("sales receipt overflow")?;
+            }
+
             if transfer["from"] == "foreign_buyer" {
                 trade.export_sales_actual_payment = trade
                     .export_sales_actual_payment
@@ -318,7 +417,7 @@ fn b1_comparison(outcomes: &[CapitalOutcome], choice: b15::Choice, site: u32) ->
     let both_fastest_pass = pair_pass(selected_r1, selected_r2_fast);
     let pass = fastest_vs_cheapest_pass;
     (
-        json!({"site":site,"choice":choice,"route1":route_capital_summary(&routes[0]),"route2":route_capital_summary(&routes[1]),"route1_fastest_at_least_two_months_earlier":faster,"route2_minimum_capital_strictly_lower":cheaper,"efficient_fast_expensive_slow_cheap_pairs":pairs,"counterexamples":counterexamples,"fastest_vs_cheapest_pass":fastest_vs_cheapest_pass,"both_fastest_diagnostic_pass":both_fastest_pass,"stronger_independent_minima_diagnostic":faster && cheaper && !pairs.is_empty()}),
+        json!({"site":site,"choice":choice,"route1":route_capital_summary(&routes[0]),"route2":route_capital_summary(&routes[1]),"route1_fastest_at_least_two_months_earlier":faster,"route2_minimum_capital_strictly_lower":cheaper,"efficient_fast_expensive_slow_cheap_pairs":pairs,"counterexamples":counterexamples,"selected_route1":selected_r1,"selected_route2":selected_r2_cheap,"fastest_vs_cheapest_pass":fastest_vs_cheapest_pass,"both_fastest_diagnostic_pass":both_fastest_pass,"stronger_independent_minima_diagnostic":faster && cheaper && !pairs.is_empty()}),
         pass,
     )
 }
@@ -543,7 +642,7 @@ fn replay(base: &Game, script: Script) -> std::result::Result<Replay, String> {
         }
         let state = game.governance().ok_or("missing governance state")?;
         let record = state.history.last().ok_or("month produced no history")?;
-        let factories: Vec<_> = state.factories.values().map(|f|json!({"id":f.id,"group":f.group,"site":f.site,"phase":f.phase,"start":f.started_month,"activate":f.activate_month,"output":f.output,"after_tax_profit":f.after_tax_profit,"operating_subsidy":f.operating_subsidy,"water_suspended":f.water_suspended,"first_operated_month":f.first_operated_month})).collect();
+        let factories: Vec<_> = state.factories.values().map(|f|json!({"id":f.id,"group":f.group,"site":f.site,"phase":f.phase,"start":f.started_month,"activate":f.activate_month,"output":f.output,"domestic_sales":json!(f)["domestic_sales"],"export_sales":json!(f)["export_sales"],"after_tax_profit":f.after_tax_profit,"operating_subsidy":f.operating_subsidy,"water_suspended":f.water_suspended,"first_operated_month":f.first_operated_month})).collect();
         monthly.push(json!({"record":record,"group_cash":{"A":game.balance(Group::A.account(), &Asset::Money),"B":game.balance(Group::B.account(), &Asset::Money)},"factories":factories,"candidate_site":state.sites.get(&script.site),"unused_energy_bill":state.last_energy_unused_bill,"projects":state.projects.values().collect::<Vec<_>>()}));
     }
     let state = game.governance().ok_or("missing governance state")?;
@@ -595,7 +694,7 @@ fn replay(base: &Game, script: Script) -> std::result::Result<Replay, String> {
         .map(|g| game.scorecard(g, script.site))
         .collect::<Result<Vec<_>>>()
         .map_err(|e| e.to_string())?;
-    let (government_capital, trade_audit) = financial_audit(&game)?;
+    let (government_capital, trade_audit) = financial_audit(&game, &monthly)?;
     Ok(Replay {
         outcome,
         script,
@@ -729,6 +828,7 @@ fn run() -> std::result::Result<u8, String> {
     )?;
     let mut b1_execution_blocked = false;
     let mut capital_outcomes = vec![];
+    let mut trade_records = BTreeMap::new();
     for site in [8, 29] {
         for route in [1, 2] {
             let mut outcomes = vec![];
@@ -793,6 +893,7 @@ fn run() -> std::result::Result<u8, String> {
                             continue;
                         }
                     };
+                    trade_records.insert(result.script.id(), result.trade_audit.clone());
                     capital_records.push(json!({"script_id":result.script.id(),"choice":choice,"capital":result.government_capital,"trade_audit":result.trade_audit,"execution_error":result.execution_error}));
                     if result.execution_error.is_some() {
                         b1_execution_blocked = true;
@@ -854,7 +955,7 @@ fn run() -> std::result::Result<u8, String> {
             all_b15_pass &= sum.pass && union.pass;
             b15_aggregation_pending |= aggregation_sensitive;
             emit(
-                &json!({"kind":"bounded_b15","site":site,"route":route,"scripts":outcomes.len(),"counts":counts,"sum":sum,"union":union,"aggregation_sensitive":aggregation_sensitive,"outcomes":outcomes,"government_capital_records":capital_records,"government_capital_outcomes":capital_outcomes.iter().filter(|o|o.site==site && o.route==route).collect::<Vec<_>>()}),
+                &json!({"kind":"bounded_b15","site":site,"route":route,"scripts":outcomes.len(),"counts":counts,"sum":sum,"union":union,"aggregation_sensitive":aggregation_sensitive,"outcomes":outcomes,"trade_scope":"All scripts in this site/route group; new factories nationwide, not only candidate factories. Factory/site quantities and receipt income retain attribution.","export_positive_scripts":capital_records.iter().filter(|r| r["trade_audit"]["export_sales_actual_payment"].as_u64().unwrap_or(0)>0).map(|r| json!({"script_id":r["script_id"],"choice":r["choice"],"actual_export_receipt_income":r["trade_audit"]["export_sales_actual_payment"],"sites":r["trade_audit"]["sites"]})).collect::<Vec<_>>(),"government_capital_records":capital_records,"government_capital_outcomes":capital_outcomes.iter().filter(|o|o.site==site && o.route==route).collect::<Vec<_>>()}),
             )?;
         }
     }
@@ -891,7 +992,14 @@ fn run() -> std::result::Result<u8, String> {
         .any(|o| o.site == 29 && o.choice == b15::Choice::W);
     all_reached &= eight_fastest.is_some_and(|month| month <= 20) && eight_w && !twenty_nine_w;
     emit(
-        &json!({"kind":"bounded_b1","decision":"D026","comparison_policy_status":"chat_confirmed_2026-10-24","selection_confirmation":"User confirmed in current chat: route1 fastest, route2 cheapest, disclose all frontiers. R1 ties use minimum net capital; R2 ties use earliest attainment.","primary_choice":"Decline","same_disclosed_search_domain":true,"capital_metric":"net committed = actual paid + remaining escrow; historical gross and refunds separately retained","selection_policy":"Primary Decline: R1 earliest attained then minimum net capital; R2 minimum net capital attained within M24 then earliest. Full exact month/capital frontiers, alternate fastest-vs-fastest diagnosis and counterexamples disclosed; no dominated script establishes a pair.","status":if b1_execution_blocked {"blocked_not_evaluated"} else {"evaluated_under_proposed_policy"},"results":b1,"eight_fastest_month":eight_fastest,"eight_fastest_by_m20":eight_fastest.is_some_and(|month|month<=20),"eight_w_achieved":eight_w,"twenty_nine_w_achieved":twenty_nine_w,"pass":if b1_execution_blocked {None} else {Some(all_reached)},"not_experience_acceptance":true}),
+        &json!({"kind":"bounded_b1","decision":"D026/D027/D028","comparison_policy_status":"chat_confirmed_2026-10-24","selection_confirmation":"User confirmed in current chat: route1 fastest, route2 cheapest, disclose all frontiers. R1 ties use minimum net capital; R2 ties use earliest attainment.","primary_choice":"Decline","same_disclosed_search_domain":true,"capital_metric":"net committed = actual paid + remaining escrow; historical gross and refunds separately retained","selection_policy":"Primary Decline: R1 earliest attained then minimum net capital; R2 minimum net capital attained within M24 then earliest. Full exact month/capital frontiers, alternate fastest-vs-fastest diagnosis and counterexamples disclosed; no dominated script establishes a pair.","status":if b1_execution_blocked {"blocked_not_evaluated"} else {"evaluated_under_proposed_policy"},"results":b1,"eight_fastest_month":eight_fastest,"eight_fastest_by_m20":eight_fastest.is_some_and(|month|month<=20),"eight_w_achieved":eight_w,"twenty_nine_w_achieved":twenty_nine_w,"pass":if b1_execution_blocked {None} else {Some(all_reached)},"not_experience_acceptance":true}),
+    )?;
+    let selected_trade: Vec<_> = b1.iter().filter(|r|r["choice"] == "Decline").flat_map(|r| ["selected_route1", "selected_route2"].into_iter().map(move |key| (r, key))).map(|(r,key)| {
+        let id = r[key]["script_id"].as_str();
+        json!({"site":r["site"],"selection":key,"script_id":id,"trade_audit":id.and_then(|id|trade_records.get(id))})
+    }).collect();
+    emit(
+        &json!({"kind":"bounded_trade_audit","scope":"All 444 disclosed scripts when full delayed-policy domain is requested; all new factories nationwide. Existing industry excluded. Quantities are goods; receipt incomes are fixed money units.","selected_decline_scripts":selected_trade,"all_script_export_receipt_income":trade_records.iter().map(|(id,t)| (id.clone(),t.export_sales_actual_payment)).collect::<BTreeMap<_,_>>(),"export_positive_script_ids":trade_records.iter().filter(|(_,t)|t.export_sales_actual_payment>0).map(|(id,_)|id).collect::<Vec<_>>() }),
     )?;
     let passed = all_reached && !b1_execution_blocked && all_b15_pass && !b15_aggregation_pending;
     let status = if b1_execution_blocked || b15_execution_blocked {
@@ -939,6 +1047,29 @@ mod driver_tests {
                 ..GovernmentCapital::default()
             },
         }
+    }
+
+    #[test]
+    fn trade_audit_keeps_capital_and_candidate_factory_quantities_separate() {
+        let game = Game::confirmed_game_with_calibration(GovernanceCalibration::default()).unwrap();
+        let rows = vec![
+            json!({"factories":[
+                {"id":"factory/1","site":39,"group":"A","domestic_sales":100.0,"export_sales":0.0},
+                {"id":"factory/2","site":8,"group":"B","domestic_sales":25.0,"export_sales":75.0}
+            ]}),
+            json!({"factories":[
+                {"id":"factory/1","site":39,"group":"A","domestic_sales":50.0,"export_sales":0.0},
+                {"id":"factory/2","site":8,"group":"B","domestic_sales":0.0,"export_sales":100.0}
+            ]}),
+        ];
+        let (_, audit) = financial_audit(&game, &rows).unwrap();
+        assert_eq!(audit.sites[&39].domestic_quantity, 150.0);
+        assert_eq!(audit.sites[&8].domestic_quantity, 25.0);
+        assert_eq!(audit.factories["factory/2"].totals.export_quantity, 175.0);
+        assert_eq!(audit.capital_autonomous_domestic_by_month[&2], 50.0);
+        // Synthetic quantity observations cannot manufacture actual receipt income.
+        assert_eq!(audit.export_sales_actual_payment, 0);
+        assert_eq!(audit.factories["factory/2"].totals.export_receipt_income, 0);
     }
 
     #[test]

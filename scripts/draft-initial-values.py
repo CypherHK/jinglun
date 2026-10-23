@@ -17,10 +17,10 @@ APPROVAL_HASHES = {
     'handoffs/2026-10-23-first-governance-slice.md': 'fbab198b77ad12b9ec45d48db07044f61a8da2799d0274604da8d19a8f60d6e1',
 }
 CURRENT_DESIGN_HASHES = {
-    'DECISIONS.md': '072b63da802ca184c3fbacc3fc45ed6fcaffe0282466434183568a147950811e',
-    'handoffs/2026-10-23-first-governance-slice.md': '112c59d56f21d55fb0874390e472c729432ad899afabcf5d9289e43c3336cc52',
+    'DECISIONS.md': '2479680c014e234b86d443ef786943a2eb7f57b64081e1b8c23db587a3ef908c',
+    'handoffs/2026-10-23-first-governance-slice.md': '717c85f499f7183e59591b1d9e12703faf8dd629b23652b864d30b7029b73872',
 }
-CURRENT_DESIGN_SCOPE = 'D024/D025/D026 current rule inputs only; D022 initial-value approval is unchanged.'
+CURRENT_DESIGN_SCOPE = 'D024/D025/D026/D027/D028 current rule inputs only; D022 initial-value approval is unchanged.'
 HISTORICAL_HASHES = {
     'DECISIONS.md': 'f6441d8397aca40fccd1a4eac8ad2723e1b4661902219926c85ad060a9c5d77f',
     'handoffs/2026-10-23-first-governance-slice.md': 'f774e6cc009358301d61a3df84c8ed6e0ec360529612c13666f5b5d687589063',
