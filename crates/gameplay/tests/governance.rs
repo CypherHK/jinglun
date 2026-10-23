@@ -468,9 +468,18 @@ fn b9_operating_receipts_never_pay_subsidy_into_company_cash() {
             assert_eq!(game.escrow_remaining(escrow), Some(0));
         }
     }
+    for factory in state
+        .factories
+        .values()
+        .filter(|f| f.phase == FactoryPhase::Operating)
+    {
+        assert!((factory.ordinary_energy_used - 3.0).abs() < 1e-8);
+        assert!((factory.maritime_energy_used - 7.0).abs() < 1e-8);
+        assert_eq!(factory.after_tax_profit, money(1.955).unwrap() as i128);
+    }
     assert_eq!(
         game.balance("group_b", &Asset::Money).unwrap() - before,
-        money(2.475 + 2.2 * 0.5).unwrap()
+        money(2.475 + 1.955 * 0.5).unwrap()
     );
     assert!(
         !game
@@ -576,4 +585,171 @@ fn b13_report_traces_water_choice_against_the_same_build_plan_counterfactual() {
             }
         )
     );
+}
+
+#[test]
+fn ordinary_energy_is_prepaid_then_delivered_next_month_with_shared_limit() {
+    let mut game = fixture();
+    for month in 1..=24 {
+        if month == 3 {
+            game.queue_governance("ordinary", GovernanceCommand::SignEnergy)
+                .unwrap();
+        }
+        game.end_month(month).unwrap();
+        let due: u64 = game
+            .governance()
+            .unwrap()
+            .ordinary_energy_deliveries
+            .iter()
+            .filter(|(due, _, _)| *due == month + 1)
+            .map(|(_, _, q)| q)
+            .sum();
+        assert!(due <= money(6.0).unwrap());
+        if month == 11 {
+            assert_eq!(due, money(6.0).unwrap());
+            assert_eq!(
+                game.balance("group_b", &Asset::Material("ordinary_energy".into()))
+                    .unwrap_or(0),
+                0
+            );
+            assert!(
+                game.system_receipts()
+                    .iter()
+                    .all(|r| r.reason != "ordinary_energy_delivery")
+            );
+        }
+        if month >= 12 {
+            let f = game
+                .governance()
+                .unwrap()
+                .factories
+                .values()
+                .find(|f| f.group == Group::B && f.phase == FactoryPhase::Operating)
+                .unwrap();
+            assert_eq!(f.ordinary_energy_used, 6.0);
+            assert_eq!(f.maritime_energy_used, 4.0);
+            assert_eq!(f.after_tax_profit, money(2.06).unwrap() as i128);
+            assert_eq!(
+                game.balance("group_b", &Asset::Material("ordinary_energy".into())),
+                Some(0)
+            );
+        }
+    }
+    assert!(
+        game.system_receipts()
+            .iter()
+            .any(|r| r.reason == "ordinary_energy_delivery"
+                && r.month == 12
+                && r.external_party == "resource_country_energy_producer")
+    );
+    assert!(
+        game.system_receipts()
+            .iter()
+            .any(|r| r.reason == "new_factory_energy"
+                && r.delta < 0
+                && r.external_party == "maritime_energy_exporter")
+    );
+    let bytes = game.save().unwrap();
+    assert_eq!(Game::load(&bytes).unwrap().save().unwrap(), bytes);
+}
+
+#[test]
+fn b8_closure_retires_land_but_stops_water_use_and_replays() {
+    let calibration = GovernanceCalibration {
+        labor_protection_wage_multiplier: 2.0,
+        ..GovernanceCalibration::default()
+    };
+    let mut game = Game::confirmed_game_with_calibration(calibration).unwrap();
+    for month in 1..=11 {
+        game.end_month(month).unwrap();
+    }
+    game.queue_governance(
+        "loss-cause",
+        GovernanceCommand::SetInstitution {
+            kind: Institution::LaborProtection,
+            enabled: true,
+        },
+    )
+    .unwrap();
+    for month in 12..=18 {
+        game.end_month(month).unwrap();
+    }
+    let f = game
+        .governance()
+        .unwrap()
+        .factories
+        .values()
+        .find(|f| f.group == Group::B)
+        .unwrap();
+    assert_eq!(f.phase, FactoryPhase::ClosureWarned);
+    let id = f.id.clone();
+    let before = game.reservations()[&id].clone();
+    let used_before: u64 = game
+        .reservations()
+        .values()
+        .filter(|r| {
+            r.source == before.source
+                && !matches!(
+                    r.phase,
+                    AllocationPhase::WaitingForWater | AllocationPhase::Retired
+                )
+        })
+        .map(|r| r.water)
+        .sum();
+    let idle_before = game.governance().unwrap().sites[&f.site].idle_workers;
+    let site = f.site;
+    let workers = f.workers;
+    game.end_month(19).unwrap();
+    assert_eq!(
+        game.governance().unwrap().factories[&id].phase,
+        FactoryPhase::Closed
+    );
+    let retired = &game.reservations()[&id];
+    assert_eq!(retired.phase, AllocationPhase::Retired);
+    assert_eq!(retired.land, before.land);
+    assert!(retired.land > 0);
+    let used_after: u64 = game
+        .reservations()
+        .values()
+        .filter(|r| {
+            r.source == before.source
+                && !matches!(
+                    r.phase,
+                    AllocationPhase::WaitingForWater | AllocationPhase::Retired
+                )
+        })
+        .map(|r| r.water)
+        .sum();
+    assert_eq!(used_before - used_after, before.water);
+    assert_eq!(
+        game.governance().unwrap().sites[&site].idle_workers,
+        idle_before + workers
+    );
+    let bytes = game.save().unwrap();
+    assert_eq!(Game::load(&bytes).unwrap().save().unwrap(), bytes);
+}
+
+#[test]
+fn long_term_supply_does_not_consume_or_erase_prepaid_ordinary_inventory() {
+    let mut game = early_two_factory_fixture(RenewalChoice::EnergyLongTerm, 9);
+    let ordinary = Asset::Material("ordinary_energy".into());
+    let stock = game.balance("group_b", &ordinary).unwrap_or(0);
+    assert!(stock > 0);
+    for month in 10..=24 {
+        game.end_month(month).unwrap();
+        assert_eq!(game.balance("group_b", &ordinary).unwrap_or(0), stock);
+        let factories = &game.governance().unwrap().factories;
+        let mut energy = 0.0;
+        for f in factories
+            .values()
+            .filter(|f| f.phase == FactoryPhase::Operating)
+        {
+            assert_eq!(f.ordinary_energy_used, 0.0);
+            assert_eq!(f.maritime_energy_used, 0.0);
+            energy += f.output / 10.0;
+        }
+        assert!(energy <= 20.0 + 1e-8);
+    }
+    let bytes = game.save().unwrap();
+    assert_eq!(Game::load(&bytes).unwrap().save().unwrap(), bytes);
 }

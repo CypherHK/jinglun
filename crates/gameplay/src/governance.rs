@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 /// One currency unit is 100,000,000 ledger units. Each conversion rounds to the
 /// nearest unit, with an absolute error of at most 5e-9 currency units.
-pub const GOVERNANCE_RULES_VERSION: &str = "governance-rules-1";
+pub const GOVERNANCE_RULES_VERSION: &str = "governance-rules-2";
 pub const MONEY_SCALE: u64 = 100_000_000;
 pub fn money(value: f64) -> Result<u64> {
     scenario::finite_nonnegative(value)?;
@@ -37,6 +37,34 @@ pub fn money(value: f64) -> Result<u64> {
     u64::try_from(rounded).map_err(|_| Error::Overflow)
 }
 
+// Proportional allocation floors to the common minor unit; stable keys receive the remainder.
+fn apportion<K: Ord + Clone>(
+    demand: &BTreeMap<K, u64>,
+    available: u64,
+) -> Result<BTreeMap<K, u64>> {
+    let total = demand.values().try_fold(0u64, |sum, value| {
+        sum.checked_add(*value).ok_or(Error::Overflow)
+    })?;
+    let cap = available.min(total);
+    let mut result = BTreeMap::new();
+    if total == 0 {
+        return Ok(result);
+    }
+    for (key, need) in demand {
+        result.insert(
+            key.clone(),
+            (*need as u128 * cap as u128 / total as u128) as u64,
+        );
+    }
+    let mut remainder = cap - result.values().sum::<u64>();
+    for (key, quantity) in &mut result {
+        if remainder > 0 && *quantity < demand[key] {
+            *quantity += 1;
+            remainder -= 1;
+        }
+    }
+    Ok(result)
+}
 pub fn currency(value: u64) -> f64 {
     value as f64 / MONEY_SCALE as f64
 }
@@ -178,6 +206,7 @@ pub struct GovernanceCalibration {
     pub cooperation_monthly_fee: u64,
     pub foreign_buyer_monthly_budget: u64,
     pub public_work_monthly_maintenance: u64,
+    pub ordinary_energy_import_limit: f64,
     pub water_priority_fraction: f64,
     pub water_m3_per_slot: f64,
     pub water_slot_min: u64,
@@ -213,6 +242,7 @@ impl Default for GovernanceCalibration {
             cooperation_monthly_fee: MONEY_SCALE,
             foreign_buyer_monthly_budget: 2 * MONEY_SCALE,
             public_work_monthly_maintenance: MONEY_SCALE / 20,
+            ordinary_energy_import_limit: 6.0,
             water_priority_fraction: 0.94,
             water_m3_per_slot: 50_000_000.0,
             water_slot_min: 0,
@@ -230,7 +260,9 @@ impl Default for GovernanceCalibration {
 }
 impl GovernanceCalibration {
     fn validate(&self) -> Result<()> {
-        if !self.water_m3_per_slot.is_finite()
+        if !self.ordinary_energy_import_limit.is_finite()
+            || self.ordinary_energy_import_limit < 0.0
+            || !self.water_m3_per_slot.is_finite()
             || self.water_m3_per_slot <= 0.0
             || self.water_slot_min > self.water_slot_max
             || self.status != "pending_user_confirmation"
@@ -322,6 +354,8 @@ pub struct Factory {
     pub workers: u32,
     pub skilled_workers: u32,
     pub output: f64,
+    pub ordinary_energy_used: f64,
+    pub maritime_energy_used: f64,
     pub after_tax_profit: i128,
     pub operating_subsidy: u64,
     pub retrofitted: bool,
@@ -474,6 +508,7 @@ pub struct GovernanceState {
     pub institution_last_change: BTreeMap<Institution, u32>,
     pub last_diplomatic_spend: u64,
     pending_taxes: Vec<(String, Group, u64, u64)>,
+    pub ordinary_energy_deliveries: Vec<(u32, Group, u64)>,
     monthly_energy_used: f64,
     current_energy_contract_paid: u64,
     monthly_existing_payroll: u64,
@@ -672,6 +707,7 @@ impl Game {
             institution_last_change: BTreeMap::new(),
             last_diplomatic_spend: 0,
             pending_taxes: vec![],
+            ordinary_energy_deliveries: vec![],
             monthly_energy_used: 0.0,
             current_energy_contract_paid: 0,
             monthly_existing_payroll: 0,
@@ -1162,7 +1198,11 @@ impl GovernanceState {
                             .reservations
                             .values()
                             .filter(|r| {
-                                r.source == source && r.phase != AllocationPhase::WaitingForWater
+                                r.source == source
+                                    && !matches!(
+                                        r.phase,
+                                        AllocationPhase::WaitingForWater | AllocationPhase::Retired
+                                    )
                             })
                             .map(|r| r.water)
                             .sum();
@@ -1687,7 +1727,13 @@ impl GovernanceState {
         let water_used: u64 = game
             .reservations
             .values()
-            .filter(|r| r.source == source && r.phase != AllocationPhase::WaitingForWater)
+            .filter(|r| {
+                r.source == source
+                    && !matches!(
+                        r.phase,
+                        AllocationPhase::WaitingForWater | AllocationPhase::Retired
+                    )
+            })
             .map(|r| r.water)
             .sum();
         gaps.insert(
@@ -1710,7 +1756,10 @@ impl GovernanceState {
                 .values()
                 .filter(|r| {
                     r.country == "player"
-                        && r.phase != AllocationPhase::WaitingForWater
+                        && !matches!(
+                            r.phase,
+                            AllocationPhase::WaitingForWater | AllocationPhase::Retired
+                        )
                         && r.source == source
                         && !limit.grandfathered.contains(&r.id)
                 })
@@ -1730,7 +1779,15 @@ impl GovernanceState {
         {
             param(doc, "long_energy_price")?
         } else if self.energy_contract_start.is_some() {
-            param(doc, "ordinary_energy_price")?
+            let demand = param(doc, "new_factory_energy")?
+                * (1 + self
+                    .factories
+                    .values()
+                    .filter(|f| f.phase != FactoryPhase::Closed)
+                    .count()) as f64;
+            let share = (self.calibration.ordinary_energy_import_limit / demand).min(1.0);
+            share * param(doc, "ordinary_energy_price")?
+                + (1.0 - share) * param(doc, "maritime_energy_price")?
         } else {
             param(doc, "maritime_energy_price")?
         };
@@ -2353,6 +2410,8 @@ impl GovernanceState {
                 workers,
                 skilled_workers: assigned_skills,
                 output: 0.0,
+                ordinary_energy_used: 0.0,
+                maritime_energy_used: 0.0,
                 after_tax_profit: 0,
                 operating_subsidy: 0,
                 retrofitted: false,
@@ -2552,6 +2611,20 @@ impl GovernanceState {
         let doc = document()?;
         let month = game.month;
         self.pending_taxes.clear();
+        let mut pending = vec![];
+        for (due, group, quantity) in std::mem::take(&mut self.ordinary_energy_deliveries) {
+            if due == month {
+                game.settle_external(
+                    group.account(),
+                    Asset::Material("ordinary_energy".into()),
+                    quantity as i128,
+                    "ordinary_energy_delivery",
+                )?;
+            } else {
+                pending.push((due, group, quantity));
+            }
+        }
+        self.ordinary_energy_deliveries = pending;
         let price = param(doc, "goods_price")?;
         let baseline_wages = number(doc, "/demand/wage_income")?;
         let factory_units = 4.25;
@@ -2684,11 +2757,11 @@ impl GovernanceState {
         let long_active = self
             .energy_long_start
             .is_some_and(|start| month < start + 24);
-        let mut energy_remaining = if long_active {
+        let total_energy_available = if long_active {
             (currency(self.current_energy_contract_paid) / param(doc, "long_energy_price")?)
                 .min(number(doc, "/energy/renewal_quantity")?)
         } else {
-            f64::INFINITY
+            0.0
         };
         let mut energy_used = 0.0;
         let mut close = vec![];
@@ -2698,6 +2771,36 @@ impl GovernanceState {
             .filter(|f| !matches!(f.phase, FactoryPhase::Construction | FactoryPhase::Closed))
             .map(|f| f.id.clone())
             .collect();
+        let mut group_demand = BTreeMap::<Group, f64>::new();
+        let mut plant_demand = BTreeMap::new();
+        for id in &ids {
+            let f = &self.factories[id];
+            let demand = param(doc, "new_factory_energy")?
+                * if f.retrofitted {
+                    1.0 + self.calibration.retrofit_output_increase
+                } else {
+                    1.0
+                };
+            *group_demand.entry(f.group).or_default() += demand;
+            plant_demand.insert(id.clone(), demand);
+        }
+        let plant_demands: BTreeMap<_, _> = plant_demand
+            .iter()
+            .map(|(id, need)| Ok((id.clone(), money(*need)?)))
+            .collect::<Result<_>>()?;
+        let long_allocations = apportion(&plant_demands, money(total_energy_available)?)?;
+        let mut ordinary_allocations = BTreeMap::new();
+        for group in group_demand.keys() {
+            let demands = plant_demands
+                .iter()
+                .filter(|(id, _)| self.factories[*id].group == *group)
+                .map(|(id, need)| (id.clone(), *need))
+                .collect();
+            let stock = game
+                .balance(group.account(), &Asset::Material("ordinary_energy".into()))
+                .unwrap_or(0);
+            ordinary_allocations.extend(apportion(&demands, stock)?);
+        }
         for id in ids {
             let f = self.factories.get_mut(&id).unwrap();
             let s = &self.sites[&f.site];
@@ -2709,10 +2812,14 @@ impl GovernanceState {
                 };
             let current_energy_price = if long_active {
                 param(doc, "long_energy_price")?
-            } else if self.energy_contract_start.is_some() {
-                param(doc, "ordinary_energy_price")?
             } else {
-                param(doc, "maritime_energy_price")?
+                let need = full_output / param(doc, "new_factory_output")?
+                    * param(doc, "new_factory_energy")?;
+                let ordinary =
+                    currency(ordinary_allocations.get(&id).copied().unwrap_or(0)).min(need);
+                (ordinary * param(doc, "ordinary_energy_price")?
+                    + (need - ordinary) * param(doc, "maritime_energy_price")?)
+                    / need
             };
             let current_wage = param(doc, "new_factory_workers")?
                 * param(doc, "monthly_wage")?
@@ -2729,10 +2836,15 @@ impl GovernanceState {
                 - full_output / param(doc, "new_factory_output")?
                     * param(doc, "new_factory_energy")?
                     * current_energy_price;
+            let allocated_energy = if long_active {
+                currency(long_allocations.get(&id).copied().unwrap_or(0))
+            } else {
+                plant_demand[&id]
+            };
             let restored = domestic_remaining + export_remaining >= full_output
                 && road_remaining[&f.site] >= full_output
                 && power_remaining[&f.site] >= full_output
-                && energy_remaining
+                && allocated_energy
                     >= full_output / param(doc, "new_factory_output")?
                         * param(doc, "new_factory_energy")?
                 && full_profit > 0.0;
@@ -2754,7 +2866,7 @@ impl GovernanceState {
             let _ = s;
             let road = road_remaining[&f.site];
             let power = power_remaining[&f.site];
-            let energy_output = energy_remaining / param(doc, "new_factory_energy")?
+            let energy_output = allocated_energy / param(doc, "new_factory_energy")?
                 * param(doc, "new_factory_output")?;
             let possible = max_output.min(road).min(power).min(energy_output);
             let domestic = possible.min(domestic_remaining);
@@ -2766,14 +2878,42 @@ impl GovernanceState {
             *power_remaining.get_mut(&f.site).unwrap() -= f.output;
             let energy =
                 f.output / param(doc, "new_factory_output")? * param(doc, "new_factory_energy")?;
-            energy_remaining -= energy;
             energy_used += energy;
-            let energy_price = if long_active {
-                param(doc, "long_energy_price")?
-            } else if self.energy_contract_start.is_some() {
-                param(doc, "ordinary_energy_price")?
+            let ordinary = if long_active {
+                0.0
             } else {
-                param(doc, "maritime_energy_price")?
+                currency(ordinary_allocations.get(&id).copied().unwrap_or(0)).min(energy)
+            };
+            let maritime = if long_active { 0.0 } else { energy - ordinary };
+            f.ordinary_energy_used = ordinary;
+            f.maritime_energy_used = maritime;
+            if ordinary > 0.0 {
+                game.settle_external(
+                    f.group.account(),
+                    Asset::Material("ordinary_energy".into()),
+                    -(money(ordinary)? as i128),
+                    "ordinary_energy_consumption",
+                )?;
+            }
+            if maritime > 0.0 {
+                game.settle_external(
+                    f.group.account(),
+                    Asset::Material("maritime_energy".into()),
+                    money(maritime)? as i128,
+                    "maritime_energy_delivery",
+                )?;
+                game.settle_external(
+                    f.group.account(),
+                    Asset::Material("maritime_energy".into()),
+                    -(money(maritime)? as i128),
+                    "maritime_energy_consumption",
+                )?;
+            }
+            let energy_cost = if long_active {
+                energy * param(doc, "long_energy_price")?
+            } else {
+                ordinary * param(doc, "ordinary_energy_price")?
+                    + maritime * param(doc, "maritime_energy_price")?
             };
             let wage = param(doc, "new_factory_workers")?
                 * param(doc, "monthly_wage")?
@@ -2786,7 +2926,12 @@ impl GovernanceState {
             let sales_tax = money(currency(sales) * param(doc, "manufacturing_sales_tax_rate")?)?;
             let payroll_tax = money(wage * param(doc, "payroll_tax_rate")?)?;
             let wages = money(wage)?;
-            let energy_bill = money(energy * energy_price)?;
+            let energy_bill = money(energy_cost)?;
+            let cash_energy_bill = if long_active {
+                energy_bill
+            } else {
+                money(maritime * param(doc, "maritime_energy_price")?)?
+            };
             let fixed = money(param(doc, "factory_other_fixed_monthly_cost")?)?;
             f.after_tax_profit = sales as i128
                 - sales_tax as i128
@@ -2827,7 +2972,7 @@ impl GovernanceState {
             let mut actual_payroll = payroll_tax;
             for (reason, amount) in [
                 ("factory_wages", wages),
-                ("new_factory_energy", energy_bill),
+                ("new_factory_energy", cash_energy_bill),
                 ("factory_maintenance", fixed),
             ] {
                 let paid = amount.min(
@@ -2848,7 +2993,7 @@ impl GovernanceState {
                             amount: paid,
                         },
                     )?;
-                } else if reason == "new_factory_energy" && paid > 0 {
+                } else if reason == "new_factory_energy" && paid > 0 && long_active {
                     game.apply_internal(
                         format!("energy/{id}/{month}"),
                         Command::Transfer {
@@ -2935,8 +3080,8 @@ impl GovernanceState {
             site.idle_workers += f.workers;
             site.skilled_workers += f.skilled_workers;
             game.apply_internal(
-                format!("release/{id}"),
-                Command::Release {
+                format!("retire/{id}"),
+                Command::Retire {
                     reservation: id.clone(),
                 },
             )?;
@@ -2957,6 +3102,55 @@ impl GovernanceState {
             "household_food_import_payment",
         )?;
         self.monthly_energy_used = energy_used;
+        if self.energy_contract_start.is_some() && !long_active {
+            let mut demand = BTreeMap::<Group, u64>::new();
+            for f in self
+                .factories
+                .values()
+                .filter(|f| f.phase != FactoryPhase::Closed && f.activate_month <= month + 1)
+            {
+                let need = money(
+                    param(doc, "new_factory_energy")?
+                        * if f.retrofitted {
+                            1.0 + self.calibration.retrofit_output_increase
+                        } else {
+                            1.0
+                        },
+                )?;
+                *demand.entry(f.group).or_default() += need;
+            }
+            for (group, need) in &mut demand {
+                *need = need.saturating_sub(
+                    game.balance(group.account(), &Asset::Material("ordinary_energy".into()))
+                        .unwrap_or(0),
+                );
+                let affordable = money(
+                    currency(game.balance(group.account(), &Asset::Money).unwrap_or(0))
+                        / param(doc, "ordinary_energy_price")?,
+                )?;
+                *need = (*need).min(affordable);
+            }
+            let allocated = apportion(
+                &demand,
+                money(self.calibration.ordinary_energy_import_limit)?,
+            )?;
+            for (group, quantity) in allocated {
+                let amount = money(currency(quantity) * param(doc, "ordinary_energy_price")?)?;
+                if amount > 0 {
+                    game.apply_internal(
+                        format!("ordinary/prepay/{group:?}/{month}"),
+                        Command::Transfer {
+                            from: group.account().into(),
+                            to: "resource_supplier".into(),
+                            asset: Asset::Money,
+                            amount,
+                        },
+                    )?;
+                    self.ordinary_energy_deliveries
+                        .push((month + 1, group, quantity));
+                }
+            }
+        }
         Ok(())
     }
     fn economy(&mut self, game: &mut Game) -> Result<()> {
@@ -3392,6 +3586,11 @@ impl GovernanceState {
 fn external_party(reason: &str) -> &'static str {
     match reason {
         "existing_nonmanufacturing_employer_wages" => "existing_nonmanufacturing_employers",
+        "ordinary_energy_delivery" | "ordinary_energy_consumption" => {
+            "resource_country_energy_producer"
+        }
+        "maritime_energy_delivery" | "maritime_energy_consumption" => "maritime_energy_exporter",
+        "new_factory_energy" => "maritime_energy_exporter",
         "foreign_contract_buyer_budget" => "maritime_contract_buyer_finance",
         "existing_manufacturing_maintenance" | "factory_maintenance" => "maintenance_suppliers",
         "existing_outside_shareholder_distribution"

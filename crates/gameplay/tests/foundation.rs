@@ -653,3 +653,65 @@ fn water_waiting_lifecycle_replays_in_execution_order_through_release() {
     value["checksum"] = format!("fnv1a64:{hash:016x}").into();
     assert!(Game::load(&serde_json::to_vec(&value).unwrap()).is_err());
 }
+
+#[test]
+fn retirement_preserves_land_capacity_and_cannot_reactivate() {
+    let mut g = game();
+    let cell = g.cell(8).unwrap().clone();
+    let source = *cell
+        .water_sources
+        .iter()
+        .find(|(_, (_, slots))| *slots > 0)
+        .unwrap()
+        .0;
+    g.apply(
+        "reserve",
+        reserve(
+            "r",
+            &cell.country,
+            8,
+            source,
+            cell.land_slots,
+            1,
+            LandUse::Factory,
+        ),
+    )
+    .unwrap();
+    g.apply(
+        "operate",
+        Command::MarkOperational {
+            reservation: "r".into(),
+        },
+    )
+    .unwrap();
+    g.apply(
+        "retire",
+        Command::Retire {
+            reservation: "r".into(),
+        },
+    )
+    .unwrap();
+    assert_rollback(
+        &mut g,
+        "reactivate",
+        Command::MarkOperational {
+            reservation: "r".into(),
+        },
+    );
+    assert_rollback(
+        &mut g,
+        "steal-land",
+        reserve("new", &cell.country, 8, source, 1, 1, LandUse::Housing),
+    );
+    let bytes = g.save().unwrap();
+    assert_eq!(Game::load(&bytes).unwrap().save().unwrap(), bytes);
+    g.apply(
+        "demolish-primitive",
+        Command::Release {
+            reservation: "r".into(),
+        },
+    )
+    .unwrap();
+    let bytes = g.save().unwrap();
+    assert_eq!(Game::load(&bytes).unwrap().save().unwrap(), bytes);
+}

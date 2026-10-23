@@ -173,6 +173,9 @@ pub enum Command {
     Release {
         reservation: String,
     },
+    Retire {
+        reservation: String,
+    },
     MarkOperational {
         reservation: String,
     },
@@ -629,6 +632,16 @@ impl Game {
                     return Err(error);
                 }
             }
+            Command::Retire { reservation } => {
+                let r = self
+                    .reservations
+                    .get_mut(reservation)
+                    .ok_or(Error::Missing("reservation"))?;
+                if r.phase != AllocationPhase::Operational {
+                    return Err(Error::Invalid("retirement phase"));
+                }
+                r.phase = AllocationPhase::Retired;
+            }
             Command::MarkOperational { reservation } => {
                 let r = self
                     .reservations
@@ -888,7 +901,10 @@ impl Game {
             self.validate_reservation(reservation)?;
             let l = land.entry(reservation.cell).or_default();
             *l = l.checked_add(reservation.land).ok_or(Error::Overflow)?;
-            if reservation.phase != AllocationPhase::WaitingForWater {
+            if !matches!(
+                reservation.phase,
+                AllocationPhase::WaitingForWater | AllocationPhase::Retired
+            ) {
                 let w = water.entry(reservation.source).or_default();
                 *w = w.checked_add(reservation.water).ok_or(Error::Overflow)?;
             }
@@ -918,7 +934,10 @@ impl Game {
             let mut used = 0u64;
             for r in self.reservations.values().filter(|r| {
                 r.country == state.limit.country
-                    && r.phase != AllocationPhase::WaitingForWater
+                    && !matches!(
+                        r.phase,
+                        AllocationPhase::WaitingForWater | AllocationPhase::Retired
+                    )
                     && r.source == state.limit.source
                     && !state.grandfathered.contains(&r.id)
             }) {
@@ -1008,8 +1027,10 @@ impl Game {
             }
             for exempt in &state.grandfathered {
                 if let Some(r) = self.reservations.get(exempt)
-                    && (r.phase != AllocationPhase::Operational
-                        || r.source != state.limit.source
+                    && (!matches!(
+                        r.phase,
+                        AllocationPhase::Operational | AllocationPhase::Retired
+                    ) || r.source != state.limit.source
                         || r.country != state.limit.country)
                 {
                     return Err(Error::Invalid("admission grandfathering"));
@@ -1171,6 +1192,15 @@ impl Game {
                     } else {
                         AllocationPhase::Reserved
                     };
+                }
+                Command::Retire { reservation } => {
+                    let r = reserved
+                        .get_mut(reservation)
+                        .ok_or(Error::Invalid("retirement lifecycle receipt"))?;
+                    if r.phase != AllocationPhase::Operational {
+                        return Err(Error::Invalid("retirement transition receipt"));
+                    }
+                    r.phase = AllocationPhase::Retired;
                 }
                 Command::MarkOperational { reservation } => {
                     let r = reserved
