@@ -2,6 +2,12 @@
 
 交接日期：2026-10-23，新加坡时间。本文件优先于同目录 `archive/` 中的历史草案和旧交接。
 
+## 本地接手当前状态
+
+2026-10-23：已在 `/Users/wangyucheng/Projects/jinglun` 从交接提交 `381bffaf9b257b96cdc94b5f676f60390a0507be` 接手 `Develop`。已创建正式[上游 PR #1](https://github.com/CircuitMurderer/jinglun/pull/1)，与 [fork 评审 PR #1](https://github.com/CypherHK/jinglun/pull/1) 互链，两者均已附加到当前本地 Codex 任务。接手记录保存在本文件，创建页面见 [upstream-pr-created.png](upstream-pr-created.png)。治理继续暂停，等待用户确认版规则。
+
+本地 `origin` 指向 CypherHK fork，`upstream` 指向 CircuitMurderer 上游。原设计工作区 `/Users/wangyucheng/Projects/jinglun-design` 及其中的只读 `reference/` 保留；其 `reference/main` 仍在 `c2dc9f0`，未 fetch、切分支或改写。设计工作区没有 Git，本次没有初始化外层仓库。
+
 ## 当前停止点
 
 **治理玩法域暂停，尚未开工。** 用户最新截图明确要求：
@@ -17,12 +23,13 @@
 | 用户 fork | https://github.com/CypherHK/jinglun |
 | 上游 | https://github.com/CircuitMurderer/jinglun |
 | 已有 fork 评审 PR | https://github.com/CypherHK/jinglun/pull/1 |
+| 正式上游 PR | https://github.com/CircuitMurderer/jinglun/pull/1；open、非 draft、未合并 |
 | 地区对比功能分支 | `gameplay/0.6.1-candidate-comparison` |
 | 功能提交 | `05a5fd3bbbbabab98d4aaa02a14daf5bbae232da` |
-| 上游 `main`，本轮已 fetch | `c2dc9f0d9ab404214952264c9313970750c423a5` |
+| 上游 `main`，本地接手已 fetch 核实 | `c2dc9f0d9ab404214952264c9313970750c423a5` |
 | fork PR 目标分支 | `gameplay/0.6.1-review-base`，固定在 `c2dc9f0` |
 | fork `main` | `fb92387f308810239b36174cb27b5778e572bb6b`，没有推进 |
-| 后续工作分支 | `Develop`，大小写精确如此；从地区对比功能提交建立，随后只加入本交接和证据 |
+| 后续工作分支 | `Develop`，大小写精确如此；从地区对比功能提交建立，随后只加入交接、证据和本地接手记录 |
 | 应用 / 生成器版本 | `0.6.1-gameplay` / `0.6.0` |
 
 本次交接提交不含治理实现，不改变地区对比评审分支。完整原功能 diff 在 [`candidate-comparison.patch.gz`](candidate-comparison.patch.gz)（gzip 压缩的原始 diff），10 个文件、274 行新增、4 行删除。可以用下面命令复核，避免把 `Develop` 的交接文档误算进功能差异：
@@ -41,21 +48,17 @@ git diff c2dc9f0d9ab404214952264c9313970750c423a5..05a5fd3bbbbabab98d4aaa02a14da
 - [作者批准与原文](https://github.com/CypherHK/jinglun/pull/1#pullrequestreview-5625236683)
 - [本轮已回复，确认后端未改](https://github.com/CypherHK/jinglun/pull/1#issuecomment-6360041471)
 
-Cloud 网络已恢复，实际网络策略为 `unrestricted / enforced`。CLI 的 `gh api user` 返回 `CypherHK`，对 fork 有写权限。连接器 REST 创建上游 PR 返回 `403 Resource not accessible by integration`；CLI `gh pr create` 的 GraphQL `createPullRequest` 也返回同样的集成权限错误。因此**没有创建新的上游 PR**。创建前后均查询上游全部状态中同一 head，没有发现重复 PR。此问题不能再描述成网络不可达，也不能把“能读 GitHub”理解成“能创建上游 PR”。
+Cloud 阶段网络已恢复，但连接器 REST 和 CLI GraphQL 创建上游 PR 均返回 `Resource not accessible by integration`，当时没有创建成功。该历史失败不再代表当前 PR 状态。
 
-本地接手先核对自己的 CLI 认证及最新上游，再查重复 PR。用同一功能分支正式向上游 `main` 提交，正文保留 `@CircuitMurderer` 和 fork PR #1 的关系。不要为了这一步把 `Develop` 的交接文档一起提交上游。
+本地接手时，`gh auth status` 报告 CypherHK 的 token invalid。连接器身份为 CypherHK，能读取仓库，但本次创建仍返回 `403 Resource not accessible by integration`。核实最新上游和全部状态 PR 搜索为空后，通过 Chrome 已登录的 CypherHK 页面完成创建，没有修改认证或全局配置。
 
-准备好的正文见 [`upstream-pr-body.md`](upstream-pr-body.md)。在确认没有重复 PR 后：
+随后 HTTPS push 的凭据读取失败，SSH 返回 `Permission denied (publickey)`。用户修复本机 gh 认证后，再次执行 `gh auth status` 和 `gh api user` 已确认 CypherHK 登录有效，具备 `repo` scope。这项修复由用户完成；agent 没有更改认证配置。后续可直接使用 gh，连接器此前的 403 作为历史记录保留。
 
-```sh
-gh pr create --repo CircuitMurderer/jinglun \
-  --head CypherHK:gameplay/0.6.1-candidate-comparison \
-  --base main \
-  --title 'feat(gameplay): add candidate region comparison' \
-  --body-file docs/gameplay/upstream-pr-body.md
-```
+创建后用 GitHub API 复核：目标 `CircuitMurderer/jinglun:main`，base SHA `c2dc9f0d9ab404214952264c9313970750c423a5`；head 为 `CypherHK/jinglun:gameplay/0.6.1-candidate-comparison`，SHA `05a5fd3bbbbabab98d4aaa02a14daf5bbae232da`；1 个提交、10 个文件、274 行新增、4 行删除。PR 为 open、非 draft、未合并。正文与 [`upstream-pr-body.md`](upstream-pr-body.md) 一致，保留 `@CircuitMurderer`，没有夹带 Develop 文档。
 
-创建成功后，核实 head/base 与状态，把新 PR 附加到本地 Codex 任务，并在新旧 PR 中互链。用户已授权该提交和必要的作者回复。不要自动合并、关闭旧评审 PR 或部署。如果仍然权限不足，记录实际错误并说明需用户修复本地 GitHub 认证/授权；不要反复把同一请求称为网络问题。
+上游正文链接原 fork 评审；原 fork PR 正文和[回链评论](https://github.com/CypherHK/jinglun/pull/1#issuecomment-6360384922)链接正式上游 PR。原批准只属于 fork 评审，不表示作者已重新批准上游 PR。保留两份 PR，未关闭、合并或部署。
+
+地区对比提交任务已完成。后续设计确认由用户负责，复核日期为 2026-10-24；该日期仅用于交接复核，不表示届时自动开工。收到确认前继续暂停治理。
 
 ## 实现状态
 
@@ -71,6 +74,8 @@ gh pr create --repo CircuitMurderer/jinglun \
 治理原文完整保存在 [`archive/minimal-governance-v2.md`](archive/minimal-governance-v2.md)，未改写规则、状态或数值。它是已被最新指示暂停的提案，未变成代码。两份架构草图与旧交接同在 `archive/`，仅用于回溯。旧交接中的网络限制、路径及“下一实施单元”授权已过时。
 
 ## 验证证据
+
+以下产品运行结果均由 Cloud 提供。本地本次没有重新运行类型检查、测试、构建或浏览器产品验收，只核对 Git 差异、远端提交、PR 元数据和证据文件。新 clone 没有 `node_modules`；已检测到 Node `v25.2.1` 与 Cargo `1.98.1`，没有安装或升级依赖。
 
 旧 Cloud 环境曾通过类型检查、18 项前端测试、22 项 Rust 基线测试、生产构建及真实后端 Chromium 验收。这些是历史结果。
 
@@ -90,13 +95,13 @@ gh pr create --repo CircuitMurderer/jinglun \
 
 ## 本地环境与 Pstack
 
-用户现已要求转回本地开发，取代此前“所有项目工作在 Cloud”的环境要求。Cloud 仍仅完成本轮验收、文档和推送，没有在用户 Mac 上执行项目操作。
+用户现已要求转回本地开发，取代此前“所有项目工作在 Cloud”的环境要求。本次本地接手已完成 clone、交接阅读、范围核对、上游 PR 创建和记录，未开始治理开发。
 
 先检查本地 `AGENTS.md`、Git remotes、分支、commit、工作区和最新上游；保留用户未提交的工作。不要假设本地与 Cloud 共用 `/workspace`。取得 fork 的 `Develop` 后，先读本文件。
 
 Pstack 仍为主导套件，所有 subagent 必须使用 **GPT-6.1 Sol (`gpt-6.1-sol`)**。这条用户明确选择优先于历史 HARNESS 中 `inherit-parent` 的默认规则。并行写作使用独立 worktree 或互不重叠的文件范围。
 
-旧线程记录的本地原安装位置如下，**本轮没有验证这些路径在当前 Mac 上仍存在**：
+本地接手已确认下列路径存在，并读取 HARNESS、角色配置与适用技能。采用 Session pickup、Opening a PR、unslop、technical-writing 和 Prove It Works；没有运行会安装依赖的辅助脚本。`cursor-team-kit/deslop` 未安装，未执行；本次仅编辑交接文档，没有改写已评审功能代码。
 
 - `/Users/wangyucheng/agent-skills/cursor-plugins/pstack`
 - `/Users/wangyucheng/agent-skills/pstack-entrypoints/HARNESS.md`
