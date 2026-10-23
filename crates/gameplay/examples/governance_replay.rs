@@ -799,6 +799,16 @@ fn labor_trial_audit(
     let mut rows = vec![];
     let mut peaks = BTreeMap::<String, Value>::new();
     let mut previous = BTreeMap::<String, BTreeMap<String, u64>>::new();
+    let doc = initial_values::confirmed_document().map_err(|e| e.to_string())?;
+    let baseline = money(
+        initial_values::number(&doc, "/demand/wage_income").map_err(|e| e.to_string())?
+            - 4.25
+                * initial_values::number(&doc, "/parameters/new_factory_workers")
+                    .map_err(|e| e.to_string())?
+                * initial_values::number(&doc, "/parameters/monthly_wage")
+                    .map_err(|e| e.to_string())?,
+    )
+    .map_err(|e| e.to_string())?;
     for (index, row) in monthly.iter().enumerate() {
         let month = index + 1;
         let mut payroll = BTreeMap::<String, u64>::new();
@@ -896,16 +906,6 @@ fn labor_trial_audit(
                 }
             }
         }
-        let doc = initial_values::confirmed_document().map_err(|e| e.to_string())?;
-        let baseline = money(
-            initial_values::number(&doc, "/demand/wage_income").map_err(|e| e.to_string())?
-                - 4.25
-                    * initial_values::number(&doc, "/parameters/new_factory_workers")
-                        .map_err(|e| e.to_string())?
-                    * initial_values::number(&doc, "/parameters/monthly_wage")
-                        .map_err(|e| e.to_string())?,
-        )
-        .map_err(|e| e.to_string())?;
         let paid: i128 = incomes.iter().map(|r| r.delta).sum();
         let loss = *national.get("monthly_cumulative_wage_loss").unwrap_or(&0);
         if paid + i128::from(loss) != i128::from(baseline) {
