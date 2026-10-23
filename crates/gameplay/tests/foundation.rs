@@ -715,3 +715,79 @@ fn retirement_preserves_land_capacity_and_cannot_reactivate() {
     let bytes = g.save().unwrap();
     assert_eq!(Game::load(&bytes).unwrap().save().unwrap(), bytes);
 }
+
+#[test]
+fn operational_water_suspend_resume_retire_and_explicit_protection_are_receipt_backed() {
+    let mut g = game();
+    let cell = g.cell(8).unwrap().clone();
+    let source = *cell
+        .water_sources
+        .iter()
+        .find(|(_, (_, slots))| *slots > 0)
+        .unwrap()
+        .0;
+    for id in ["initial", "new"] {
+        g.apply(
+            format!("r/{id}"),
+            reserve(id, &cell.country, 8, source, 1, 1, LandUse::Factory),
+        )
+        .unwrap();
+        g.apply(
+            format!("o/{id}"),
+            Command::MarkOperational {
+                reservation: id.into(),
+            },
+        )
+        .unwrap();
+    }
+    g.apply(
+        "suspend",
+        Command::SetOperationalWaterWaiting {
+            reservation: "new".into(),
+            waiting: true,
+        },
+    )
+    .unwrap();
+    g.apply(
+        "W",
+        Command::AddAdmissionLimitProtected {
+            limit: AdmissionLimit {
+                id: "W".into(),
+                country: cell.country.clone(),
+                source,
+                new_water_slots: 0,
+                start_month: 1,
+                end_month: 24,
+            },
+            protected: ["initial".into()].into_iter().collect(),
+        },
+    )
+    .unwrap();
+    assert_rollback(
+        &mut g,
+        "blocked-resume",
+        Command::SetOperationalWaterWaiting {
+            reservation: "new".into(),
+            waiting: false,
+        },
+    );
+    let bytes = g.save().unwrap();
+    assert_eq!(Game::load(&bytes).unwrap().save().unwrap(), bytes);
+    g.apply(
+        "retire-suspended",
+        Command::Retire {
+            reservation: "new".into(),
+        },
+    )
+    .unwrap();
+    assert_rollback(
+        &mut g,
+        "revive",
+        Command::SetOperationalWaterWaiting {
+            reservation: "new".into(),
+            waiting: false,
+        },
+    );
+    let bytes = g.save().unwrap();
+    assert_eq!(Game::load(&bytes).unwrap().save().unwrap(), bytes);
+}

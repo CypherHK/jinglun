@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 /// One currency unit is 100,000,000 ledger units. Each conversion rounds to the
 /// nearest unit, with an absolute error of at most 5e-9 currency units.
-pub const GOVERNANCE_RULES_VERSION: &str = "governance-rules-3";
+pub const GOVERNANCE_RULES_VERSION: &str = "governance-rules-4";
 pub const MONEY_SCALE: u64 = 100_000_000;
 pub fn money(value: f64) -> Result<u64> {
     scenario::finite_nonnegative(value)?;
@@ -190,6 +190,7 @@ pub struct GovernanceCalibration {
     pub status: String,
     pub owner: String,
     pub review_date: String,
+    pub initial_skilled_idle_share: f64,
     pub administrative_capacity: usize,
     pub housing_workers: u32,
     pub clinic_people: u32,
@@ -227,13 +228,14 @@ impl Default for GovernanceCalibration {
         Self {
             status: "pending_user_confirmation".into(),
             owner: "user".into(),
-            review_date: "2026-10-24".into(),
+            review_date: "2026-10-25".into(),
+            initial_skilled_idle_share: 0.25,
             administrative_capacity: 4,
             housing_workers: 200,
             clinic_people: 200,
             trained_workers_per_quarter: 20,
             cooperation_training_per_quarter: 10,
-            cooperation_export_orders_per_month: 20,
+            cooperation_export_orders_per_month: 100,
             cooperation_delay_months: 3,
             road_output_capacity: 200,
             power_output_capacity: 200,
@@ -242,7 +244,7 @@ impl Default for GovernanceCalibration {
             domestic_migration_per_month: 100,
             migration_source_population_share: 0.01,
             cooperation_monthly_fee: MONEY_SCALE,
-            foreign_buyer_monthly_budget: 2 * MONEY_SCALE,
+            foreign_buyer_monthly_budget: 10 * MONEY_SCALE,
             public_work_monthly_maintenance: MONEY_SCALE / 20,
             security_recovery_budget_ratio: 1.5,
             security_decline_budget_ratio: 0.5,
@@ -264,7 +266,8 @@ impl Default for GovernanceCalibration {
 }
 impl GovernanceCalibration {
     fn validate(&self) -> Result<()> {
-        if !self.security_recovery_budget_ratio.is_finite()
+        if !(0.0..=1.0).contains(&self.initial_skilled_idle_share)
+            || !self.security_recovery_budget_ratio.is_finite()
             || self.security_recovery_budget_ratio <= 1.0
             || !self.security_decline_budget_ratio.is_finite()
             || !(0.0..1.0).contains(&self.security_decline_budget_ratio)
@@ -328,6 +331,8 @@ pub struct PublicProject {
     pub started_month: u32,
     pub activate_month: Option<u32>,
     pub active: bool,
+    pub water_suspended: bool,
+    pub first_operated_month: Option<u32>,
     pub paused: bool,
     pub escrow: String,
     pub reserved_materials: u64,
@@ -348,6 +353,8 @@ pub struct Factory {
     pub group: Group,
     pub site: u32,
     pub phase: FactoryPhase,
+    pub water_suspended: bool,
+    pub first_operated_month: Option<u32>,
     pub started_month: u32,
     pub activate_month: u32,
     pub construction_months: u32,
@@ -679,7 +686,11 @@ impl Game {
                     population,
                     initial_population: population,
                     idle_workers: idle,
-                    skilled_workers: if [39, 74].contains(site) { idle } else { 0 },
+                    skilled_workers: if [39, 74].contains(site) {
+                        (idle as f64 * calibration.initial_skilled_idle_share).floor() as u32
+                    } else {
+                        0
+                    },
                     housing_capacity: population,
                     clinic_capacity: population,
                     road_capacity: if [39, 74].contains(site) { 1000 } else { 0 },
@@ -1202,6 +1213,12 @@ impl GovernanceState {
                         let total = game.projection.water[&source];
                         let occupied =
                             (total as f64 * self.calibration.water_priority_fraction).ceil() as u64;
+                        self.limit_operating_water(
+                            game,
+                            source,
+                            total.saturating_sub(occupied),
+                            occupied,
+                        )?;
                         let used: u64 = game
                             .reservations
                             .values()
@@ -1209,7 +1226,9 @@ impl GovernanceState {
                                 r.source == source
                                     && !matches!(
                                         r.phase,
-                                        AllocationPhase::WaitingForWater | AllocationPhase::Retired
+                                        AllocationPhase::WaitingForWater
+                                            | AllocationPhase::OperationalWaitingForWater
+                                            | AllocationPhase::Retired
                                     )
                             })
                             .map(|r| r.water)
@@ -1240,14 +1259,27 @@ impl GovernanceState {
                         }
                         game.apply_internal(
                             format!("{id}/limit/{source}"),
-                            Command::AddAdmissionLimit(AdmissionLimit {
-                                id: format!("W/{source}"),
-                                country: "player".into(),
-                                source,
-                                new_water_slots: total.saturating_sub(occupied),
-                                start_month: month,
-                                end_month: 24,
-                            }),
+                            Command::AddAdmissionLimitProtected {
+                                protected: game
+                                    .reservations
+                                    .values()
+                                    .filter(|r| {
+                                        r.source == source
+                                            && r.country == "player"
+                                            && r.id.starts_with("initial-industry/")
+                                            && r.phase == AllocationPhase::Operational
+                                    })
+                                    .map(|r| r.id.clone())
+                                    .collect(),
+                                limit: AdmissionLimit {
+                                    id: format!("W/{source}"),
+                                    country: "player".into(),
+                                    source,
+                                    new_water_slots: total.saturating_sub(occupied),
+                                    start_month: month,
+                                    end_month: 24,
+                                },
+                            },
                         )?;
                     }
                 }
@@ -1262,7 +1294,7 @@ impl GovernanceState {
             GovernanceCommand::SetInstitution { kind, enabled } => {
                 if *kind == Institution::ClinicalCoverage {
                     return Err(Error::Invalid(
-                        "clinical coverage requires a confirmed disadvantaged population definition",
+                        "clinical coverage switching is outside the first governance slice",
                     ));
                 }
                 if self.institution_changes.contains_key(kind)
@@ -1563,6 +1595,8 @@ impl GovernanceState {
                 started_month: game.month,
                 activate_month: None,
                 active: false,
+                water_suspended: false,
+                first_operated_month: None,
                 paused: false,
                 escrow,
                 reserved_materials: materials,
@@ -1744,7 +1778,9 @@ impl GovernanceState {
                 r.source == source
                     && !matches!(
                         r.phase,
-                        AllocationPhase::WaitingForWater | AllocationPhase::Retired
+                        AllocationPhase::WaitingForWater
+                            | AllocationPhase::OperationalWaitingForWater
+                            | AllocationPhase::Retired
                     )
             })
             .map(|r| r.water)
@@ -1771,7 +1807,9 @@ impl GovernanceState {
                     r.country == "player"
                         && !matches!(
                             r.phase,
-                            AllocationPhase::WaitingForWater | AllocationPhase::Retired
+                            AllocationPhase::WaitingForWater
+                                | AllocationPhase::OperationalWaitingForWater
+                                | AllocationPhase::Retired
                         )
                         && r.source == source
                         && !limit.grandfathered.contains(&r.id)
@@ -1959,6 +1997,152 @@ impl GovernanceState {
             );
         }
     }
+    fn operational_water_order(&self, game: &Game, source: u32) -> Vec<(u32, String)> {
+        let mut order = vec![];
+        for (id, p) in &self.projects {
+            let reservation = format!("public/{id}");
+            if p.kind == PublicWork::Housing
+                && p.active
+                && game
+                    .reservations
+                    .get(&reservation)
+                    .is_some_and(|r| r.source == source)
+            {
+                if let Some(month) = p.first_operated_month {
+                    order.push((month, reservation));
+                }
+            }
+        }
+        for (id, f) in &self.factories {
+            if f.phase != FactoryPhase::Closed
+                && game
+                    .reservations
+                    .get(id)
+                    .is_some_and(|r| r.source == source)
+            {
+                if let Some(month) = f.first_operated_month {
+                    order.push((month, id.clone()));
+                }
+            }
+        }
+        order.sort();
+        order
+    }
+    fn limit_operating_water(
+        &mut self,
+        game: &mut Game,
+        source: u32,
+        admission: u64,
+        priority: u64,
+    ) -> Result<()> {
+        let order = self.operational_water_order(game, source);
+        let ids: BTreeSet<_> = order.iter().map(|(_, id)| id.clone()).collect();
+        let other: u64 = game
+            .reservations
+            .values()
+            .filter(|r| {
+                r.source == source
+                    && !ids.contains(&r.id)
+                    && !matches!(
+                        r.phase,
+                        AllocationPhase::WaitingForWater
+                            | AllocationPhase::OperationalWaitingForWater
+                            | AllocationPhase::Retired
+                    )
+            })
+            .map(|r| r.water)
+            .sum();
+        let total = game.projection.water[&source];
+        let resource = priority.min(total.saturating_sub(other));
+        let quota = admission.min(total.saturating_sub(other).saturating_sub(resource));
+        let mut used: u64 = order
+            .iter()
+            .filter_map(|(_, id)| game.reservations.get(id))
+            .filter(|r| r.phase == AllocationPhase::Operational)
+            .map(|r| r.water)
+            .sum();
+        for (_, id) in order.into_iter().rev() {
+            if used <= quota {
+                break;
+            }
+            if game.reservations[&id].phase != AllocationPhase::Operational {
+                continue;
+            }
+            let water = game.reservations[&id].water;
+            game.apply_internal(
+                format!("water/suspend/{id}/{}", game.month),
+                Command::SetOperationalWaterWaiting {
+                    reservation: id.clone(),
+                    waiting: true,
+                },
+            )?;
+            if let Some(project) = id
+                .strip_prefix("public/")
+                .and_then(|id| self.projects.get_mut(id))
+            {
+                project.water_suspended = true;
+                let site = self.sites.get_mut(&project.site).unwrap();
+                site.housing_capacity = site
+                    .housing_capacity
+                    .checked_sub(self.calibration.housing_workers)
+                    .ok_or(Error::Invalid("housing suspension capacity"))?;
+            } else {
+                self.factories
+                    .get_mut(&id)
+                    .ok_or(Error::Missing("water suspended factory"))?
+                    .water_suspended = true;
+            }
+            used -= water;
+            self.fact(
+                game.month,
+                "water_priority_suspends_post_initial_facility",
+                vec![id, "aid/renewal".into()],
+            );
+        }
+        Ok(())
+    }
+    fn resume_operating_water(&mut self, game: &mut Game) -> Result<()> {
+        let mut order = vec![];
+        for source in game.projection.water.keys().copied() {
+            order.extend(self.operational_water_order(game, source));
+        }
+        order.sort();
+        for (_, id) in order {
+            if game.reservations[&id].phase != AllocationPhase::OperationalWaitingForWater {
+                continue;
+            }
+            match game.apply_internal(
+                format!("water/operational/resume/{id}/{}", game.month),
+                Command::SetOperationalWaterWaiting {
+                    reservation: id.clone(),
+                    waiting: false,
+                },
+            ) {
+                Ok(_) => {}
+                Err(Error::CapacityShortfalls { .. }) => continue,
+                Err(error) => return Err(error),
+            }
+            if let Some(project) = id
+                .strip_prefix("public/")
+                .and_then(|id| self.projects.get_mut(id))
+            {
+                project.water_suspended = false;
+                let site = self.sites.get_mut(&project.site).unwrap();
+                site.housing_capacity = site
+                    .housing_capacity
+                    .checked_add(self.calibration.housing_workers)
+                    .ok_or(Error::Overflow)?;
+            } else {
+                self.factories.get_mut(&id).unwrap().water_suspended = false;
+            }
+            self.fact(
+                game.month,
+                "previously_operational_facility_resumes_water",
+                vec![id, "aid/renewal".into()],
+            );
+        }
+        Ok(())
+    }
     fn water_ready(&mut self, game: &mut Game, id: &str) -> Result<bool> {
         if game
             .reservations
@@ -1998,6 +2182,7 @@ impl GovernanceState {
                 game.apply_internal(format!("expire/{id}"), Command::Release { reservation: id })?;
             }
         }
+        self.resume_operating_water(game)?;
         if self
             .pending_export_orders
             .is_some_and(|(month, _)| month <= game.month)
@@ -2051,6 +2236,7 @@ impl GovernanceState {
             }
             self.sites.insert(p.site, site);
             self.projects.get_mut(&id).unwrap().active = true;
+            self.projects.get_mut(&id).unwrap().first_operated_month = Some(game.month);
             if p.kind == PublicWork::Housing {
                 game.apply_internal(
                     format!("operate/public/{id}"),
@@ -2076,6 +2262,7 @@ impl GovernanceState {
                 continue;
             }
             self.factories.get_mut(&id).unwrap().phase = FactoryPhase::Operating;
+            self.factories.get_mut(&id).unwrap().first_operated_month = Some(game.month);
             game.apply_internal(
                 format!("operate/{id}"),
                 Command::MarkOperational { reservation: id },
@@ -2408,6 +2595,8 @@ impl GovernanceState {
                 group,
                 site,
                 phase: FactoryPhase::Construction,
+                water_suspended: false,
+                first_operated_month: None,
                 started_month: game.month,
                 activate_month: game.month + months,
                 construction_months: months,
@@ -2787,12 +2976,15 @@ impl GovernanceState {
         let mut plant_demand = BTreeMap::new();
         for id in &ids {
             let f = &self.factories[id];
-            let demand = param(doc, "new_factory_energy")?
-                * if f.retrofitted {
-                    1.0 + self.calibration.retrofit_output_increase
-                } else {
-                    1.0
-                };
+            let demand = if f.water_suspended {
+                0.0
+            } else {
+                param(doc, "new_factory_energy")?
+            } * if f.retrofitted {
+                1.0 + self.calibration.retrofit_output_increase
+            } else {
+                1.0
+            };
             *group_demand.entry(f.group).or_default() += demand;
             plant_demand.insert(id.clone(), demand);
         }
@@ -2860,8 +3052,9 @@ impl GovernanceState {
                     >= full_output / param(doc, "new_factory_output")?
                         * param(doc, "new_factory_energy")?
                 && full_profit > 0.0;
-            let rate = if (f.phase == FactoryPhase::Reduced
-                || f.phase == FactoryPhase::ClosureWarned)
+            let rate = if f.water_suspended {
+                0.0
+            } else if (f.phase == FactoryPhase::Reduced || f.phase == FactoryPhase::ClosureWarned)
                 && !restored
             {
                 0.5
@@ -3087,6 +3280,7 @@ impl GovernanceState {
         for id in close {
             let f = self.factories.get_mut(&id).unwrap();
             f.phase = FactoryPhase::Closed;
+            f.water_suspended = false;
             f.output = 0.0;
             let site = self.sites.get_mut(&f.site).unwrap();
             site.idle_workers += f.workers;
@@ -3097,6 +3291,7 @@ impl GovernanceState {
                     reservation: id.clone(),
                 },
             )?;
+            self.fact(month, "closed_factory_retains_land", vec![id.clone()]);
             self.fact(month, "factory_closed_after_seven_loss_months", vec![id]);
         }
         let imported = money(domestic_remaining * price)?;
@@ -3116,11 +3311,11 @@ impl GovernanceState {
         self.monthly_energy_used = energy_used;
         if self.energy_contract_start.is_some() && !long_active {
             let mut demand = BTreeMap::<Group, u64>::new();
-            for f in self
-                .factories
-                .values()
-                .filter(|f| f.phase != FactoryPhase::Closed && f.activate_month <= month + 1)
-            {
+            for f in self.factories.values().filter(|f| {
+                f.phase != FactoryPhase::Closed
+                    && !f.water_suspended
+                    && f.activate_month <= month + 1
+            }) {
                 let need = money(
                     param(doc, "new_factory_energy")?
                         * if f.retrofitted {
@@ -3511,7 +3706,7 @@ impl GovernanceState {
                 .contains_key(&Institution::ClinicalCoverage)
         {
             return Err(Error::Invalid(
-                "clinical coverage requires a confirmed disadvantaged population definition",
+                "clinical coverage switching is outside the first governance slice",
             ));
         }
         if self

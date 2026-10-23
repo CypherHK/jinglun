@@ -183,7 +183,15 @@ pub enum Command {
         reservation: String,
         waiting: bool,
     },
+    SetOperationalWaterWaiting {
+        reservation: String,
+        waiting: bool,
+    },
     AddAdmissionLimit(AdmissionLimit),
+    AddAdmissionLimitProtected {
+        limit: AdmissionLimit,
+        protected: std::collections::BTreeSet<String>,
+    },
     RecordObligation(PaymentObligation),
     PayObligation {
         obligation: String,
@@ -476,7 +484,8 @@ impl Game {
             month: candidate.month,
         };
         let admission_grandfathered = match &command {
-            Command::AddAdmissionLimit(limit) => {
+            Command::AddAdmissionLimit(limit)
+            | Command::AddAdmissionLimitProtected { limit, .. } => {
                 Some(candidate.admissions[&limit.id].grandfathered.clone())
             }
             _ => None,
@@ -632,12 +641,42 @@ impl Game {
                     return Err(error);
                 }
             }
+            Command::SetOperationalWaterWaiting {
+                reservation,
+                waiting,
+            } => {
+                let r = self
+                    .reservations
+                    .get_mut(reservation)
+                    .ok_or(Error::Missing("operational water reservation"))?;
+                let expected = if *waiting {
+                    AllocationPhase::Operational
+                } else {
+                    AllocationPhase::OperationalWaitingForWater
+                };
+                if r.phase != expected {
+                    return Err(Error::Invalid("operational water waiting transition"));
+                }
+                r.phase = if *waiting {
+                    AllocationPhase::OperationalWaitingForWater
+                } else {
+                    AllocationPhase::Operational
+                };
+                if !waiting && let Err(error) = self.validate_capacity() {
+                    self.reservations.get_mut(reservation).unwrap().phase =
+                        AllocationPhase::OperationalWaitingForWater;
+                    return Err(error);
+                }
+            }
             Command::Retire { reservation } => {
                 let r = self
                     .reservations
                     .get_mut(reservation)
                     .ok_or(Error::Missing("reservation"))?;
-                if r.phase != AllocationPhase::Operational {
+                if !matches!(
+                    r.phase,
+                    AllocationPhase::Operational | AllocationPhase::OperationalWaitingForWater
+                ) {
                     return Err(Error::Invalid("retirement phase"));
                 }
                 r.phase = AllocationPhase::Retired;
@@ -652,7 +691,8 @@ impl Game {
                 }
                 r.phase = AllocationPhase::Operational;
             }
-            Command::AddAdmissionLimit(limit) => {
+            Command::AddAdmissionLimit(limit)
+            | Command::AddAdmissionLimitProtected { limit, .. } => {
                 identifier(&limit.id)?;
                 if limit.start_month != self.month
                     || limit.end_month < limit.start_month
@@ -662,7 +702,7 @@ impl Game {
                 {
                     return Err(Error::Invalid("admission identity or references"));
                 }
-                let grandfathered = self
+                let operational: std::collections::BTreeSet<_> = self
                     .reservations
                     .values()
                     .filter(|r| {
@@ -672,6 +712,15 @@ impl Game {
                     })
                     .map(|r| r.id.clone())
                     .collect();
+                let grandfathered =
+                    if let Command::AddAdmissionLimitProtected { protected, .. } = command {
+                        if !protected.is_subset(&operational) {
+                            return Err(Error::Invalid("protected admission references"));
+                        }
+                        protected.clone()
+                    } else {
+                        operational
+                    };
                 self.admissions.insert(
                     limit.id.clone(),
                     AdmissionState {
@@ -903,7 +952,9 @@ impl Game {
             *l = l.checked_add(reservation.land).ok_or(Error::Overflow)?;
             if !matches!(
                 reservation.phase,
-                AllocationPhase::WaitingForWater | AllocationPhase::Retired
+                AllocationPhase::WaitingForWater
+                    | AllocationPhase::OperationalWaitingForWater
+                    | AllocationPhase::Retired
             ) {
                 let w = water.entry(reservation.source).or_default();
                 *w = w.checked_add(reservation.water).ok_or(Error::Overflow)?;
@@ -936,7 +987,9 @@ impl Game {
                 r.country == state.limit.country
                     && !matches!(
                         r.phase,
-                        AllocationPhase::WaitingForWater | AllocationPhase::Retired
+                        AllocationPhase::WaitingForWater
+                            | AllocationPhase::OperationalWaitingForWater
+                            | AllocationPhase::Retired
                     )
                     && r.source == state.limit.source
                     && !state.grandfathered.contains(&r.id)
@@ -1140,8 +1193,10 @@ impl Game {
         let mut ordered: Vec<_> = self.applied.values().collect();
         ordered.sort_by_key(|applied| applied.execution_order);
         for applied in ordered {
-            if !matches!(applied.command, Command::AddAdmissionLimit(_))
-                && applied.admission_grandfathered.is_some()
+            if !matches!(
+                applied.command,
+                Command::AddAdmissionLimit(_) | Command::AddAdmissionLimitProtected { .. }
+            ) && applied.admission_grandfathered.is_some()
             {
                 return Err(Error::Invalid("unexpected admission snapshot"));
             }
@@ -1193,11 +1248,35 @@ impl Game {
                         AllocationPhase::Reserved
                     };
                 }
+                Command::SetOperationalWaterWaiting {
+                    reservation,
+                    waiting,
+                } => {
+                    let r = reserved
+                        .get_mut(reservation)
+                        .ok_or(Error::Invalid("operational waiting lifecycle receipt"))?;
+                    let expected = if *waiting {
+                        AllocationPhase::Operational
+                    } else {
+                        AllocationPhase::OperationalWaitingForWater
+                    };
+                    if r.phase != expected {
+                        return Err(Error::Invalid("operational waiting transition receipt"));
+                    }
+                    r.phase = if *waiting {
+                        AllocationPhase::OperationalWaitingForWater
+                    } else {
+                        AllocationPhase::Operational
+                    };
+                }
                 Command::Retire { reservation } => {
                     let r = reserved
                         .get_mut(reservation)
                         .ok_or(Error::Invalid("retirement lifecycle receipt"))?;
-                    if r.phase != AllocationPhase::Operational {
+                    if !matches!(
+                        r.phase,
+                        AllocationPhase::Operational | AllocationPhase::OperationalWaitingForWater
+                    ) {
                         return Err(Error::Invalid("retirement transition receipt"));
                     }
                     r.phase = AllocationPhase::Retired;
@@ -1242,7 +1321,31 @@ impl Game {
                         return Err(Error::Invalid("todo receipt"));
                     }
                 }
-                Command::AddAdmissionLimit(limit) => {
+                Command::AddAdmissionLimit(limit)
+                | Command::AddAdmissionLimitProtected { limit, .. } => {
+                    let operational: std::collections::BTreeSet<_> = reserved
+                        .values()
+                        .filter(|r| {
+                            r.phase == AllocationPhase::Operational
+                                && r.country == limit.country
+                                && r.source == limit.source
+                        })
+                        .map(|r| r.id.clone())
+                        .collect();
+                    let expected_snapshot =
+                        if let Command::AddAdmissionLimitProtected { protected, .. } =
+                            &applied.command
+                        {
+                            if !protected.is_subset(&operational) {
+                                return Err(Error::Invalid("protected admission receipt"));
+                            }
+                            protected.clone()
+                        } else {
+                            operational
+                        };
+                    if applied.admission_grandfathered.as_ref() != Some(&expected_snapshot) {
+                        return Err(Error::Invalid("admission historical snapshot"));
+                    }
                     if limit.start_month != applied.receipt.month
                         || self
                             .admissions

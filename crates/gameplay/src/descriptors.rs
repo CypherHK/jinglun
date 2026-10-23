@@ -56,6 +56,7 @@ pub struct PayableView {
 pub enum AllocationPhase {
     Reserved,
     WaitingForWater,
+    OperationalWaitingForWater,
     Retired,
     Operational,
 }
