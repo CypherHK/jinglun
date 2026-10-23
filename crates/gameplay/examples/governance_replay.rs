@@ -798,6 +798,7 @@ fn labor_trial_audit(
         .ok_or("missing payroll ledger")?;
     let mut rows = vec![];
     let mut peaks = BTreeMap::<String, Value>::new();
+    let mut previous = BTreeMap::<String, BTreeMap<String, u64>>::new();
     for (index, row) in monthly.iter().enumerate() {
         let month = index + 1;
         let mut payroll = BTreeMap::<String, u64>::new();
@@ -870,7 +871,49 @@ fn labor_trial_audit(
                 }
             }
         }
-        rows.push(json!({"month":month,"sources":row["labor_trial_sources"],"all_sites":row["all_sites"],"factory_payroll_by_payer":payroll,"factory_wage_receipts":receipts,"nonmanufacturing_wage_receipts":incomes}));
+        let mut sources = row["labor_trial_sources"].clone();
+        let mut national = BTreeMap::<String, u64>::new();
+        if let Some(sources) = sources.as_object_mut() {
+            for (site, source) in sources {
+                let out = source["cumulative_outbound"].as_u64().unwrap_or(0);
+                let employed = source["cumulative_employed_recruits"].as_u64().unwrap_or(0);
+                source["cumulative_idle_recruits"] = json!(out.saturating_sub(employed));
+                let old = previous.entry(site.clone()).or_default();
+                for field in [
+                    "cumulative_outbound",
+                    "cumulative_idle_recruits",
+                    "cumulative_employed_recruits",
+                    "lost_worker_months",
+                    "cumulative_wage_loss",
+                    "cumulative_payroll_tax_loss",
+                ] {
+                    let value = source[field].as_u64().unwrap_or(0);
+                    let delta = value.saturating_sub(*old.get(field).unwrap_or(&0));
+                    source[format!("monthly_{field}")] = json!(delta);
+                    *national.entry(field.into()).or_default() += value;
+                    *national.entry(format!("monthly_{field}")).or_default() += delta;
+                    old.insert(field.into(), value);
+                }
+            }
+        }
+        let doc = initial_values::confirmed_document().map_err(|e| e.to_string())?;
+        let baseline = money(
+            initial_values::number(&doc, "/demand/wage_income").map_err(|e| e.to_string())?
+                - 4.25
+                    * initial_values::number(&doc, "/parameters/new_factory_workers")
+                        .map_err(|e| e.to_string())?
+                    * initial_values::number(&doc, "/parameters/monthly_wage")
+                        .map_err(|e| e.to_string())?,
+        )
+        .map_err(|e| e.to_string())?;
+        let paid: i128 = incomes.iter().map(|r| r.delta).sum();
+        let loss = *national.get("monthly_cumulative_wage_loss").unwrap_or(&0);
+        if paid + i128::from(loss) != i128::from(baseline) {
+            return Err(format!(
+                "month {month} nonmanufacturing wage receipt/loss mismatch"
+            ));
+        }
+        rows.push(json!({"month":month,"sources":sources,"national":national,"all_sites":row["all_sites"],"factory_payroll_by_payer":payroll,"factory_wage_receipts":receipts,"nonmanufacturing_wage_receipts":incomes,"nonmanufacturing_wages_paid":paid,"nonmanufacturing_wage_loss":loss,"nonmanufacturing_baseline":baseline,"wage_receipt_reconciled":true}));
     }
     Ok(
         json!({"monthly":rows,"simultaneous_factory_peaks":peaks,"scope":"One script only; money in fixed units. Cumulative source deltas give monthly loss; never sum losses across alternative scripts."}),
