@@ -66,6 +66,10 @@ cargo run -p jinglun-gameplay --example governance_replay --release --offline --
 
 以上都是本轮本地执行证据，不引用Cloud旧验收作为本地结果。Pstack复核落实为实际回放和独立算术核验，不以编译通过替代玩法结果。初值与规则参数保持，实验默认关闭，测试通过不等于体验通过。输入哈希在交付前复核未变。下一步仅待设计侧决定该试验开关及10%提案是否保留。
 
+交付回执：集成前再次fetch核实 `origin/Develop` 仍为dae2a8d，主目录干净，随后快进并非强制推送代码与证据提交 **`ff7dcd3e59e441145903cb2e8377a1171944f350`** 成功。应用为 `0.6.6-gameplay`，主目录继续检出Develop。本段回执另行提交并推同一分支，后续开发仍在Develop。
+
+四个 `labor-trial-core`、`labor-trial-replay`、`labor-trial-acceptance`、`labor-trial-integration` 临时worktree已普通删除。删除前tracked/untracked均干净，ignored只有target，35份独有证据与耐久归档逐字匹配，目录外lsof确认无进程占用；临时Markdown分析的有效结论已纳入本节，基线副本与编译缓存均可重建。对应四个临时本地分支在确认cherry-pick补丁全部等价或祖先关系后退役，未删远端分支。现在只保留主目录与地图预览树 `natural-map-upstream-develop`（f628c96），包含b37e141的 `archive/local-develop-map-20261024` 及旧治理原型归档均仍在，未混入本次提交。没有写design、安装升级依赖、创建合并PR或部署。
+
 ## 2026-10-24 D027—D028：历史实施记录
 
 本轮从干净的 `origin/Develop` / 主目录 `Develop` **`44a08ab9ca1985c77cce71768bdebb445b6aeb41`** 开始，已重新fetch并完整阅读最新规格及D027/D028。DECISIONS SHA-256为 `2479680c014e234b86d443ef786943a2eb7f57b64081e1b8c23db587a3ef908c`；规格SHA-256为 `717c85f499f7183e59591b1d9e12703faf8dd629b23652b864d30b7029b73872`。D022批准的9,982个数值路径冻结，原provenance/approval保留，design/只读。
