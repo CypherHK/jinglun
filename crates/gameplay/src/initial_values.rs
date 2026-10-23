@@ -99,15 +99,13 @@ fn validate(document: &Value) -> Result<()> {
 fn validate_activation(node: &Value) -> Result<()> {
     match node {
         Value::Object(object) => {
-            if object.contains_key("status")
+            if (object.contains_key("status")
                 || object.contains_key("activation")
-                || object.contains_key("value")
+                || object.contains_key("value"))
+                && (object.get("status").and_then(Value::as_str) != Some("confirmed")
+                    || object.get("activation").and_then(Value::as_str) != Some("enabled"))
             {
-                if object.get("status").and_then(Value::as_str) != Some("confirmed")
-                    || object.get("activation").and_then(Value::as_str) != Some("enabled")
-                {
-                    return Err(Error::Invalid("initial values not confirmed and enabled"));
-                }
+                return Err(Error::Invalid("initial values not confirmed and enabled"));
             }
             for child in object.values() {
                 validate_activation(child)?;
