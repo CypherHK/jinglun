@@ -35,7 +35,7 @@ fn validate(document: &Value) -> Result<()> {
         ("/approval/decision", "D022"),
         (
             "/current_design_inputs/source_hashes/DECISIONS.md",
-            "f0786a7c66925d884be0b8eb1f9835e5db0febd6add3a709e4d0eba3bca66a67",
+            "479f1798f100026b4a4bc016b126bfccad0e67e8b00950e5f59f03f8eb987c24",
         ),
         (
             "/current_design_inputs/source_hashes/handoffs~12026-10-23-first-governance-slice.md",
