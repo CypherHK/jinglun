@@ -12,6 +12,44 @@ D031的新验收口径：B1仍要求四个组合在M24内可达，沿用D027的�
 
 正式D031验收仅适用于默认200、两个试验关闭、无额外参数覆盖和原完整444域；其他试验或缩小域只能给诊断结果，不宣称已被D031接受。第8节第4项内参模板/排序/严重阈值继续留空，不做UI/HTTP、依赖安装升级、PR或部署。历史Cloud证据不作为本轮本地结果。人工试玩负责人为用户，排期尚未指定；本轮工程结果另报用户审阅，不把自动验收当体验通过。
 
+设计侧在回放期间另行追加D032原型记录，DECISIONS全文SHA变为 `479f1798f100026b4a4bc016b126bfccad0e67e8b00950e5f59f03f8eb987c24`，规格SHA未变。独立复核将新增D032完整节移除后，全文SHA精确恢复为上述 `f0786a7c…`，证明D031和此前内容逐字未改。运行二进制绑定开工时的输入，之后只更新当前输入哈希；两份设计快照及变更校验随本轮机器证据保存。D032为设计侧原型工作，本轮不实现其模板、排序、阈值或界面，不将原型口径升级为规则。
+
+### 本地重跑结果：按D031通过，原缺口不改写
+
+默认200、两个试验关闭、无参数覆盖的原444域（432+12延后补贴脚本）实际完整运行一次，执行错误0，`--require-acceptance` 退出0。`policy_pass=true`，原口径 `raw_pass=false`；B1旧口径失败和8R2的W占优原始结果均保留。独立Python算术审计复算B1选法和全部前沿、B15两种护栏聚合的全部前沿/占优见证/完全持平、每份脚本的分档与指标，与驱动一致。
+
+全部444份完整 `script_replay` 对象、共10,656个月，与上轮默认200耐久归档逐份严格相同，没有排除字段；包含月度状态、系统收据、事实、评分卡、失败动作、资本、贸易和劳动力记录。本轮改变的是验收口径，未改玩法行为、D022数值、参数或脚本域。四组合出口收入仍全部0；这属于保留现状，不解释为已改善合作体验。
+
+| B1组合（均拒绝续期） | 按D027选中达成月 | 政府资本（币） | 选中脚本 |
+| --- | --- | --- | --- |
+| 8号路线一 | 20 | 51.87666731 | `s8-r1-Decline-p1-c40-m9-o1-d8-ia-u8` |
+| 8号路线二 | 24 | 31.22869736 | `s8-r2-Decline-p1-c0-m12-o0` |
+| 29号路线一 | 20 | 24.82381266 | `s29-r1-Decline-p1-c0-m12-o1` |
+| 29号路线二 | 19 | 24.82381266 | `s29-r2-Decline-p1-c0-m12-o0` |
+
+四组合均可达成；8号路线一快4个月，路线二少20.64796995币资本，最快M20。接受W后，8号两路线分别有10/37、19/37份达成脚本，29号两路线均0/37。29号R1比R2慢1个月且资本相同，按D031保留为已知缺口。完整时间—资本前沿仍为：8R1 `(20,51.87666731)/(24,31.22869736)`，8R2 `(24,31.22869736)`，29R1 `(20,24.82381266)`，29R2 `(17,37.77395196)/(19,24.82381266)`；全部同分脚本及反例在机器证据中。资本仍沿用“实付+剩余托管”的待确认提议，四份选中脚本剩余托管都是0，没有把D031视为对该计量或其他校准参数的确认。
+
+| 项目 | 原始比较 | D031验收 |
+| --- | --- | --- |
+| B1 | 29号不满足原路线差别要求 | 通过；29号差别为已知缺口，四组合可达仍是门禁 |
+| B8 | 保留此前无可用救厂验收场景的诊断 | 移出本切片，`out_of_scope`，不记通过 |
+| B15：8R1、29R1、29R2 | 无选择占优；三选择不完全持平 | 三组均通过 |
+| B15：8R2 | W占优；三选择不完全持平 | 仅W占优按D031豁免通过 |
+
+8R2的W占优见证仍为 `s8-r2-W-p6-c0-m9-o0` 与 `s8-r2-W-p6-c0-m9-o1`：M24达成，三护栏全程失守总月数0，第24月国库扣未付能源义务12.32130264币，末三月经常收支各+1.14币。其他组无占优见证，四组完全持平均false，两种护栏聚合结果一致。E/拒绝占优、完全持平、执行错误与聚合敏感性没有被豁免。B15搜索域与误差带未变，仍为公开的待确认提议；这不是全局最优或人工体验通过。
+
+### 验证命令、输入身份与证据
+
+- 完整回放构建：`cargo build --release --offline --locked -p jinglun-gameplay --example governance_replay`；运行：`target/release/examples/governance_replay --include-delayed-policy --require-acceptance`。实际运行提交 `903cf011617478ef410b8c2d543654f95a47bf9b`，集成补丁为 `1365a41`；二进制SHA-256 `45d267f9943fd6782ff74bd01ab37306b6dee52dbd46b839c0f1fd5cf1f64acc`。新full raw SHA `11769255bf6aee5d2fd9eaf601f6235417f8efa0c25eec17e907c4aa0ba6f233`；compact由同一次raw过滤生成，没有另跑或替代完整证据。
+- 集成回归：`cargo test --release --offline --locked --workspace --all-targets -- --nocapture --skip labor_trial --skip demand_trial --skip d028_default_order_rescue_bounded_diagnostic --skip default_double_retrofit_cooperation_order_loss_remains_profitable_diagnostic`，**113通过、0失败、20过滤**。本轮不启用试验，不重跑移出验收的两项昂贵B8诊断；保留的关闭/占地退出机制回归仍通过，不能当作B8验收通过。驱动20项测试包含4项D031边界回归，保护29号仍需两路线M24可达、8号仍需快且省、豁免仅W，以及不豁免完全持平/错误/聚合敏感性。
+- `cargo fmt --all -- --check`、`cargo clippy -p jinglun-gameplay --all-targets --no-deps --offline --locked -- -D warnings`、`git diff --check` 均通过。冻结检查确认D022的9,982个数值路径类型和值不变，JSON除 `current_design_inputs` 外全同；引擎、校准、B15比较实现均未修改。
+- 设计哈希追加修订 `2446630c4f289361a1f229746f25f4e3f9543240` 集成为 `5bfa643`，恰3文件各1处哈希替换；根在该最终代码重新执行2项 `initial_values` 测试、fmt和严格Clippy均通过。`python3 scripts/draft-initial-values.py --map /Users/wangyucheng/Projects/jinglun/target/jinglun-040-map.json --design-dir /Users/wangyucheng/Projects/jinglun-design/design --output crates/gameplay/data/jinglun-040-initial-draft.json --check` 通过。初次生成器检查因并行追加D032正确拒绝，失败日志与最终成功日志均留存；没有将输入漂移静默跳过。
+- B8既有诊断继续位于 `docs/gameplay/acceptance/2026-10-24/demand-trial/replay-evidence.tar.gz`；本轮只引用，不删除或重新标记其结果。其余B2—B7、B9—B14的规则未改，相应默认范围回归继续通过；本次444验收主结果只汇总D031要求的B1/B15与B8移出状态。
+
+2026-10-24产物：本轮验收逻辑与当前设计输入在产品代码中，完整运行、独立复算和冻结校验的机器证据归档于 `docs/gameplay/acceptance/2026-10-24/d031/`，工程进度只在本HANDOFF。自动验收结果交用户审阅；建议复核日期2026-10-25（尚未获排期），人工试玩及29号路线感受、8号W选择分布由用户后续验收。
+
+归档包含 `acceptance-summary.json`（589,291字节，SHA-256 `ebd84ff0abb3be36c608068ae6837749ecf0e8ef17cd02fe14100e79a17592a9`）和 `replay-evidence.tar.gz`（6,607,970字节，SHA-256 `6f9e7b8148aa3e10cc431f2485e5da3608a38e1a7aad7fc14636c97abdc1c397`）。包内35份文件逐份解包核对SHA成功，含完整raw/compact、运行命令和身份、两份设计快照和规格、生成器检查、根回归日志、独立oracle与全部前沿及占优见证。独立复算命令为 `python3 d031-oracle.py <新444-raw.jsonl> --baseline <旧cap-200-444.jsonl> --out <结果.json>`；旧基线从前轮demand-trial归档提取，不重复打包。
+
 ## 2026-10-24 D030与国内进口替代容量试验：历史实施记录
 
 本轮从干净的主目录Develop与最新origin/Develop **`ab17d08e42f86603d8e2addcc2e99192d13518d8`** 开始，已fetch核实、重新读取D030、D020、D022及规格全文。DECISIONS SHA-256为 `427272fe406989eda0c060eccb0885f7c7d6acb714a2270fdfe3ee363c890274`；规格仍为 `717c85f499f7183e59591b1d9e12703faf8dd629b23652b864d30b7029b73872`。D030仅记录上轮招工试验，未采用为规则；招工开关保持默认关闭且本轮不启用，10%未确认。D022的9,982数值路径及原provenance/approval保留，design/只读。
