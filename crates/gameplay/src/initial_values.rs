@@ -35,15 +35,15 @@ fn validate(document: &Value) -> Result<()> {
         ("/approval/decision", "D022"),
         (
             "/current_design_inputs/source_hashes/DECISIONS.md",
-            "427272fe406989eda0c060eccb0885f7c7d6acb714a2270fdfe3ee363c890274",
+            "f0786a7c66925d884be0b8eb1f9835e5db0febd6add3a709e4d0eba3bca66a67",
         ),
         (
             "/current_design_inputs/source_hashes/handoffs~12026-10-23-first-governance-slice.md",
-            "717c85f499f7183e59591b1d9e12703faf8dd629b23652b864d30b7029b73872",
+            "a665021b83e94d0f6c006068dcabb4d4c38517abf609fdad5ea2e148220603f2",
         ),
         (
             "/current_design_inputs/scope",
-            "D024/D025/D026/D027/D028/D029 current confirmed rule inputs; D030 records an unadopted labor trial and does not confirm its 10% proposal. D022 initial-value approval is unchanged. Domestic demand capacity is a user-authorized single-variable experiment, not a confirmed design decision.",
+            "D024/D025/D026/D027/D028/D029/D031 current confirmed inputs. D031 keeps D022 domestic demand capacity 200 and changes only bounded B1/B8/B15 acceptance. Labor and domestic capacity trials remain off and unconfirmed; D030 does not confirm the 10% labor proposal. D022 initial-value approval and all rule parameters are unchanged.",
         ),
         ("/approval/approved_commit", APPROVED_COMMIT),
         (

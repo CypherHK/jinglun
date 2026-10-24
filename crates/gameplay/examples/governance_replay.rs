@@ -582,6 +582,61 @@ fn b1_comparison(outcomes: &[CapitalOutcome], choice: b15::Choice, site: u32) ->
     )
 }
 
+#[derive(Debug, Serialize)]
+struct AcceptancePolicy {
+    raw_pass: Option<bool>,
+    policy_pass: bool,
+    exception_reason: Option<&'static str>,
+}
+
+fn d031_b1_policy(outcomes: &[CapitalOutcome], site: u32, raw_pass: bool) -> AcceptancePolicy {
+    let reachable = [1, 2].into_iter().all(|route| {
+        outcomes.iter().any(|o| {
+            o.site == site
+                && o.route == route
+                && o.choice == b15::Choice::Decline
+                && o.attainment_month <= 24
+        })
+    });
+    AcceptancePolicy {
+        raw_pass: Some(raw_pass),
+        policy_pass: reachable && (site == 29 || raw_pass),
+        exception_reason: (site == 29 && reachable && !raw_pass).then_some(
+            "D031: site 29 route differentiation is a known gap; both routes must still achieve by M24",
+        ),
+    }
+}
+
+fn d031_b15_policy(
+    site: u32,
+    route: u32,
+    sum: &b15::Comparison,
+    union: &b15::Comparison,
+    execution_blocked: bool,
+) -> AcceptancePolicy {
+    let aggregation_sensitive = sum.pass != union.pass
+        || sum.witnesses != union.witnesses
+        || sum.frontiers != union.frontiers
+        || sum.all_equivalent != union.all_equivalent;
+    let raw_pass = sum.pass && union.pass;
+    let w_only = site == 8
+        && route == 2
+        && [sum, union].into_iter().all(|comparison| {
+            !comparison.all_equivalent
+                && !comparison.witnesses.is_empty()
+                && comparison
+                    .witnesses
+                    .iter()
+                    .all(|w| w.choice == b15::Choice::W)
+        });
+    let exception_applies = !execution_blocked && !aggregation_sensitive && !raw_pass && w_only;
+    AcceptancePolicy {
+        raw_pass: (!execution_blocked).then_some(raw_pass),
+        policy_pass: !execution_blocked && !aggregation_sensitive && (raw_pass || exception_applies),
+        exception_reason: exception_applies.then_some("D031: only W dominance at site 8 route 2 is allowed; raw witnesses and equivalence checks are retained"),
+    }
+}
+
 fn emit(value: &impl Serialize) -> std::result::Result<(), String> {
     let stdout = io::stdout();
     let mut output = stdout.lock();
@@ -1131,8 +1186,19 @@ fn run() -> std::result::Result<u8, String> {
         )?;
         return Ok(2);
     }
+    let d031_configuration_in_scope = !labor_recruitment_experiment
+        && domestic_demand_trial_cap.is_none()
+        && water_share.is_none()
+        && skilled_idle_share.is_none()
+        && export_orders.is_none()
+        && !quick
+        && include_delayed_policy
+        && commitment_span == 4
+        && intent_order == IntentOrder::Subsidy
+        && subsidy_start_month.is_none();
     let mut replay_count = 0;
     let mut all_b15_pass = true;
+    let mut all_b15_raw_pass = true;
     let mut b15_aggregation_pending = false;
     let mut b15_execution_blocked = false;
     let preparation: Vec<u32> = if quick { vec![1] } else { vec![1, 6, 13] };
@@ -1167,7 +1233,7 @@ fn run() -> std::result::Result<u8, String> {
     }
     .map_err(|e| e.to_string())?;
     emit(
-        &json!({"kind":"search_domain","labor_recruitment_experiment":labor_recruitment_experiment,"domestic_demand_trial_cap":domestic_demand_trial_cap,"domestic_demand_capacity":domestic_demand_trial_cap.map_or(200, DomesticDemandTrialCap::capacity),"experiment_status":"user-authorized fixed proposal; not a confirmed design decision","require_acceptance":require_acceptance,"selected_script":selected_script,"pending_water_share_override":water_share,"pending_skilled_idle_share_override":skilled_idle_share,"pending_export_orders_override":export_orders,"export_budget_policy":"When export quantity is overridden, foreign buyer monthly budget is exactly quantity times D022 confirmed goods unit price in fixed money units.","preparation_months":preparation,"subsidy_currency":subsidy,"renewal_months":renewal,"project_orders":order,"choices":["W","E","Decline"],"project_sequences":{"r1_o0":["Housing","Road","Power","Water","Clinic"],"r1_o1":["Road","Power","Housing","Clinic","Water","Vocational"],"r2_o0":["Vocational","Housing","Clinic","Road","Power","Water"],"r2_o1":["Housing","Clinic","Vocational","Power","Road","Water"]},"commitment_span":commitment_span,"intent_order":intent_order,"subsidy_start_month_override":subsidy_start_month,"include_delayed_policy":include_delayed_policy,"additional_policy":"When included, add p1 c40 m9 o1 deadline8 A-first subsidy-start8 for every site/route/choice, alongside unchanged base domain.","subsidy_start_policy":"Initial cap remains zero until max(preparation month, explicit subsidy-start-month); default start equals preparation month.","horizon":24,"money_scale":b15::MONEY_SCALE,"tolerances":tolerance,"calibration":base.governance().ok_or("missing governance")?.calibration,"global_optimality_claim":false,"retry_policy":"Every uncompleted prescribed action retries monthly; successful IDs are never repeated. Intents only at selected candidate; deadline min(month+commitment_span,24). Renewal retries only to M12. Execution errors have no metrics and block the whole B15 group.","route1":"housing/road/power/water/clinic; order1 additionally vocational last; subsidy cap, ordinary energy contract from M3","route2":"vocational/housing/clinic/road/power/water, subsidy cap, cooperation from M2","frontiers":"exact Pareto; tolerance pairwise bidirectional coverage","attainment":"Some only when final M24 grade Achieved; raw first sustained window separately reported"}),
+        &json!({"kind":"search_domain","acceptance_decision":"D031","d031_configuration_in_scope":d031_configuration_in_scope,"d031_configuration_scope":"Default D022 capacity 200 (None override), labor trial off, domestic capacity trial off, no calibration overrides, original 444-script delayed-policy domain","labor_recruitment_experiment":labor_recruitment_experiment,"domestic_demand_trial_cap":domestic_demand_trial_cap,"domestic_demand_capacity":domestic_demand_trial_cap.map_or(200, DomesticDemandTrialCap::capacity),"experiment_status":"user-authorized fixed proposal; not a confirmed design decision","require_acceptance":require_acceptance,"selected_script":selected_script,"pending_water_share_override":water_share,"pending_skilled_idle_share_override":skilled_idle_share,"pending_export_orders_override":export_orders,"export_budget_policy":"When export quantity is overridden, foreign buyer monthly budget is exactly quantity times D022 confirmed goods unit price in fixed money units.","preparation_months":preparation,"subsidy_currency":subsidy,"renewal_months":renewal,"project_orders":order,"choices":["W","E","Decline"],"project_sequences":{"r1_o0":["Housing","Road","Power","Water","Clinic"],"r1_o1":["Road","Power","Housing","Clinic","Water","Vocational"],"r2_o0":["Vocational","Housing","Clinic","Road","Power","Water"],"r2_o1":["Housing","Clinic","Vocational","Power","Road","Water"]},"commitment_span":commitment_span,"intent_order":intent_order,"subsidy_start_month_override":subsidy_start_month,"include_delayed_policy":include_delayed_policy,"additional_policy":"When included, add p1 c40 m9 o1 deadline8 A-first subsidy-start8 for every site/route/choice, alongside unchanged base domain.","subsidy_start_policy":"Initial cap remains zero until max(preparation month, explicit subsidy-start-month); default start equals preparation month.","horizon":24,"money_scale":b15::MONEY_SCALE,"tolerances":tolerance,"calibration":base.governance().ok_or("missing governance")?.calibration,"global_optimality_claim":false,"retry_policy":"Every uncompleted prescribed action retries monthly; successful IDs are never repeated. Intents only at selected candidate; deadline min(month+commitment_span,24). Renewal retries only to M12. Execution errors have no metrics and block the whole B15 group.","route1":"housing/road/power/water/clinic; order1 additionally vocational last; subsidy cap, ordinary energy contract from M3","route2":"vocational/housing/clinic/road/power/water, subsidy cap, cooperation from M2","frontiers":"exact Pareto; tolerance pairwise bidirectional coverage","attainment":"Some only when final M24 grade Achieved; raw first sustained window separately reported"}),
     )?;
     let mut b1_execution_blocked = false;
     let mut capital_outcomes = vec![];
@@ -1273,9 +1339,10 @@ fn run() -> std::result::Result<u8, String> {
             }
             if !execution_errors.is_empty() {
                 all_b15_pass = false;
+                all_b15_raw_pass = false;
                 b15_execution_blocked = true;
                 emit(
-                    &json!({"kind":"bounded_b15","site":site,"route":route,"status":"blocked_not_evaluated","counts":counts,"execution_errors":execution_errors,"completed_outcomes":outcomes}),
+                    &json!({"kind":"bounded_b15","site":site,"route":route,"status":"blocked_not_evaluated","acceptance_decision":"D031","raw_pass":null,"policy_pass":false,"exception_reason":null,"counts":counts,"execution_errors":execution_errors,"completed_outcomes":outcomes}),
                 )?;
                 continue;
             }
@@ -1295,10 +1362,12 @@ fn run() -> std::result::Result<u8, String> {
                 || sum.witnesses != union.witnesses
                 || sum.frontiers != union.frontiers
                 || sum.all_equivalent != union.all_equivalent;
-            all_b15_pass &= sum.pass && union.pass;
+            let policy = d031_b15_policy(site, route, &sum, &union, b1_execution_blocked);
+            all_b15_raw_pass &= sum.pass && union.pass;
+            all_b15_pass &= policy.policy_pass;
             b15_aggregation_pending |= aggregation_sensitive;
             emit(
-                &json!({"kind":"bounded_b15","site":site,"route":route,"scripts":outcomes.len(),"counts":counts,"sum":sum,"union":union,"aggregation_sensitive":aggregation_sensitive,"outcomes":outcomes,"trade_scope":"All scripts in this site/route group; new factories nationwide, not only candidate factories. Factory/site quantities and receipt income retain attribution.","export_positive_scripts":capital_records.iter().filter(|r| r["trade_audit"]["export_sales_actual_payment"].as_u64().unwrap_or(0)>0).map(|r| json!({"script_id":r["script_id"],"choice":r["choice"],"actual_export_receipt_income":r["trade_audit"]["export_sales_actual_payment"],"sites":r["trade_audit"]["sites"]})).collect::<Vec<_>>(),"government_capital_records":capital_records,"government_capital_outcomes":capital_outcomes.iter().filter(|o|o.site==site && o.route==route).collect::<Vec<_>>()}),
+                &json!({"kind":"bounded_b15","acceptance_decision":"D031","raw_pass":policy.raw_pass,"policy_pass":policy.policy_pass,"exception_reason":policy.exception_reason,"site":site,"route":route,"scripts":outcomes.len(),"counts":counts,"sum":sum,"union":union,"aggregation_sensitive":aggregation_sensitive,"outcomes":outcomes,"trade_scope":"All scripts in this site/route group; new factories nationwide, not only candidate factories. Factory/site quantities and receipt income retain attribution.","export_positive_scripts":capital_records.iter().filter(|r| r["trade_audit"]["export_sales_actual_payment"].as_u64().unwrap_or(0)>0).map(|r| json!({"script_id":r["script_id"],"choice":r["choice"],"actual_export_receipt_income":r["trade_audit"]["export_sales_actual_payment"],"sites":r["trade_audit"]["sites"]})).collect::<Vec<_>>(),"government_capital_records":capital_records,"government_capital_outcomes":capital_outcomes.iter().filter(|o|o.site==site && o.route==route).collect::<Vec<_>>()}),
             )?;
         }
     }
@@ -1313,11 +1382,21 @@ fn run() -> std::result::Result<u8, String> {
     }
     let mut b1 = vec![];
     let mut all_reached = true;
+    let mut b1_raw_pass = true;
     for choice in [b15::Choice::Decline, b15::Choice::W, b15::Choice::E] {
         for site in [8, 29] {
-            let (comparison, pass) = b1_comparison(&capital_outcomes, choice, site);
+            let (mut comparison, pass) = b1_comparison(&capital_outcomes, choice, site);
             if choice == b15::Choice::Decline {
-                all_reached &= pass;
+                let policy = d031_b1_policy(&capital_outcomes, site, pass);
+                b1_raw_pass &= pass;
+                all_reached &= policy.policy_pass;
+                comparison["d031_policy"] =
+                    serde_json::to_value(&policy).map_err(|e| e.to_string())?;
+                comparison["route_difference_status"] = json!(if site == 29 {
+                    "known_gap_not_a_gate"
+                } else {
+                    "required"
+                });
             }
             b1.push(comparison);
         }
@@ -1333,9 +1412,12 @@ fn run() -> std::result::Result<u8, String> {
     let twenty_nine_w = capital_outcomes
         .iter()
         .any(|o| o.site == 29 && o.choice == b15::Choice::W);
-    all_reached &= eight_fastest.is_some_and(|month| month <= 20) && eight_w && !twenty_nine_w;
+    let other_b1_requirements =
+        eight_fastest.is_some_and(|month| month <= 20) && eight_w && !twenty_nine_w;
+    all_reached &= other_b1_requirements;
+    b1_raw_pass &= other_b1_requirements;
     emit(
-        &json!({"kind":"bounded_b1","decision":"D026/D027/D028","comparison_policy_status":"chat_confirmed_2026-10-24","selection_confirmation":"User confirmed in current chat: route1 fastest, route2 cheapest, disclose all frontiers. R1 ties use minimum net capital; R2 ties use earliest attainment.","primary_choice":"Decline","same_disclosed_search_domain":true,"capital_metric":"net committed = actual paid + remaining escrow; historical gross and refunds separately retained","selection_policy":"Primary Decline: R1 earliest attained then minimum net capital; R2 minimum net capital attained within M24 then earliest. Full exact month/capital frontiers, alternate fastest-vs-fastest diagnosis and counterexamples disclosed; no dominated script establishes a pair.","status":if b1_execution_blocked {"blocked_not_evaluated"} else {"evaluated_under_proposed_policy"},"results":b1,"eight_fastest_month":eight_fastest,"eight_fastest_by_m20":eight_fastest.is_some_and(|month|month<=20),"eight_w_achieved":eight_w,"twenty_nine_w_achieved":twenty_nine_w,"pass":if b1_execution_blocked {None} else {Some(all_reached)},"not_experience_acceptance":true}),
+        &json!({"kind":"bounded_b1","decision":"D026/D027/D028/D031","raw_pass":if b1_execution_blocked {None} else {Some(b1_raw_pass)},"policy_pass":if b1_execution_blocked {None} else {Some(all_reached)},"comparison_policy_status":"chat_confirmed_2026-10-24","selection_confirmation":"User confirmed in current chat: route1 fastest, route2 cheapest, disclose all frontiers. R1 ties use minimum net capital; R2 ties use earliest attainment.","primary_choice":"Decline","same_disclosed_search_domain":true,"capital_metric":"net committed = actual paid + remaining escrow; historical gross and refunds separately retained","selection_policy":"Primary Decline: R1 earliest attained then minimum net capital; R2 minimum net capital attained within M24 then earliest. Full exact month/capital frontiers, alternate fastest-vs-fastest diagnosis and counterexamples disclosed; no dominated script establishes a pair.","status":if b1_execution_blocked {"blocked_not_evaluated"} else {"evaluated_under_D031_bounded_policy"},"results":b1,"eight_fastest_month":eight_fastest,"eight_fastest_by_m20":eight_fastest.is_some_and(|month|month<=20),"eight_w_achieved":eight_w,"twenty_nine_w_achieved":twenty_nine_w,"pass":if b1_execution_blocked {None} else {Some(all_reached)},"not_experience_acceptance":true}),
     )?;
     let selected_trade: Vec<_> = b1.iter().filter(|r|r["choice"] == "Decline").flat_map(|r| ["selected_route1", "selected_route2"].into_iter().map(move |key| (r, key))).map(|(r,key)| {
         let id = r[key]["script_id"].as_str();
@@ -1344,9 +1426,19 @@ fn run() -> std::result::Result<u8, String> {
     emit(
         &json!({"kind":"bounded_trade_audit","scope":"All 444 disclosed scripts when full delayed-policy domain is requested; all new factories nationwide. Existing industry excluded. Quantities are goods; receipt incomes are fixed money units.","selected_decline_scripts":selected_trade,"all_script_export_receipt_income":trade_records.iter().map(|(id,t)| (id.clone(),t.export_sales_actual_payment)).collect::<BTreeMap<_,_>>(),"export_positive_script_ids":trade_records.iter().filter(|(_,t)|t.export_sales_actual_payment>0).map(|(id,_)|id).collect::<Vec<_>>() }),
     )?;
-    let passed = all_reached && !b1_execution_blocked && all_b15_pass && !b15_aggregation_pending;
+    emit(
+        &json!({"kind":"bounded_b8","decision":"D031","status":"out_of_scope","pass":null,"reason":"Removed from this slice by D031; the 444-script driver did not aggregate B8 previously. Historical diagnostics remain evidence, not a pass.","historical_evidence":"docs/gameplay/acceptance/2026-10-24/demand-trial/replay-evidence.tar.gz"}),
+    )?;
+    let passed = d031_configuration_in_scope
+        && replay_count == 444
+        && all_reached
+        && !b1_execution_blocked
+        && all_b15_pass
+        && !b15_aggregation_pending;
     let status = if b1_execution_blocked || b15_execution_blocked {
         "blocked_not_evaluated"
+    } else if !d031_configuration_in_scope || replay_count != 444 {
+        "out_of_scope_not_accepted"
     } else if b15_aggregation_pending {
         "pending_guardrail_aggregation"
     } else if passed {
@@ -1356,7 +1448,7 @@ fn run() -> std::result::Result<u8, String> {
     };
     let exit_code = if require_acceptance && !passed { 2 } else { 0 };
     emit(
-        &json!({"kind":"acceptance_result","status":status,"b1_pass":if b1_execution_blocked {None} else {Some(all_reached)},"b1_selection_policy":"chat_confirmed_route1_fastest_route2_cheapest","all_b15_pass":all_b15_pass,"aggregation_pending":b15_aggregation_pending,"exit_code":exit_code,"not_experience_acceptance":true}),
+        &json!({"kind":"acceptance_result","status":status,"decision":"D031","bounded_search_only":true,"d031_configuration_in_scope":d031_configuration_in_scope,"script_count":replay_count,"raw_pass":!b1_execution_blocked && !b15_execution_blocked && b1_raw_pass && all_b15_raw_pass && !b15_aggregation_pending,"policy_pass":passed,"b1_raw_pass":if b1_execution_blocked {None} else {Some(b1_raw_pass)},"all_b15_raw_pass":all_b15_raw_pass,"b8_status":"out_of_scope","b1_pass":if b1_execution_blocked {None} else {Some(all_reached)},"b1_selection_policy":"chat_confirmed_route1_fastest_route2_cheapest","all_b15_pass":all_b15_pass,"aggregation_pending":b15_aggregation_pending,"exit_code":exit_code,"not_experience_acceptance":true}),
     )?;
     Ok(exit_code)
 }
@@ -1612,5 +1704,108 @@ mod driver_tests {
                 .len(),
             2
         );
+    }
+    #[test]
+    fn d031_29_differentiation_is_diagnostic_but_each_route_must_achieve() {
+        let mut outcomes = vec![outcome("r1", 1, 20, 25), outcome("r2", 2, 19, 25)];
+        for o in &mut outcomes {
+            o.site = 29;
+        }
+        let (report, raw) = b1_comparison(&outcomes, b15::Choice::Decline, 29);
+        assert!(!raw);
+        assert!(!report["counterexamples"].as_array().unwrap().is_empty());
+        let policy = d031_b1_policy(&outcomes, 29, raw);
+        assert!(policy.policy_pass);
+        assert_eq!(policy.raw_pass, Some(false));
+        assert!(policy.exception_reason.is_some());
+        for missing_route in [1, 2] {
+            let missing: Vec<_> = outcomes
+                .iter()
+                .filter(|o| o.route != missing_route)
+                .cloned()
+                .collect();
+            assert!(!d031_b1_policy(&missing, 29, false).policy_pass);
+            let mut late = outcomes.clone();
+            late.iter_mut()
+                .find(|o| o.route == missing_route)
+                .unwrap()
+                .attainment_month = 25;
+            assert!(!d031_b1_policy(&late, 29, false).policy_pass);
+        }
+    }
+
+    #[test]
+    fn d031_8_requires_both_two_month_speed_and_lower_route_two_capital() {
+        for (month, capital, expected) in [(22, 30, true), (21, 30, false), (22, 50, false)] {
+            let outcomes = vec![outcome("r1", 1, 20, 50), outcome("r2", 2, month, capital)];
+            let (_, raw) = b1_comparison(&outcomes, b15::Choice::Decline, 8);
+            assert_eq!(d031_b1_policy(&outcomes, 8, raw).policy_pass, expected);
+        }
+    }
+
+    fn choice_comparisons(best: Option<b15::Choice>) -> (b15::Comparison, b15::Comparison) {
+        let outcomes: Vec<_> = [b15::Choice::W, b15::Choice::E, b15::Choice::Decline]
+            .into_iter()
+            .map(|choice| b15::ScriptOutcome {
+                id: format!("{choice:?}"),
+                choice,
+                metrics: b15::Metrics {
+                    attainment_month: Some(20),
+                    guardrail_months: [0; 3],
+                    guardrail_union_months: 0,
+                    treasury_less_unpaid_future_e: if Some(choice) == best { 100 } else { 0 },
+                    final_three_recurring: [0; 3],
+                },
+            })
+            .collect();
+        let tolerance = b15::Tolerances::proposed(0, 0, 0, 0).unwrap();
+        (
+            b15::compare(
+                &outcomes,
+                &tolerance,
+                b15::GuardrailAggregation::SumOfThreeCounts,
+            )
+            .unwrap(),
+            b15::compare(
+                &outcomes,
+                &tolerance,
+                b15::GuardrailAggregation::UnionOfMonths,
+            )
+            .unwrap(),
+        )
+    }
+
+    #[test]
+    fn d031_8r2_allows_only_w_dominance_and_keeps_raw_failure() {
+        for choice in [b15::Choice::W, b15::Choice::E, b15::Choice::Decline] {
+            let (sum, union) = choice_comparisons(Some(choice));
+            assert!(!sum.pass && !union.pass);
+            let policy = d031_b15_policy(8, 2, &sum, &union, false);
+            assert_eq!(policy.policy_pass, choice == b15::Choice::W);
+            assert_eq!(policy.raw_pass, Some(false));
+            assert_eq!(policy.exception_reason.is_some(), choice == b15::Choice::W);
+            for (site, route) in [(8, 1), (29, 1), (29, 2)] {
+                assert!(!d031_b15_policy(site, route, &sum, &union, false).policy_pass);
+            }
+        }
+    }
+
+    #[test]
+    fn d031_never_waives_equivalence_errors_or_aggregation_sensitivity() {
+        let (sum, union) = choice_comparisons(None);
+        assert!(sum.all_equivalent && union.all_equivalent);
+        assert!(!d031_b15_policy(8, 2, &sum, &union, false).policy_pass);
+        let (sum, union) = choice_comparisons(Some(b15::Choice::W));
+        let blocked = d031_b15_policy(8, 2, &sum, &union, true);
+        assert!(!blocked.policy_pass);
+        assert_eq!(blocked.raw_pass, None);
+        assert!(blocked.exception_reason.is_none());
+        let mut sensitive = union;
+        sensitive.frontiers[0]
+            .script_ids
+            .push("different-frontier".into());
+        let policy = d031_b15_policy(8, 2, &sum, &sensitive, false);
+        assert!(!policy.policy_pass);
+        assert!(policy.exception_reason.is_none());
     }
 }
