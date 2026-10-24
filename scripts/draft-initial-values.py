@@ -17,10 +17,10 @@ APPROVAL_HASHES = {
     'handoffs/2026-10-23-first-governance-slice.md': 'fbab198b77ad12b9ec45d48db07044f61a8da2799d0274604da8d19a8f60d6e1',
 }
 CURRENT_DESIGN_HASHES = {
-    'DECISIONS.md': '068fbbb0adf17378be291a1005455683b5131a9aacdc0b1d054994fe23980c0c',
+    'DECISIONS.md': '427272fe406989eda0c060eccb0885f7c7d6acb714a2270fdfe3ee363c890274',
     'handoffs/2026-10-23-first-governance-slice.md': '717c85f499f7183e59591b1d9e12703faf8dd629b23652b864d30b7029b73872',
 }
-CURRENT_DESIGN_SCOPE = 'D024/D025/D026/D027/D028/D029 current confirmed rule inputs only; D022 initial-value approval is unchanged. Labor recruitment is a user-authorized experiment, not a confirmed design decision.'
+CURRENT_DESIGN_SCOPE = 'D024/D025/D026/D027/D028/D029 current confirmed rule inputs; D030 records an unadopted labor trial and does not confirm its 10% proposal. D022 initial-value approval is unchanged. Domestic demand capacity is a user-authorized single-variable experiment, not a confirmed design decision.'
 HISTORICAL_HASHES = {
     'DECISIONS.md': 'f6441d8397aca40fccd1a4eac8ad2723e1b4661902219926c85ad060a9c5d77f',
     'handoffs/2026-10-23-first-governance-slice.md': 'f774e6cc009358301d61a3df84c8ed6e0ec360529612c13666f5b5d687589063',

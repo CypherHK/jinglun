@@ -147,6 +147,7 @@ struct FactoryTrade {
     group: Value,
     totals: SalesTotals,
     monthly: BTreeMap<u32, SalesTotals>,
+    monthly_factory_audit: BTreeMap<u32, Value>,
 }
 
 fn financial_audit(
@@ -161,6 +162,7 @@ fn financial_audit(
         .ok_or("save lacks escrow audit data")?;
     let mut capital = GovernmentCapital::default();
     let mut trade = TradeAudit::default();
+    let document = initial_values::confirmed_document().map_err(|e| e.to_string())?;
     for (index, record) in monthly.iter().enumerate() {
         let month = u32::try_from(index + 1).map_err(|_| "month overflow")?;
         let mut capital_domestic = 0.0;
@@ -191,6 +193,10 @@ fn financial_audit(
             let row = trade.factories.entry(id.into()).or_default();
             row.site = site;
             row.group = factory["group"].clone();
+            row.monthly_factory_audit.insert(
+                month,
+                factory_month_audit(factory, record, month, &document)?,
+            );
             let current = row.monthly.entry(month).or_default();
             current.domestic_quantity = domestic;
             current.export_quantity = export;
@@ -331,7 +337,93 @@ fn financial_audit(
             capital.total.add(amount, amount, false)?;
         }
     }
+    for factory in trade.factories.values_mut() {
+        for (month, sales) in &factory.monthly {
+            let audit = factory
+                .monthly_factory_audit
+                .get_mut(month)
+                .ok_or("missing factory finance audit")?;
+            let revenue = sales
+                .domestic_receipt_income
+                .checked_add(sales.export_receipt_income)
+                .ok_or("factory revenue overflow")?;
+            audit["actual_revenue"] = json!(revenue);
+            audit["engine_profit_over_actual_revenue"] = match (
+                revenue,
+                audit["engine_after_tax_profit_this_month"].as_i64(),
+            ) {
+                (0, _) | (_, None) => Value::Null,
+                (_, Some(profit)) => json!(profit as f64 / revenue as f64),
+            };
+            for (field, prefix) in [
+                ("actual_wage_payment", "wage"),
+                ("actual_long_energy_payment", "energy"),
+                ("actual_sales_tax_payment", "tax"),
+            ] {
+                let id = if prefix == "tax" {
+                    format!(
+                        "tax/{}/sales/{month}",
+                        audit["id"].as_str().ok_or("missing audit factory id")?
+                    )
+                } else {
+                    format!(
+                        "{prefix}/{}/{month}",
+                        audit["id"].as_str().ok_or("missing audit factory id")?
+                    )
+                };
+                audit[field] = json!(
+                    applied
+                        .get(&id)
+                        .and_then(|v| v.pointer("/command/Transfer/amount"))
+                        .and_then(Value::as_u64)
+                        .unwrap_or(0)
+                );
+            }
+        }
+    }
     Ok((capital, trade))
+}
+
+fn factory_month_audit(
+    factory: &Value,
+    record: &Value,
+    month: u32,
+    document: &Value,
+) -> std::result::Result<Value, String> {
+    let active = factory["phase"].as_str().is_some_and(|phase| {
+        phase != "Construction"
+            && (phase != "Closed" || factory["close_month"].as_u64() == Some(u64::from(month)))
+    });
+    let param = |name: &str| {
+        initial_values::number(document, &format!("/parameters/{name}")).map_err(|e| e.to_string())
+    };
+    let ordinary = factory["ordinary_energy_used"].as_f64().unwrap_or(0.0);
+    let maritime = factory["maritime_energy_used"].as_f64().unwrap_or(0.0);
+    let sales = factory["domestic_sales"].as_f64().unwrap_or(0.0)
+        + factory["export_sales"].as_f64().unwrap_or(0.0);
+    let revenue = money(sales * param("goods_price")?).map_err(|e| e.to_string())?;
+    let long_active = record["energy_long_active"] == true;
+    let energy = if long_active {
+        sales / param("new_factory_output")?
+            * param("new_factory_energy")?
+            * param("long_energy_price")?
+    } else {
+        ordinary * param("ordinary_energy_price")? + maritime * param("maritime_energy_price")?
+    };
+    let wage_multiplier = record["labor_wage_multiplier"].as_f64().unwrap_or(1.0);
+    let wages = if active {
+        param("new_factory_workers")? * param("monthly_wage")? * wage_multiplier
+    } else {
+        0.0
+    };
+    let fixed = if active {
+        param("factory_other_fixed_monthly_cost")?
+    } else {
+        0.0
+    };
+    Ok(
+        json!({"id":factory["id"],"phase":factory["phase"],"water_suspended":factory["water_suspended"],"output":factory["output"],"first_operated_month":factory["first_operated_month"],"close_month":factory["close_month"],"engine_costs_apply_this_month":active,"engine_after_tax_profit_this_month":if active { factory["after_tax_profit"].clone() } else { Value::Null },"operating_subsidy":factory["operating_subsidy"],"ordinary_energy_used":ordinary,"maritime_energy_used":maritime,"energy_long_active":long_active,"engine_accrued_costs":{"wage":money(wages).map_err(|e|e.to_string())?,"energy":money(if active {energy} else {0.0}).map_err(|e|e.to_string())?,"fixed":money(fixed).map_err(|e|e.to_string())?,"sales_tax":money(currency(revenue) * param("manufacturing_sales_tax_rate")?).map_err(|e|e.to_string())?}}),
+    )
 }
 
 fn validate_sales_receipts(audit: &TradeAudit, price: f64) -> std::result::Result<(), String> {
@@ -710,8 +802,8 @@ fn replay(base: &Game, script: Script) -> std::result::Result<Replay, String> {
         }
         let state = game.governance().ok_or("missing governance state")?;
         let record = state.history.last().ok_or("month produced no history")?;
-        let factories: Vec<_> = state.factories.values().map(|f|json!({"id":f.id,"group":f.group,"site":f.site,"phase":f.phase,"start":f.started_month,"activate":f.activate_month,"output":f.output,"domestic_sales":json!(f)["domestic_sales"],"export_sales":json!(f)["export_sales"],"after_tax_profit":f.after_tax_profit,"operating_subsidy":f.operating_subsidy,"water_suspended":f.water_suspended,"first_operated_month":f.first_operated_month})).collect();
-        monthly.push(json!({"record":record,"group_cash":{"A":game.balance(Group::A.account(), &Asset::Money),"B":game.balance(Group::B.account(), &Asset::Money)},"factories":factories,"candidate_site":state.sites.get(&script.site),"all_sites":state.sites,"labor_trial_sources":json!(state)["labor_trial_sources"],"unused_energy_bill":state.last_energy_unused_bill,"projects":state.projects.values().collect::<Vec<_>>()}));
+        let factories: Vec<_> = state.factories.values().map(|f|json!({"id":f.id,"group":f.group,"site":f.site,"phase":f.phase,"start":f.started_month,"activate":f.activate_month,"output":f.output,"domestic_sales":json!(f)["domestic_sales"],"export_sales":json!(f)["export_sales"],"after_tax_profit":f.after_tax_profit,"operating_subsidy":f.operating_subsidy,"water_suspended":f.water_suspended,"first_operated_month":f.first_operated_month,"close_month":f.close_month,"ordinary_energy_used":f.ordinary_energy_used,"maritime_energy_used":f.maritime_energy_used})).collect();
+        monthly.push(json!({"record":record,"group_cash":{"A":game.balance(Group::A.account(), &Asset::Money),"B":game.balance(Group::B.account(), &Asset::Money)},"factories":factories,"candidate_site":state.sites.get(&script.site),"all_sites":state.sites,"labor_trial_sources":json!(state)["labor_trial_sources"],"unused_energy_bill":state.last_energy_unused_bill,"energy_long_active":state.energy_long_start.is_some_and(|start| month < start + 24),"labor_wage_multiplier":if state.labor_protection {state.calibration.labor_protection_wage_multiplier} else {1.0},"system_receipts":game.system_receipts().iter().filter(|r|r.month==month).collect::<Vec<_>>(),"projects":state.projects.values().collect::<Vec<_>>()}));
     }
     let state = game.governance().ok_or("missing governance state")?;
     let report = state.report.clone();
@@ -868,6 +960,13 @@ fn labor_trial_audit(
                 ("national", total),
                 ("capital_candidate_simultaneous", pair),
             ] {
+                if scope == "capital_candidate_simultaneous"
+                    && [39, candidate]
+                        .iter()
+                        .any(|site| by_site.get(site).is_none_or(Vec::is_empty))
+                {
+                    continue;
+                }
                 let key = format!("{scope}/{phase}");
                 if peaks
                     .get(&key)
@@ -920,6 +1019,20 @@ fn labor_trial_audit(
     )
 }
 
+fn compact_labor_audit(audit: &Value) -> Value {
+    let mut last = audit["monthly"]
+        .as_array()
+        .and_then(|rows| rows.last())
+        .cloned()
+        .unwrap_or(Value::Null);
+    if let Some(row) = last.as_object_mut() {
+        row.remove("all_sites");
+        row.remove("factory_wage_receipts");
+        row.remove("nonmanufacturing_wage_receipts");
+    }
+    json!({"final_month":last,"simultaneous_factory_peaks":audit["simultaneous_factory_peaks"],"full_monthly_evidence":"script_replay.labor_trial_audit.monthly in raw replay"})
+}
+
 fn run() -> std::result::Result<u8, String> {
     let mut args = std::env::args().skip(1);
     let mut quick = false;
@@ -934,10 +1047,20 @@ fn run() -> std::result::Result<u8, String> {
     let mut include_delayed_policy = false;
     let mut require_acceptance = false;
     let mut labor_recruitment_experiment = false;
+    let mut domestic_demand_trial_cap = None;
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--quick" => quick = true,
             "--labor-recruitment-experiment" => labor_recruitment_experiment = true,
+            "--domestic-capacity-experiment" => {
+                let capacity = args
+                    .next()
+                    .ok_or("--domestic-capacity-experiment needs 100, 150, or 200")?
+                    .parse::<u32>()
+                    .map_err(|_| "--domestic-capacity-experiment needs 100, 150, or 200")?;
+                domestic_demand_trial_cap =
+                    Some(DomesticDemandTrialCap::try_from(capacity).map_err(|e| e.to_string())?);
+            }
             "--summary-only" => summary_only = true,
             "--require-acceptance" => require_acceptance = true,
             "--script" => selected_script = Some(args.next().ok_or("--script needs an ID")?),
@@ -994,10 +1117,13 @@ fn run() -> std::result::Result<u8, String> {
             }
             _ => {
                 return Err(
-                    "usage: governance_replay [--labor-recruitment-experiment] [--quick] [--summary-only] [--script ID] [--water-share RATIO] [--require-acceptance] [--skilled-idle-share RATIO] [--export-orders QUANTITY] [--commitment-span MONTHS] [--intent-order subsidy|a-first] [--subsidy-start-month MONTH]".into(),
+                    "usage: governance_replay [--domestic-capacity-experiment 100|150|200] [--labor-recruitment-experiment] [--quick] [--summary-only] [--script ID] [--water-share RATIO] [--require-acceptance] [--skilled-idle-share RATIO] [--export-orders QUANTITY] [--commitment-span MONTHS] [--intent-order subsidy|a-first] [--subsidy-start-month MONTH]".into(),
                 );
             }
         }
+    }
+    if domestic_demand_trial_cap.is_some() && labor_recruitment_experiment {
+        return Err("domestic capacity and labor recruitment experiments cannot be combined; use one experimental variable".into());
     }
     if require_acceptance && selected_script.is_some() {
         emit(
@@ -1034,10 +1160,14 @@ fn run() -> std::result::Result<u8, String> {
             .checked_mul(u64::from(orders))
             .ok_or("export buyer budget overflow")?;
     }
-    let base = Game::confirmed_game_with_labor_trial(calibration, labor_recruitment_experiment)
-        .map_err(|e| e.to_string())?;
+    let base = if labor_recruitment_experiment {
+        Game::confirmed_game_with_labor_trial(calibration, true)
+    } else {
+        Game::confirmed_game_with_domestic_demand_trial(calibration, domestic_demand_trial_cap)
+    }
+    .map_err(|e| e.to_string())?;
     emit(
-        &json!({"kind":"search_domain","labor_recruitment_experiment":labor_recruitment_experiment,"experiment_status":"user-authorized fixed proposal; not a confirmed design decision","require_acceptance":require_acceptance,"selected_script":selected_script,"pending_water_share_override":water_share,"pending_skilled_idle_share_override":skilled_idle_share,"pending_export_orders_override":export_orders,"export_budget_policy":"When export quantity is overridden, foreign buyer monthly budget is exactly quantity times D022 confirmed goods unit price in fixed money units.","preparation_months":preparation,"subsidy_currency":subsidy,"renewal_months":renewal,"project_orders":order,"choices":["W","E","Decline"],"project_sequences":{"r1_o0":["Housing","Road","Power","Water","Clinic"],"r1_o1":["Road","Power","Housing","Clinic","Water","Vocational"],"r2_o0":["Vocational","Housing","Clinic","Road","Power","Water"],"r2_o1":["Housing","Clinic","Vocational","Power","Road","Water"]},"commitment_span":commitment_span,"intent_order":intent_order,"subsidy_start_month_override":subsidy_start_month,"include_delayed_policy":include_delayed_policy,"additional_policy":"When included, add p1 c40 m9 o1 deadline8 A-first subsidy-start8 for every site/route/choice, alongside unchanged base domain.","subsidy_start_policy":"Initial cap remains zero until max(preparation month, explicit subsidy-start-month); default start equals preparation month.","horizon":24,"money_scale":b15::MONEY_SCALE,"tolerances":tolerance,"calibration":base.governance().ok_or("missing governance")?.calibration,"global_optimality_claim":false,"retry_policy":"Every uncompleted prescribed action retries monthly; successful IDs are never repeated. Intents only at selected candidate; deadline min(month+commitment_span,24). Renewal retries only to M12. Execution errors have no metrics and block the whole B15 group.","route1":"housing/road/power/water/clinic; order1 additionally vocational last; subsidy cap, ordinary energy contract from M3","route2":"vocational/housing/clinic/road/power/water, subsidy cap, cooperation from M2","frontiers":"exact Pareto; tolerance pairwise bidirectional coverage","attainment":"Some only when final M24 grade Achieved; raw first sustained window separately reported"}),
+        &json!({"kind":"search_domain","labor_recruitment_experiment":labor_recruitment_experiment,"domestic_demand_trial_cap":domestic_demand_trial_cap,"domestic_demand_capacity":domestic_demand_trial_cap.map_or(200, DomesticDemandTrialCap::capacity),"experiment_status":"user-authorized fixed proposal; not a confirmed design decision","require_acceptance":require_acceptance,"selected_script":selected_script,"pending_water_share_override":water_share,"pending_skilled_idle_share_override":skilled_idle_share,"pending_export_orders_override":export_orders,"export_budget_policy":"When export quantity is overridden, foreign buyer monthly budget is exactly quantity times D022 confirmed goods unit price in fixed money units.","preparation_months":preparation,"subsidy_currency":subsidy,"renewal_months":renewal,"project_orders":order,"choices":["W","E","Decline"],"project_sequences":{"r1_o0":["Housing","Road","Power","Water","Clinic"],"r1_o1":["Road","Power","Housing","Clinic","Water","Vocational"],"r2_o0":["Vocational","Housing","Clinic","Road","Power","Water"],"r2_o1":["Housing","Clinic","Vocational","Power","Road","Water"]},"commitment_span":commitment_span,"intent_order":intent_order,"subsidy_start_month_override":subsidy_start_month,"include_delayed_policy":include_delayed_policy,"additional_policy":"When included, add p1 c40 m9 o1 deadline8 A-first subsidy-start8 for every site/route/choice, alongside unchanged base domain.","subsidy_start_policy":"Initial cap remains zero until max(preparation month, explicit subsidy-start-month); default start equals preparation month.","horizon":24,"money_scale":b15::MONEY_SCALE,"tolerances":tolerance,"calibration":base.governance().ok_or("missing governance")?.calibration,"global_optimality_claim":false,"retry_policy":"Every uncompleted prescribed action retries monthly; successful IDs are never repeated. Intents only at selected candidate; deadline min(month+commitment_span,24). Renewal retries only to M12. Execution errors have no metrics and block the whole B15 group.","route1":"housing/road/power/water/clinic; order1 additionally vocational last; subsidy cap, ordinary energy contract from M3","route2":"vocational/housing/clinic/road/power/water, subsidy cap, cooperation from M2","frontiers":"exact Pareto; tolerance pairwise bidirectional coverage","attainment":"Some only when final M24 grade Achieved; raw first sustained window separately reported"}),
     )?;
     let mut b1_execution_blocked = false;
     let mut capital_outcomes = vec![];
@@ -1107,7 +1237,7 @@ fn run() -> std::result::Result<u8, String> {
                         }
                     };
                     trade_records.insert(result.script.id(), result.trade_audit.clone());
-                    capital_records.push(json!({"script_id":result.script.id(),"choice":choice,"capital":result.government_capital,"trade_audit":result.trade_audit,"labor_trial_audit":result.labor_trial_audit,"execution_error":result.execution_error}));
+                    capital_records.push(json!({"script_id":result.script.id(),"choice":choice,"capital":result.government_capital,"trade_audit":result.trade_audit,"labor_trial_audit":compact_labor_audit(&result.labor_trial_audit),"execution_error":result.execution_error}));
                     if result.execution_error.is_some() {
                         b1_execution_blocked = true;
                         fatal_count += 1;
@@ -1311,6 +1441,34 @@ mod driver_tests {
             .unwrap()
             .domestic_quantity = 0.0;
         assert!(validate_sales_receipts(&corrupted, 0.1).is_err());
+    }
+
+    #[test]
+    fn factory_finance_keeps_zero_revenue_margin_undefined_and_closed_month_costs() {
+        let doc = initial_values::confirmed_document().unwrap();
+        let factory = json!({"id":"factory/1","phase":"Operating","domestic_sales":0.0,"export_sales":0.0,"after_tax_profit":-500000000_i64,"water_suspended":false,"output":0.0});
+        let row = factory_month_audit(&factory, &json!({}), 20, &doc).unwrap();
+        assert_eq!(row["engine_costs_apply_this_month"], true);
+        assert_eq!(row["engine_accrued_costs"]["wage"], money(2.0).unwrap());
+        assert!(row["engine_accrued_costs"]["fixed"].as_u64().unwrap() > 0);
+        let closed = json!({"phase":"Closed","close_month":20});
+        assert_eq!(
+            factory_month_audit(&closed, &json!({}), 20, &doc).unwrap()["engine_costs_apply_this_month"],
+            true
+        );
+        assert_eq!(
+            factory_month_audit(&closed, &json!({}), 21, &doc).unwrap()["engine_after_tax_profit_this_month"],
+            Value::Null
+        );
+        let game = Game::confirmed_game().unwrap();
+        let rows = [
+            json!({"factories":[{"id":"factory/1","site":39,"group":"A","phase":"Operating","domestic_sales":0.0,"export_sales":0.0,"after_tax_profit":-500000000_i64}]}),
+        ];
+        let (_, audit) = financial_audit(&game, &rows).unwrap();
+        let row = &audit.factories["factory/1"].monthly_factory_audit[&1];
+        assert_eq!(row["actual_revenue"], 0);
+        assert_eq!(row["engine_profit_over_actual_revenue"], Value::Null);
+        assert_eq!(row["engine_after_tax_profit_this_month"], -500000000_i64);
     }
 
     #[test]

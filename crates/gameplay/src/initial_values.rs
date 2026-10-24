@@ -35,7 +35,7 @@ fn validate(document: &Value) -> Result<()> {
         ("/approval/decision", "D022"),
         (
             "/current_design_inputs/source_hashes/DECISIONS.md",
-            "068fbbb0adf17378be291a1005455683b5131a9aacdc0b1d054994fe23980c0c",
+            "427272fe406989eda0c060eccb0885f7c7d6acb714a2270fdfe3ee363c890274",
         ),
         (
             "/current_design_inputs/source_hashes/handoffs~12026-10-23-first-governance-slice.md",
@@ -43,7 +43,7 @@ fn validate(document: &Value) -> Result<()> {
         ),
         (
             "/current_design_inputs/scope",
-            "D024/D025/D026/D027/D028/D029 current confirmed rule inputs only; D022 initial-value approval is unchanged. Labor recruitment is a user-authorized experiment, not a confirmed design decision.",
+            "D024/D025/D026/D027/D028/D029 current confirmed rule inputs; D030 records an unadopted labor trial and does not confirm its 10% proposal. D022 initial-value approval is unchanged. Domestic demand capacity is a user-authorized single-variable experiment, not a confirmed design decision.",
         ),
         ("/approval/approved_commit", APPROVED_COMMIT),
         (
