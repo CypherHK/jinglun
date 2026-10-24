@@ -2,7 +2,7 @@
 
 交接日期：2026-10-23，新加坡时间。本文件优先于同目录 `archive/` 中的历史草案和旧交接。
 
-## 2026-10-24 D031止损后的验收复跑：当前实施记录
+## 2026-10-24 D031止损后的验收复跑：当前交付
 
 用户要求等待设计条目与规格落盘；上一次检查仍是D030，未改代码或复跑。用户Retry后已读到**已确认D031**及更新后的规格全文，等待条件满足。本轮开工重新fetch核实主目录Develop与origin/Develop均为干净的 **`9ec441a16fa1d8a3539d0413b5282b3010966327`**。DECISIONS SHA-256为 `f0786a7c66925d884be0b8eb1f9835e5db0febd6add3a709e4d0eba3bca66a67`；规格为 `a665021b83e94d0f6c006068dcabb4d4c38517abf609fdad5ea2e148220603f2`。design/只读，原D022的9,982数值路径、provenance和approval保留。
 
@@ -49,6 +49,8 @@ D031的新验收口径：B1仍要求四个组合在M24内可达，沿用D027的�
 2026-10-24产物：本轮验收逻辑与当前设计输入在产品代码中，完整运行、独立复算和冻结校验的机器证据归档于 `docs/gameplay/acceptance/2026-10-24/d031/`，工程进度只在本HANDOFF。自动验收结果交用户审阅；建议复核日期2026-10-25（尚未获排期），人工试玩及29号路线感受、8号W选择分布由用户后续验收。
 
 归档包含 `acceptance-summary.json`（589,291字节，SHA-256 `ebd84ff0abb3be36c608068ae6837749ecf0e8ef17cd02fe14100e79a17592a9`）和 `replay-evidence.tar.gz`（6,607,970字节，SHA-256 `6f9e7b8148aa3e10cc431f2485e5da3608a38e1a7aad7fc14636c97abdc1c397`）。包内35份文件逐份解包核对SHA成功，含完整raw/compact、运行命令和身份、两份设计快照和规格、生成器检查、根回归日志、独立oracle与全部前沿及占优见证。独立复算命令为 `python3 d031-oracle.py <新444-raw.jsonl> --baseline <旧cap-200-444.jsonl> --out <结果.json>`；旧基线从前轮demand-trial归档提取，不重复打包。
+
+交付提交 **`cbab148c35e6d578bd9877b1d590e450b364a2c5`** 已非强制推送fork `Develop`；主目录固定Develop并已快进至该提交，后续只有本HANDOFF收尾记录。工作树清理前检查tracked/untracked均干净、忽略项仅target、独有证据已归档且SHA匹配、`lsof +D`无占用；本轮 `d031-acceptance`、`d031-review`、`d031-integration` 三个临时worktree已正常移除，补丁等价或已集成的三个临时分支退役。地图预览worktree和 `feat/natural-map-upstream-ready` 原样保留；`archive/local-develop-map-20261024` 中的b37e141及治理原型归档保留，b37e141不在本次Develop提交祖先中。无PR、部署或依赖变动。
 
 ## 2026-10-24 D030与国内进口替代容量试验：历史实施记录
 
