@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 /// One currency unit is 100,000,000 ledger units. Each conversion rounds to the
 /// nearest unit, with an absolute error of at most 5e-9 currency units.
-pub const GOVERNANCE_RULES_VERSION: &str = "governance-rules-6";
+pub const GOVERNANCE_RULES_VERSION: &str = "governance-rules-7";
 pub const MONEY_SCALE: u64 = 100_000_000;
 pub fn money(value: f64) -> Result<u64> {
     scenario::finite_nonnegative(value)?;
@@ -539,11 +539,48 @@ impl LaborTrialSource {
     }
 }
 
+/// Opening-only domestic demand experiment; approved initial values remain unchanged.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(into = "u32", try_from = "u32")]
+pub enum DomesticDemandTrialCap {
+    Cap100,
+    Cap150,
+    Cap200,
+}
+impl DomesticDemandTrialCap {
+    pub fn capacity(self) -> u32 {
+        match self {
+            Self::Cap100 => 100,
+            Self::Cap150 => 150,
+            Self::Cap200 => 200,
+        }
+    }
+}
+impl From<DomesticDemandTrialCap> for u32 {
+    fn from(cap: DomesticDemandTrialCap) -> Self {
+        cap.capacity()
+    }
+}
+impl TryFrom<u32> for DomesticDemandTrialCap {
+    type Error = Error;
+    fn try_from(cap: u32) -> Result<Self> {
+        match cap {
+            100 => Ok(Self::Cap100),
+            150 => Ok(Self::Cap150),
+            200 => Ok(Self::Cap200),
+            _ => Err(Error::Invalid(
+                "domestic demand trial cap must be 100, 150 or 200",
+            )),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct GovernanceState {
     pub rules_version: String,
     pub labor_trial_enabled: bool,
+    pub domestic_demand_trial_cap: Option<DomesticDemandTrialCap>,
     pub labor_trial_sources: BTreeMap<u32, LaborTrialSource>,
     pub institution_changes: BTreeMap<Institution, (u32, bool)>,
     pub institution_last_change: BTreeMap<Institution, u32>,
@@ -637,12 +674,24 @@ impl Game {
         if doc["activation"] != "enabled" {
             return Err(Error::Invalid("confirmed initial document not activated"));
         }
-        Self::governance_from_map(scenario::generated()?, calibration, enabled, doc)
+        Self::governance_from_map(scenario::generated()?, calibration, enabled, None, doc)
+    }
+    /// Opt-in opening override; this experiment always keeps labor recruitment disabled.
+    pub fn confirmed_game_with_domestic_demand_trial(
+        calibration: GovernanceCalibration,
+        cap: Option<DomesticDemandTrialCap>,
+    ) -> Result<Self> {
+        let doc = document()?;
+        if doc["activation"] != "enabled" {
+            return Err(Error::Invalid("confirmed initial document not activated"));
+        }
+        Self::governance_from_map(scenario::generated()?, calibration, false, cap, doc)
     }
     fn governance_from_map(
         map: Value,
         calibration: GovernanceCalibration,
         labor_trial_enabled: bool,
+        domestic_demand_trial_cap: Option<DomesticDemandTrialCap>,
         doc: &Value,
     ) -> Result<Self> {
         calibration.validate()?;
@@ -781,6 +830,7 @@ impl Game {
         }
         game.governance = Some(GovernanceState {
             rules_version: GOVERNANCE_RULES_VERSION.into(),
+            domestic_demand_trial_cap,
             labor_trial_enabled,
             labor_trial_sources,
             institution_changes: BTreeMap::new(),
@@ -1021,6 +1071,7 @@ impl Game {
             self.map.clone(),
             state.calibration.clone(),
             state.labor_trial_enabled,
+            state.domestic_demand_trial_cap,
             doc,
         )?;
         for completed in &state.completed_plans {
@@ -1051,6 +1102,15 @@ impl Game {
 }
 
 impl GovernanceState {
+    fn domestic_order_cap(&self, doc: &Value) -> Result<f64> {
+        let cap = match self.domestic_demand_trial_cap {
+            Some(cap) => cap.capacity() as f64,
+            None => number(doc, "/demand/initial_imports/value")?,
+        };
+        let household_ceiling = number(doc, "/demand/payable_demand_ceiling/value")?;
+        Ok(cap.min((household_ceiling - 425.0).max(0.0)))
+    }
+
     fn fact(&mut self, month: u32, effect: impl Into<String>, causes: Vec<String>) {
         self.facts.push(Fact {
             month,
@@ -1821,7 +1881,7 @@ impl GovernanceState {
                 })
                 .count() as f64
                 * output;
-        let import_cap = number(doc, "/demand/initial_imports/value")?;
+        let import_cap = self.domestic_order_cap(doc)?;
         let remaining_domestic = import_cap - domestic_new.min(import_cap);
         let export_committed = (domestic_new - import_cap).max(0.0);
         let available_orders =
@@ -3104,9 +3164,7 @@ impl GovernanceState {
                 "foreign_contract_buyer_budget",
             )?;
         }
-        let mut domestic_remaining = number(doc, "/demand/initial_imports/value")?;
-        let household_ceiling = number(doc, "/demand/payable_demand_ceiling/value")?;
-        domestic_remaining = domestic_remaining.min((household_ceiling - 425.0).max(0.0));
+        let mut domestic_remaining = self.domestic_order_cap(doc)?;
         let mut export_remaining = self
             .export_orders
             .min(currency(self.calibration.foreign_buyer_monthly_budget) / price);
@@ -3891,6 +3949,11 @@ impl GovernanceState {
     }
     fn validate(&self, game: &Game) -> Result<()> {
         self.calibration.validate()?;
+        if self.domestic_demand_trial_cap.is_some() && self.labor_trial_enabled {
+            return Err(Error::Invalid(
+                "domestic demand trial requires labor recruitment off",
+            ));
+        }
         if self.rules_version != GOVERNANCE_RULES_VERSION {
             return Err(Error::Invalid("unsupported governance rules version"));
         }
@@ -4302,6 +4365,102 @@ mod order_priority_tests {
         assert_eq!(state.factories["factory/2"].domestic_sales, 0.0);
         assert_eq!(state.factories["factory/2"].first_operated_month, Some(8));
     }
+    #[test]
+    fn domestic_demand_trial_forecast_reserves_construction_and_pending_commitments() {
+        for (cap, gap) in [
+            (DomesticDemandTrialCap::Cap100, 100.0),
+            (DomesticDemandTrialCap::Cap150, 50.0),
+        ] {
+            let (game, mut state) = production_fixture(240, 240);
+            state.domestic_demand_trial_cap = Some(cap);
+            state.factories.remove("factory/2");
+            let factory = state.factories.get_mut("factory/1").unwrap();
+            factory.retrofitted = false;
+            factory.phase = FactoryPhase::Construction;
+            state.commitments.insert(
+                "promise".into(),
+                Commitment {
+                    id: "promise".into(),
+                    group: Group::B,
+                    site: 8,
+                    accepted_month: 9,
+                    deadline: 12,
+                    subsidy: 0,
+                    escrow: None,
+                    required_projects: vec![],
+                    status: CommitmentStatus::Pending,
+                },
+            );
+            state.export_orders = 100.0;
+            assert_eq!(
+                state.assess(&game, Group::A, 29).unwrap().gaps["demand"],
+                gap
+            );
+            assert_eq!(
+                state
+                    .assess_excluding_commitment(&game, Group::B, 8, Some("promise"))
+                    .unwrap()
+                    .gaps["demand"],
+                0.0
+            );
+            state.export_orders = 0.0;
+            state.pending_export_orders = Some((11, 100.0));
+            assert_eq!(
+                state.assess(&game, Group::A, 29).unwrap().gaps["demand"],
+                100.0
+            );
+            state.commitments.get_mut("promise").unwrap().status = CommitmentStatus::Breached;
+            assert_eq!(
+                state.assess(&game, Group::A, 29).unwrap().gaps["demand"],
+                if cap == DomesticDemandTrialCap::Cap100 {
+                    100.0
+                } else {
+                    50.0
+                }
+            );
+        }
+    }
+
+    #[test]
+    fn domestic_demand_trial_caps_national_sales_without_changing_priority_or_reassignment() {
+        for (cap, earlier, later) in [
+            (DomesticDemandTrialCap::Cap100, 100.0, 0.0),
+            (DomesticDemandTrialCap::Cap150, 120.0, 30.0),
+            (DomesticDemandTrialCap::Cap200, 120.0, 80.0),
+        ] {
+            let (mut game, mut state) = production_fixture(240, 240);
+            state.domestic_demand_trial_cap = Some(cap);
+            state.factories.get_mut("factory/2").unwrap().site = 39;
+            state.sites.get_mut(&39).unwrap().road_capacity = 240;
+            state.sites.get_mut(&39).unwrap().power_capacity = 240;
+            state.export_orders = 100.0;
+            state.production(&mut game).unwrap();
+            assert_eq!(state.factories["factory/2"].domestic_sales, earlier);
+            assert_eq!(state.factories["factory/1"].domestic_sales, later);
+            assert_eq!(
+                state
+                    .factories
+                    .values()
+                    .map(|f| f.domestic_sales)
+                    .sum::<f64>(),
+                cap.capacity() as f64
+            );
+            assert_eq!(
+                state.factories["factory/1"].export_sales,
+                (120.0 - later).min(100.0)
+            );
+            assert_eq!(state.factories["factory/2"].export_sales, 0.0);
+
+            let (mut game, mut state) = production_fixture(240, 240);
+            state.domestic_demand_trial_cap = Some(cap);
+            state.factories.get_mut("factory/2").unwrap().site = 8;
+            state.sites.get_mut(&8).unwrap().road_capacity = 0;
+            state.production(&mut game).unwrap();
+            assert_eq!(state.factories["factory/2"].domestic_sales, 0.0);
+            assert_eq!(state.factories["factory/1"].domestic_sales, later);
+        }
+    }
+
     fn labor_trial_fixture(enabled: bool) -> (Game, GovernanceState) {
         let mut game =
             Game::confirmed_game_with_labor_trial(GovernanceCalibration::default(), enabled)

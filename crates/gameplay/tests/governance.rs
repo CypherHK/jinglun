@@ -1560,3 +1560,104 @@ fn labor_trial_recruited_workers_and_lost_wages_survive_real_plan_replay() {
     });
     assert!(Game::load(&fake).is_err());
 }
+
+#[test]
+fn domestic_demand_trial_default_and_explicit_200_have_identical_monthly_behavior() {
+    let mut default = fixture();
+    let explicit_none =
+        Game::confirmed_game_with_domestic_demand_trial(GovernanceCalibration::default(), None)
+            .unwrap();
+    assert_eq!(explicit_none.save().unwrap(), default.save().unwrap());
+    let mut control = Game::confirmed_game_with_domestic_demand_trial(
+        GovernanceCalibration::default(),
+        Some(DomesticDemandTrialCap::Cap200),
+    )
+    .unwrap();
+    assert!(!control.governance().unwrap().labor_trial_enabled);
+    assert!(
+        default
+            .governance()
+            .unwrap()
+            .domestic_demand_trial_cap
+            .is_none()
+    );
+    for month in 1..=24 {
+        default.end_month(month).unwrap();
+        control.end_month(month).unwrap();
+        let mut left: serde_json::Value = serde_json::from_slice(&default.save().unwrap()).unwrap();
+        let mut right: serde_json::Value =
+            serde_json::from_slice(&control.save().unwrap()).unwrap();
+        left["payload"]["governance"]
+            .as_object_mut()
+            .unwrap()
+            .remove("domestic_demand_trial_cap");
+        right["payload"]["governance"]
+            .as_object_mut()
+            .unwrap()
+            .remove("domestic_demand_trial_cap");
+        assert_eq!(left["payload"], right["payload"]);
+    }
+}
+
+#[test]
+fn domestic_demand_trial_roundtrips_and_rejects_invalid_or_changed_opening_cap() {
+    for cap in [
+        DomesticDemandTrialCap::Cap100,
+        DomesticDemandTrialCap::Cap150,
+        DomesticDemandTrialCap::Cap200,
+    ] {
+        let mut game = Game::confirmed_game_with_domestic_demand_trial(
+            GovernanceCalibration::default(),
+            Some(cap),
+        )
+        .unwrap();
+        for month in 1..=3 {
+            game.end_month(month).unwrap();
+        }
+        let saved = game.save().unwrap();
+        let value: serde_json::Value = serde_json::from_slice(&saved).unwrap();
+        assert_eq!(value["schema_version"], 2);
+        assert_eq!(
+            value["payload"]["governance"]["domestic_demand_trial_cap"],
+            cap.capacity()
+        );
+        let mut restored = Game::load(&saved).unwrap();
+        assert_eq!(restored.save().unwrap(), saved);
+        game.end_month(4).unwrap();
+        restored.end_month(4).unwrap();
+        assert_eq!(restored.save().unwrap(), game.save().unwrap());
+        for invalid in [0, 99, 101, 149, 151, 201, u32::MAX] {
+            let bad = rewrite_checked_save(&game, |payload| {
+                payload["governance"]["domestic_demand_trial_cap"] = invalid.into()
+            });
+            assert!(Game::load(&bad).is_err());
+        }
+        let tampered = rewrite_checked_save(&game, |payload| {
+            payload["governance"]["domestic_demand_trial_cap"] =
+                if cap == DomesticDemandTrialCap::Cap100 {
+                    150.into()
+                } else {
+                    100.into()
+                }
+        });
+        assert!(matches!(
+            Game::load(&tampered),
+            Err(Error::Invalid("governance business replay mismatch"))
+        ));
+        let combined = rewrite_checked_save(&game, |payload| {
+            payload["governance"]["labor_trial_enabled"] = true.into()
+        });
+        assert!(Game::load(&combined).is_err());
+        let old = rewrite_checked_save(&game, |payload| {
+            payload["governance"]["rules_version"] = "governance-rules-6".into();
+            payload["governance"]
+                .as_object_mut()
+                .unwrap()
+                .remove("domestic_demand_trial_cap");
+        });
+        assert!(matches!(
+            Game::load(&old),
+            Err(Error::Invalid("unsupported governance rules version"))
+        ));
+    }
+}
