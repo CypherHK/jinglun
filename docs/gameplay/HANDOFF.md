@@ -87,6 +87,10 @@ cargo run -p jinglun-gameplay --example governance_replay --release --offline --
 
 完整100/150/200原始回放SHA依次为 `4c339bfdbf633159272e91563041c38f9bd80beb0351240adda0f1e3395e06b6`、`a9501e648aff39fc700f542102db995248fa677d1f122e0a98529d4f75306d44`、`b6b41f7a56d01f36936e0750c7c7d9b9f350b68c004fb5e1decad5f57bd6a461`。归档内 `root/demand-oracle.py` 以任一 `replay/replay/cap-<容量>-444.jsonl` 或对应compact为输入，可复算B1/B15/贸易/利润/并存；`independent/audit.py` 在产品根以 `--log <解包目录>/root/final-diagnostics.log` 加三份 `--replay 容量:<compact路径>` 和 `--out <结果路径>` 可重算最终B8和D020。原始机器/提交/binary/命令记录在run-metadata；临时worktree路径是运行来源，不是新的开发入口。
 
+交付回执：最终fetch确认origin/Develop仍为开工基线ab17d08，主目录干净，随后快进并非强制推送代码与证据提交 **`0e215903b1f1d32a202e78b36344de07f9082046`** 成功。本段回执另行提交并推同一Develop；主目录继续固定该分支，应用 `0.6.7-gameplay`。推送包含完整证据，已收到远端成功确认后才记此回执。
+
+四个 `demand-trial-core`、`demand-trial-replay`、`demand-trial-acceptance`、`demand-trial-integration` 临时worktree已普通删除，对应本地分支在确认补丁等价或祖先关系后退役，未删除远端分支。删除前tracked/untracked干净，ignored只有target，60份证据与耐久归档逐字匹配，lsof无目录占用；旧解包对照、缓存和中间汇总可由保留源重建。现只保留主目录与仍在使用的地图预览树 `natural-map-upstream-develop`（f628c96）。包含b37e141的地图归档及旧治理原型归档保留，b37e141不在本次治理提交祖先链中。最终设计两输入与固定地图哈希未变；未写design，未安装升级依赖、创建合并PR或部署。
+
 ## 2026-10-24 D029与非制造业招工试验：历史实施记录
 
 本轮从干净的主目录 `Develop` / `origin/Develop` **`dae2a8d4282dd3c04bf291a2680856bb8814ae7e`** 开始，已重新fetch核对、阅读D029及规格。DECISIONS SHA-256为 `068fbbb0adf17378be291a1005455683b5131a9aacdc0b1d054994fe23980c0c`；规格为 `717c85f499f7183e59591b1d9e12703faf8dd629b23652b864d30b7029b73872`。D029补记的国内订单先分配、当月不改配已在基线实现；本轮更新当前设计输入，不改原D022批准来源、approval和9,982个数值路径。design/只读。
