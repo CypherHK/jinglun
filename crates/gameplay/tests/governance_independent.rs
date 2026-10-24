@@ -1044,6 +1044,22 @@ fn labor_trial_on_order_rescue_bounded_diagnostic() {
 }
 
 fn labor_trial_order_rescue_domain(enabled: bool) {
+    order_rescue_domain(enabled, None, false);
+}
+
+#[test]
+fn demand_trial_b8_original_and_warning_month_domains() {
+    for cap in [
+        DomesticDemandTrialCap::Cap100,
+        DomesticDemandTrialCap::Cap150,
+        DomesticDemandTrialCap::Cap200,
+    ] {
+        order_rescue_domain(false, Some(cap), false);
+        order_rescue_domain(false, Some(cap), true);
+    }
+}
+
+fn order_rescue_domain(enabled: bool, cap: Option<DomesticDemandTrialCap>, warning_only: bool) {
     let calibration = GovernanceCalibration::default();
     assert_eq!(calibration.initial_skilled_idle_share, 0.25);
     assert_eq!(calibration.water_priority_fraction, 0.92);
@@ -1051,8 +1067,13 @@ fn labor_trial_order_rescue_domain(enabled: bool) {
     for site in [8, 29] {
         for cap_month in [1, 6, 10] {
             for cut_month in [8, 11, 14, 17] {
-                let mut opening =
-                    Game::confirmed_game_with_labor_trial(calibration.clone(), enabled).unwrap();
+                let mut opening = if cap.is_some() {
+                    assert!(!enabled);
+                    Game::confirmed_game_with_domestic_demand_trial(calibration.clone(), cap)
+                        .unwrap()
+                } else {
+                    Game::confirmed_game_with_labor_trial(calibration.clone(), enabled).unwrap()
+                };
                 opening
                     .queue_governance(
                         "diagnostic-education",
@@ -1077,6 +1098,7 @@ fn labor_trial_order_rescue_domain(enabled: bool) {
                 let mut rescue_accepted = std::collections::BTreeSet::new();
                 let mut warning = None;
                 let mut resumed = false;
+                let mut rows = Vec::new();
                 for month in 1..=32 {
                     if month == cap_month {
                         game.queue_governance(
@@ -1210,6 +1232,11 @@ fn labor_trial_order_rescue_domain(enabled: bool) {
                     if recovering.is_none()
                         && state.cooperation_start.is_none()
                         && month > cut_month
+                        && (!warning_only
+                            || state
+                                .factories
+                                .values()
+                                .any(|f| f.site == site && f.phase == FactoryPhase::ClosureWarned))
                     {
                         println!(
                             "B8 trial={enabled} suspended site={site} prepare={cap_month} cut={cut_month} M{month}"
@@ -1244,7 +1271,10 @@ fn labor_trial_order_rescue_domain(enabled: bool) {
                     assert_eq!(labor, 295 + recruited);
                     verify_trial_labor(&game);
                     let domestic: f64 = state.factories.values().map(|f| f.domestic_sales).sum();
-                    assert!(domestic <= 200.0 + 1e-9);
+                    assert!(
+                        domestic
+                            <= f64::from(cap.map_or(200, DomesticDemandTrialCap::capacity)) + 1e-9
+                    );
                     if month == 24 {
                         let bytes = game.save().unwrap();
                         let saved: Value = serde_json::from_slice(&bytes).unwrap();
@@ -1292,6 +1322,19 @@ fn labor_trial_order_rescue_domain(enabled: bool) {
                             game.scorecard(Group::B, site).unwrap().gaps
                         );
                     }
+                    if cap.is_some() {
+                        let factories = |g: &Game| {
+                            g.governance().unwrap().factories.values().map(|f| serde_json::json!({
+                            "id":f.id,"site":f.site,"first_operated_month":f.first_operated_month,
+                            "domestic":f.domestic_sales,"exports":f.export_sales,"output":f.output,
+                            "profit":f.after_tax_profit,"loss_months":f.loss_months,"phase":f.phase
+                        })).collect::<Vec<_>>()
+                        };
+                        rows.push(serde_json::json!({"month":month,"security":state.security,"export_orders":state.export_orders,
+                            "factories":factories(&game),"recovery":recovering.as_ref().map(factories),"resigned":resumed,
+                            "recovery_export_orders":recovering.as_ref().map(|g|g.governance().unwrap().export_orders),
+                            "recovery_cooperation_start":recovering.as_ref().and_then(|g|g.governance().unwrap().cooperation_start)}));
+                    }
                     if warning.is_some() || month >= 18 {
                         let fs: Vec<_> = state
                             .factories
@@ -1326,6 +1369,14 @@ fn labor_trial_order_rescue_domain(enabled: bool) {
                         );
                     }
                 }
+                if let Some(cap) = cap {
+                    println!(
+                        "DEMAND_B8 {}",
+                        serde_json::json!({"cap":cap.capacity(),"site":site,"prepare":cap_month,
+                        "cut":cut_month,"recovery_policy":if warning_only {"warning_month_resign"} else {"early_resign_original"},
+                        "warning":warning,"rows":rows})
+                    );
+                }
             }
         }
     }
@@ -1345,8 +1396,28 @@ fn labor_trial_on_double_retrofit_diagnostic() {
 }
 
 fn double_retrofit_trial_diagnostic(enabled: bool) {
-    let mut opening =
-        Game::confirmed_game_with_labor_trial(GovernanceCalibration::default(), enabled).unwrap();
+    double_retrofit_diagnostic(enabled, None);
+}
+
+#[test]
+fn demand_trial_b8_double_retrofit_diagnostic() {
+    for cap in [
+        DomesticDemandTrialCap::Cap100,
+        DomesticDemandTrialCap::Cap150,
+        DomesticDemandTrialCap::Cap200,
+    ] {
+        double_retrofit_diagnostic(false, Some(cap));
+    }
+}
+
+fn double_retrofit_diagnostic(enabled: bool, cap: Option<DomesticDemandTrialCap>) {
+    let mut opening = if cap.is_some() {
+        assert!(!enabled);
+        Game::confirmed_game_with_domestic_demand_trial(GovernanceCalibration::default(), cap)
+            .unwrap()
+    } else {
+        Game::confirmed_game_with_labor_trial(GovernanceCalibration::default(), enabled).unwrap()
+    };
     opening
         .queue_governance(
             "order-test-budget",
@@ -1445,7 +1516,7 @@ fn double_retrofit_trial_diagnostic(enabled: bool) {
         "B8 retrofit trial={enabled} candidate operating count={}",
         factories.len()
     );
-    if !enabled {
+    if !enabled && cap.map_or(200, DomesticDemandTrialCap::capacity) == 200 {
         assert_eq!(factories.len(), 2);
     }
     for id in factories {
@@ -1502,13 +1573,21 @@ fn double_retrofit_trial_diagnostic(enabled: bool) {
             "B8 trial={enabled} default retrofit diagnostic M{month}: maintained output={kept_output} exports={kept_exports}; suspended output={lost_output} exports={lost_exports}; months_after_24_are_diagnostic_only={}",
             month > 24
         );
+        if let Some(cap) = cap {
+            println!(
+                "DEMAND_RETROFIT {}",
+                serde_json::json!({"cap":cap.capacity(),"month":month,
+                "maintained":kept.factories.values().collect::<Vec<_>>(),"suspended":state.factories.values().collect::<Vec<_>>(),
+                "maintained_orders":kept.export_orders,"suspended_orders":state.export_orders})
+            );
+        }
         if state.cooperation_start.is_none() && orders_at_opening == 0.0 {
             observed_order_loss_months += 1;
             let factories: Vec<_> = state.factories.values().filter(|f| f.site == 29).collect();
             let output: f64 = factories.iter().map(|f| f.output).sum();
             let domestic: f64 = factories.iter().map(|f| f.domestic_sales).sum();
             let exports: f64 = factories.iter().map(|f| f.export_sales).sum();
-            if !enabled {
+            if !enabled && cap.map_or(200, DomesticDemandTrialCap::capacity) == 200 {
                 assert_eq!(domestic, 200.0);
                 assert_eq!(exports, 0.0);
                 assert_eq!(output, 200.0);
@@ -1562,7 +1641,7 @@ fn double_retrofit_trial_diagnostic(enabled: bool) {
         lost.export_orders
     );
     assert!(observed_order_loss_months >= 6);
-    if !enabled {
+    if !enabled && cap.map_or(200, DomesticDemandTrialCap::capacity) == 200 {
         assert_eq!(kept_output, 240.0);
         assert_eq!(
             kept.factories
@@ -1998,4 +2077,153 @@ fn labor_trial_explicit_off_replays_default_public_commands_identically() {
         off.end_month(month).unwrap();
     }
     assert_eq!(default.save().unwrap(), off.save().unwrap());
+}
+
+#[test]
+fn demand_trial_default_and_explicit_200_preserve_all_observable_behavior() {
+    let mut default = Game::confirmed_game().unwrap();
+    let mut off =
+        Game::confirmed_game_with_domestic_demand_trial(GovernanceCalibration::default(), None)
+            .unwrap();
+    let mut explicit = Game::confirmed_game_with_domestic_demand_trial(
+        GovernanceCalibration::default(),
+        Some(DomesticDemandTrialCap::Cap200),
+    )
+    .unwrap();
+    assert_eq!(default.save().unwrap(), off.save().unwrap());
+    for month in 1..=24 {
+        default.end_month(month).unwrap();
+        off.end_month(month).unwrap();
+        explicit.end_month(month).unwrap();
+        assert_eq!(default.save().unwrap(), off.save().unwrap());
+        let a = snapshot(&default);
+        let mut b = snapshot(&explicit);
+        b["payload"]["governance"]["domestic_demand_trial_cap"] = Value::Null;
+        assert_eq!(
+            a["payload"], b["payload"],
+            "M{month} cap200 changed behavior"
+        );
+        for g in [&default, &off, &explicit] {
+            assert!(!g.governance().unwrap().labor_trial_enabled);
+            assert_eq!(
+                g.scorecard(Group::A, 8).unwrap(),
+                default.scorecard(Group::A, 8).unwrap()
+            );
+            assert_eq!(
+                g.treasury_forecast().unwrap(),
+                default.treasury_forecast().unwrap()
+            );
+        }
+    }
+}
+
+#[test]
+fn demand_trial_no_action_finances_and_existing_industry_are_measured() {
+    for cap in [
+        DomesticDemandTrialCap::Cap100,
+        DomesticDemandTrialCap::Cap150,
+        DomesticDemandTrialCap::Cap200,
+    ] {
+        let mut game = Game::confirmed_game_with_domestic_demand_trial(
+            GovernanceCalibration::default(),
+            Some(cap),
+        )
+        .unwrap();
+        let mut rows = Vec::new();
+        for month in 1..=24 {
+            game.end_month(month).unwrap();
+            let state = game.governance().unwrap();
+            assert!(!state.labor_trial_enabled);
+            assert!(
+                state
+                    .labor_trial_sources
+                    .values()
+                    .all(|s| s.cumulative_employed_recruits == 0 && s.cumulative_wage_loss == 0)
+            );
+            let rec = state.history.last().unwrap();
+            let receipts: Vec<_> = game
+                .system_receipts()
+                .iter()
+                .filter(|r| r.month == month)
+                .collect();
+            let spend: i128 = receipts
+                .iter()
+                .filter(|r| r.reason.starts_with("recurring_service_"))
+                .map(|r| -r.delta)
+                .sum();
+            let tax = rec.recurring_balance + spend - i128::from(rec.aid)
+                + i128::from(state.last_diplomatic_spend)
+                + i128::from(state.last_energy_unused_bill);
+            let saved = snapshot(&game);
+            let existing_sales: u64 = [Group::A, Group::B].iter().map(|group| saved["payload"]["applied"][format!("existing/sales/{group:?}/{month}")]["command"]["Transfer"]["amount"].as_u64().unwrap()).sum();
+            assert_eq!(
+                existing_sales,
+                money(42.5).unwrap(),
+                "cap must not reduce existing 425 units"
+            );
+            let existing_output: i128 = receipts
+                .iter()
+                .filter(|r| r.reason == "existing_manufacturing_production")
+                .map(|r| r.delta)
+                .sum();
+            assert_eq!(existing_output, i128::from(money(425.0).unwrap()));
+            rows.push(serde_json::json!({"month":month,"record":rec,"recurring_spend":spend,"actual_tax_income":tax,
+                "factories":state.factories.values().collect::<Vec<_>>(),"receipts":receipts,
+                "applied":saved["payload"]["applied"],"group_a_cash":game.balance(Group::A.account(), &Asset::Money),
+                "group_b_cash":game.balance(Group::B.account(), &Asset::Money)}));
+            let bytes = game.save().unwrap();
+            assert_eq!(Game::load(&bytes).unwrap().save().unwrap(), bytes);
+        }
+        println!(
+            "DEMAND_D020_NO_ACTION {}",
+            serde_json::json!({"cap":cap.capacity(),"rows":rows})
+        );
+    }
+}
+
+#[test]
+fn demand_trial_national_capital_commitment_and_only_effective_exports_affect_prediction() {
+    for (cap, gap) in [
+        (DomesticDemandTrialCap::Cap100, 100.0),
+        (DomesticDemandTrialCap::Cap150, 50.0),
+        (DomesticDemandTrialCap::Cap200, 0.0),
+    ] {
+        let mut game = Game::confirmed_game_with_domestic_demand_trial(
+            GovernanceCalibration::default(),
+            Some(cap),
+        )
+        .unwrap();
+        advance(&mut game, 12);
+        let state = game.governance().unwrap();
+        assert_eq!(state.factories.len(), 1);
+        assert_eq!(state.factories.values().next().unwrap().site, 39);
+        for site in [8, 29] {
+            assert_eq!(game.scorecard(Group::A, site).unwrap().gaps["demand"], gap);
+        }
+        game.queue_governance(
+            "demand-trial-cooperation",
+            GovernanceCommand::SignCooperation,
+        )
+        .unwrap();
+        assert_eq!(
+            game.scorecard(Group::A, 8).unwrap().gaps["demand"],
+            gap,
+            "queued agreement cannot create effective orders"
+        );
+        game.end_month(13).unwrap();
+        game.end_month(14).unwrap();
+        assert_eq!(game.governance().unwrap().export_orders, 0.0);
+        assert_eq!(game.scorecard(Group::A, 29).unwrap().gaps["demand"], gap);
+        game.end_month(15).unwrap();
+        assert_eq!(game.governance().unwrap().export_orders, 100.0);
+        for site in [8, 29] {
+            assert_eq!(game.scorecard(Group::A, site).unwrap().gaps["demand"], 0.0);
+        }
+        let bytes = game.save().unwrap();
+        let mut loaded = Game::load(&bytes).unwrap();
+        assert_eq!(loaded.save().unwrap(), bytes);
+        game.end_month(16).unwrap();
+        loaded.end_month(16).unwrap();
+        assert_eq!(game.save().unwrap(), loaded.save().unwrap());
+    }
 }
